@@ -1,0 +1,18 @@
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: the pinned checker is the one the service refuses to run without
+        run: |
+          echo "0495931bc60509143bf84a7c95216838382c1e9f81ba52b37e7bff1c495013bf  vendor/check.py" | sha256sum -c -
+      - name: tests (offline, recorded answers; ssh-keygen from the runner's OpenSSH)
+        run: python3 -m unittest discover -s tests -v

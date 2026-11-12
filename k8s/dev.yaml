@@ -1,0 +1,100 @@
+# onedroid-witness on a DEV cluster (prov-poland-aks). Dev deploys are authorised; production is a hard stop.
+# Before applying: the Secret `onedroid-witness-openrouter` with one key `key` (D84: the service's own OpenRouter key) must exist in the
+# namespace; it is created by the operator or from his file, never written into a manifest. The image tag is set at rollout time.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: witness-dev
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onedroid-witness-config
+  namespace: witness-dev
+data:
+  config.json: |
+    {
+      "models": [
+        {"id": "perplexity/pplx-decider-v1.2", "kind": "decision"},
+        {"id": "google/gemini-decision-1", "kind": "decision"},
+        {"id": "morph/reflex", "kind": "decision"},
+        {"id": "typesafe/jev-1.14", "kind": "decision"},
+        {"id": "openai/gpt-4.1-nano", "kind": "chat", "max_tokens": 400},
+        {"id": "openai/gpt-4.1-mini", "kind": "chat", "max_tokens": 400},
+        {"id": "google/gemini-2.5-flash-lite", "kind": "chat", "max_tokens": 400},
+        {"id": "mistralai/mistral-small-3.2-24b-instruct", "kind": "chat", "max_tokens": 400}
+      ],
+      "daily_cap_usd": 2.0,
+      "keys_dir": "/var/lib/onedroid-witness/keys",
+      "jobs_dir": "/var/lib/onedroid-witness/jobs",
+      "ledger_path": "/var/lib/onedroid-witness/ledger.json",
+      "check_py": "/app/vendor/check.py",
+      "openrouter_key_file": "/etc/onedroid-witness/openrouter/key",
+      "private_mode": false,
+      "host": "0.0.0.0",
+      "port": 8080
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: onedroid-witness-data
+  namespace: witness-dev
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onedroid-witness
+  namespace: witness-dev
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: onedroid-witness}
+  template:
+    metadata:
+      labels: {app: onedroid-witness}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: witness
+          image: IMAGE_PLACEHOLDER
+          ports: [{containerPort: 8080}]
+          volumeMounts:
+            - {name: config, mountPath: /etc/onedroid-witness, readOnly: true}
+            - {name: openrouter, mountPath: /etc/onedroid-witness/openrouter, readOnly: true}
+            - {name: data, mountPath: /var/lib/onedroid-witness}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+      volumes:
+        - name: config
+          configMap: {name: onedroid-witness-config}
+        - name: openrouter
+          secret: {secretName: onedroid-witness-openrouter}
+        - name: data
+          persistentVolumeClaim: {claimName: onedroid-witness-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: onedroid-witness
+  namespace: witness-dev
+spec:
+  selector: {app: onedroid-witness}
+  ports: [{port: 80, targetPort: 8080}]

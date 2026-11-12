@@ -1,0 +1,332 @@
+{
+ "format": "claims-snapshot/0.4",
+ "subject": {
+  "title": "Business models in the agentic age: a brief",
+  "url": "https://engram.onedroid.ai/l/6f1754c1-7820-40e0-9d2b-9d342e06ff65/f247b26c-58d2-4a71-9dce-b0881fcb751e/9caa604f-899f-45b5-8a79-01fa8febfe84",
+  "publisher": "OneDroid (Providentia Worldwide)",
+  "parts": [
+   "https://engram.onedroid.ai/l/6f1754c1-7820-40e0-9d2b-9d342e06ff65/f247b26c-58d2-4a71-9dce-b0881fcb751e/9caa604f-899f-45b5-8a79-01fa8febfe84",
+   "https://engram.onedroid.ai/l/6f1754c1-7820-40e0-9d2b-9d342e06ff65/f247b26c-58d2-4a71-9dce-b0881fcb751e/0bb334e9-5b61-4f55-8832-89c4a7d66102"
+  ]
+ },
+ "taken_at": "2026-11-09T14:20:00Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "eaaae0a7b7fc156d8efe5e15607e0c606d2d666569b499bf1cb52ce8b8ff4922",
+   "lines": 162,
+   "fetched_at": "2026-11-09T14:20:00Z",
+   "note": "Text of the two published parts as they stand on 9 Nov 2026 (the author's files, equal to the served pages), through the grader's html2txt.py. The first grade ran on the single page of 7 Nov 21:33Z; the delta re-grade of 7 to 8 Nov ran on the part pages; three rows were corrected on 8 Nov and read by the author's session (graded_by author). Source numbers on the page are the current ones (the graded page's [3] EPAM was dropped and the rest renumbered)."
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": "https://www.a16z.com/the-palantirization-of-everything",
+   "file": null,
+   "sha256": "3f458d0504277df51b270986d5b101b87b984bafdc7196155068003712a9852b",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "c4540246eeb78b7bd9d347ca6cbc23e160ee087d67cdc2d30b33dea861126636",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 2,
+   "url": "https://newsroom.accenture.com/content/4q-full-fy25-earnings/accenture-reports-fourth-quarter-and-full-year-fiscal-2025-results.pdf",
+   "file": null,
+   "sha256": "d70f76033906e7ebd637c50f35ea0a17fae23b391ef35b493d4795c536329a4d",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "431473ba2fa23075565e96a403f90debd8d5e22209d08b2135039c50c2d587d8",
+   "text_copy_of": "pdf-text",
+   "extractor": {
+    "note": "text extracted from the PDF by the grader's scripts; the hash is of the extraction, not the PDF",
+    "files": [
+     {
+      "file": "work/pdftext.py",
+      "sha256": "bcbdf6601c91f8fb288a14d01178b6f9ccc3c953dbdc67954c7d7fd085ebc2ef"
+     },
+     {
+      "file": "work/shift29.py",
+      "sha256": "5de6a3ab39f9ee5d13477c4366531098cc5d1d342b3c225b42494e83cf4b7668"
+     }
+    ]
+   }
+  },
+  {
+   "n": 3,
+   "url": "https://www.sec.gov/Archives/edgar/data/1352010/000135201025000053/exhibit99_q3x2025.htm",
+   "file": null,
+   "sha256": null,
+   "copy": "none",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 403,
+   "body_sha256": null,
+   "note": "HTTP 403"
+  },
+  {
+   "n": 4,
+   "url": "https://www.saastr.com/iconiqs-latest-state-of-ai-report-the-10-most-important-data-points-for-saas-founders",
+   "file": null,
+   "sha256": "31406b4feecb459b8546dcfca34765c1be063f0046631d27c96f148f8b3efece",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "9dbeded69e398d4805cf2cc9a0d31277622e815d5d007d57c371e6db77b414d0",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 5,
+   "url": "https://www.cloudzero.com/blog/saas-gross-margin-benchmarks/",
+   "file": null,
+   "sha256": "4f34064668f8b14436fa353bdd3685b86204a3417dd08c23484a8f959b55fb90",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "05eeea151e6e3b0d6af418891086e8ff6bec84598fa80a1702a929ad0046c2e6",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 6,
+   "url": "https://www.getaleph.com/answers/saas-gross-margin-2026",
+   "file": null,
+   "sha256": "bb967bf91c9a86f9bcac6f7255c2c8f29ea0b82470223ac54c9371f64ce1037b",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "a1ced8e33c13c4d64ad2695f78f729028d9378783f476a9e6b58b0c94b86ab3a",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 7,
+   "url": "https://www.sec.gov/Archives/edgar/data/1653482/000162828025009422/gitlab-ex99120250131fy25.htm",
+   "file": null,
+   "sha256": null,
+   "copy": "none",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 403,
+   "body_sha256": null,
+   "note": "HTTP 403"
+  },
+  {
+   "n": 8,
+   "url": "https://www.iconiq.com/growth/reports/state-of-ai-2026",
+   "file": null,
+   "sha256": "3970f5b1b76e7852307370ba6cf8061c41d6352838994844ab489dc30507f48f",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "f08c75c54cc432f73448fc21b4c5512df12498c44e7a14be6fd77eb2d0cc0fe4",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 9,
+   "url": "https://www.a.team/hire-forward-deployed-engineers",
+   "file": null,
+   "sha256": "f5025514e1af21f65466511b70db55fd6ad2db73d4264cc37989b9aba5ea89d5",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "3a7fcf1a9a0f7242f3fc6adbff2822149151f8dbfa225e41eb4f7aa84b179cf4",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 10,
+   "url": "https://gigabit.agency/pricing/",
+   "file": null,
+   "sha256": "e56b0f249082cd5828b0435599e2dfc7bc1e7cb45f8c477367228ee7fdfc7cd5",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "b6b693b49c008c43ebce26f4c6ace5855e17c1de6d004fa59faf3727d8353dba",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 11,
+   "url": "https://www.generalcatalyst.com/stories/the-future-of-services",
+   "file": null,
+   "sha256": "1e0cc6451042f6f19b0a868efcb952e28612e72408d06cbfa3d63ded8cf837f7",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "9679acd279bc7eb70ed57d9fbe88dc6094b01808c70f98ecf2129945cd808b74",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 12,
+   "url": "https://fin.ai/pricing",
+   "file": null,
+   "sha256": "0d16dd1f6ec113ac46efdd019d27cccc96c94e0d7d5f3630ae35c8f670417a14",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "6512b45ef3dd363330f0abb1822e969d8f3c129989943d127b58f5fb3321234c",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 13,
+   "url": "https://techcrunch.com/2025/09/28/the-ai-services-transformation-may-be-harder-than-vcs-think/",
+   "file": null,
+   "sha256": "f4010e13988d17414272e685505b6e7740bceeb7d3f83a5d191e710a7c4c3804",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "fb1770927b9e5f36b6e6f854051aa8a1eb880162319b1402cfe5f754c5ae86b1",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 14,
+   "url": "https://fortune.com/2021/11/24/palantir-spac-investments-wall-street-questions",
+   "file": null,
+   "sha256": "49aeed38c388045afb614906948607257633de3d6b93533ae34aeb89388564ca",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "93c01ec8e65d46d40cdd8ad5f6e3129921b832a0b678d772b4f0c6bf3abef46b",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 15,
+   "url": "https://www.aiuc-1.com/",
+   "file": null,
+   "sha256": "2316d8492a74a872a21163c6e154687b626a1fbbfeb52f78536876b2286e4fff",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "ccec079dfbb467720da107d424fe79cf1b0e22f885b23510a3633e6207a19e28",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 16,
+   "url": "https://newsroom.accenture.com/news/2025/openai-and-accenture-accelerate-enterprise-reinvention-with-advanced-ai",
+   "file": null,
+   "sha256": "e9a73ecd64aa0914301cea549c236166bf12cb9a9ce239b9879c484efa6c6a14",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "b7b9da13c196da73d286472fef2731f125ad353b226caae35639067487e3dc30",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 17,
+   "url": "https://www.ey.com/fr_ca/newsroom/2026/05/ey-and-microsoft-announce-global-initiative-to-help-clients-scale-ai-enterprise-wide-value-creation-and-move-beyond-experimentation",
+   "file": null,
+   "sha256": "eab7b1e58130f5288796a637461d84759cac86f57e23c3a1a229b3f789f1b79b",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "ba3adecdd10db8ea228dd4970f69376155a033704415a9895e20cc3360b75c22",
+   "text_copy_of": "html"
+  },
+  {
+   "n": 18,
+   "url": "https://www.ycombinator.com/deal",
+   "file": null,
+   "sha256": "f41cb8d7f83b445b7b80f3e3304d968e5017d608c00e0fc54b841388ce89bd91",
+   "copy": "hash-only",
+   "fetched_at": "2026-11-07T21:34Z",
+   "status": 200,
+   "body_sha256": "2eb94a0f3e7482c17afe5a805bcdee8fe6fc79cb46c3dbe2bb650b5421282ec3",
+   "text_copy_of": "html"
+  }
+ ],
+ "grading": {
+  "kind": "self-audit",
+  "grader": "OneDroid claims session (agent.onedroid-claims-verification), a separate session of the same operator; rows with graded_by author were read by the author's session (trilix-onedroid-business), not by a grader",
+  "model": "Claude Opus 5.5 for the lister and the prove and disprove passes; the author's session is Claude Fable 5.1 of the same family",
+  "method": "Cited-sources profile. The lister took every checkable statement from the page text. Two passes with a strong model over saved copies only, no live fetch: a prove pass (does the saved copy of THAT cited source carry the same figure, date, entity, measure or words) and a disprove pass (does a cited source or the page itself say the opposite). Verdict rule: CONTRADICTED if the disprove pass found a contradiction, else EVIDENCED if the prove pass found an artefact, else NO EVIDENCE PUBLISHED. A holdout graded by the orchestrator before any pass result gated each run (see gates). This is a check of the brief against its own sources, not an independent audit.",
+  "graded_at": "first grade 2026-11-07T21:33Z to 22:3xZ; re-grade of the 30 changed claims 2026-11-07T23:40Z to 2026-11-08T00:15Z; three corrections read by the author 2026-11-08T00:2xZ",
+  "gates": [
+   {
+    "run": "first grade (r1)",
+    "size": 21,
+    "sealed_sha256": "e1c21c07df6638450d280841d56e941560e5e65e0392cde7e668241af09d0245",
+    "sealed_at": "2026-11-07T21:43:40Z",
+    "first_gate": "failed 20/21 (C-079 against the holdout)",
+    "regraded_ids": [
+     "C-079"
+    ],
+    "holdout_amended": false,
+    "final": "passed 21/21 after C-079 was re-graded by a further grader"
+   },
+   {
+    "run": "delta re-grade of the 30 changed claims",
+    "size": 6,
+    "sealed_sha256": "9122316747d694b64c6311b925692b4afa9cfc5a2e2b7d2558b1dff132434cf8",
+    "sealed_at": "2026-11-07T23:39:03Z",
+    "first_gate": "passed 6/6",
+    "regraded_ids": [],
+    "holdout_amended": false,
+    "final": "passed 6/6"
+   }
+  ],
+  "rounds": [
+   {
+    "date": "2026-11-07",
+    "what": "first grade of the single page: 81 claims, 56 evidenced, 5 contradicted, 20 no evidence published"
+   },
+   {
+    "date": "2026-11-07/08",
+    "what": "30 claims whose wording changed after the first grade re-graded on the new wording: 15 evidenced, 2 contradicted, 13 no evidence published"
+   },
+   {
+    "date": "2026-11-08",
+    "what": "the 2 still-contradicted sentences, and C-025's wording, corrected on the operator's word and read against the saved sources by the author's session (graded_by author); the contradiction records removed on every public page"
+   }
+  ],
+  "profile": "cited-sources",
+  "auditor": {
+   "name": "OneDroid claims session (agent.onedroid-claims-verification): the lister and the prove and disprove passes",
+   "model": "Claude Opus 5.5 for the lister and the prove and disprove passes; the author's session is Claude Fable 5.1 of the same family",
+   "signer": "trilix-onedroid-business-test-key-2026-11-11 <SHA256:yezPRA8nqu/9eKZJY1YpPS7WB/OHbaH8exs9HMGPdP8>",
+   "file": "audit.jsonl",
+   "sha256": "bfc02de62bb35c24e6a477187aee9693d76fa2e76fb6f600f49c089d96e1943d"
+  },
+  "witnesses": [
+   {
+    "name": "decisions of the OneDroid claims session (agent.onedroid-claims-verification): the verdict rule and the holdout gates, three rows read by the author's session (graded_by author); converted to this format and signed by trilix-onedroid-business",
+    "model": "Claude Opus 5.5 for the lister and the prove and disprove passes; the author's session is Claude Fable 5.1 of the same family",
+    "method": "Cited-sources profile. The lister took every checkable statement from the page text. Two passes with a strong model over saved copies only, no live fetch: a prove pass (does the saved copy of THAT cited source carry the same figure, date, entity, measure or words) and a disprove pass (does a cited source or the page itself say the opposite). Verdict rule: CONTRADICTED if the disprove pass found a contradiction, else EVIDENCED if the prove pass found an artefact, else NO EVIDENCE PUBLISHED. A holdout graded by the orchestrator before any pass result gated each run (see gates). This is a check of the brief against its own sources, not an independent audit. Sources [3] and [7] (sec.gov, HTTP 403 to the fetch that saves copies) were read through a summarising fetch tool: the quotes that cite them rest on that tool's text, with no saved body and no hash (copy: none in the manifest), so the checker cannot test them.",
+    "signer": "trilix-onedroid-business-test-key-2026-11-11 <SHA256:yezPRA8nqu/9eKZJY1YpPS7WB/OHbaH8exs9HMGPdP8>",
+    "file": "witness/onedroid-claims-session.jsonl",
+    "sha256": "4a23417440867cc2c0bb58bb650026c1cd9392f2d959740384691a382c7a55b0",
+    "primary": true,
+    "score": {
+     "coverage_pct": 82,
+     "contradiction_pct": 0,
+     "band": "B"
+    },
+    "missing_claims": 0
+   }
+  ],
+  "sessions": []
+ },
+ "counts": {
+  "claims": 74,
+  "checkable": 74,
+  "evidenced": 61,
+  "on_request": 0,
+  "no_evidence": 13,
+  "contradicted": 0,
+  "contradicted_high": 0,
+  "withdrawn": 0,
+  "author_read": 3,
+  "removed_since_grading": 7
+ },
+ "score": {
+  "coverage_pct": 82,
+  "contradiction_pct": 0,
+  "band": "B",
+  "formula": "evidence-score/1",
+  "note": "computed on the rows of this snapshot by evidence-score/1 (coverage and contradiction over the checkable rows, rounded half to even; band A>=90 B>=75 C>=50 D>=25 else E, capped at C by a high-confidence contradiction and at D by contradiction above 5%)"
+ },
+ "claims_sha256": "7a5299e9da9993f5df9e774d19cb3aea52989277c641f7e6d5df70836c019b2d",
+ "split_from": {
+  "folder": "2026-11-09",
+  "format": "claims-snapshot/0.2",
+  "claims_sha256": "d3f76c811523c52528fbbf9cb29b11a60882ced529a2de09054448cae9d29249",
+  "note": "Format upgrade of the 2026-11-09 snapshot by split.py on 11 Nov 2026: same page text, sources and decisions. The signatures are by a TEST KEY of the author's session (trilix-onedroid-business), made for this example and not traced to a person; a published 0.4 snapshot signs with the keys GitHub shows for its auditor and witness. Re-signed on 11 Nov 2026 10:5xZ with a second test key under the same identity (the first did not outlive the author's scratchpad); the witness header was revised the same day on the claims session's check of this snapshot (SPEC.md section 11)."
+ }
+}

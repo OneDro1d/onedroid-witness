@@ -1,0 +1,162 @@
+=== part-1.html ===
+Business models in the agentic age: a brief (part 1 of 2)
+Business models in the agentic age (part 1 of 2)
+In 2 parts, each with its own claims and sources at the bottom: part 1 · part 2.
+A brief for founders, operators and advisers of small technical teams. It argues that producing software has become cheap while judgement has not, that the margin now sits with whoever makes agents work inside a specific business and carries the risk, and that a small independent team can earn that margin by building a process once and operating it under a named human, at a flat fee, with every action on the record. Figures carry a source number; the brief's own arithmetic is marked as such. Sources are at the end.
+1. What changed
+Producing software got cheaper. Judgement did not. That is this brief's argument: language models made the first working version of most business software cheap, while deciding what to build, wiring it into a customer's systems and data, and carrying the blame when it fails did not get cheaper. The evidence that fits it: a16z's "The Palantirization of everything" (January 2026) reports that enterprise implementation "often requires lots of handholding" and that postings for forward-deployed engineers rose 800 to 1,000% [1]. On this reading, value moved to the person who makes the software work inside one business, and to the party who carries the risk.
+The margin gap. A services firm keeps about a third of revenue after direct costs [2]. Classic software keeps three quarters or more [4][5][6]. AI software sits in between [3], and is projected to rise [7].
+Gross margin by business shape
+Accenture, fiscal 2025
+Accenture 31.9% gross margin, fiscal 2025
+31.9% AI software, 2026 (Jan edition)
+AI companies projecting 2026: 52% average gross margin, ICONIQ January 2026
+52% SaaS median
+Software gross margin median 77% to 80%, Benchmarkit via CloudZero and Aleph
+77 to 80% GitLab, fiscal 2025
+GitLab 89% GAAP gross margin, fiscal 2025
+89% 0%50%100%
+Gross margin by business shape. Services about a third [2], AI software about half [3], classic software three quarters to nine tenths [4][5][6].
+Accenture already sells half of its revenue as managed services: $34.57 billion of $69.67 billion in fiscal 2025, at the company-wide 31.9% margin [2]. The question for any services firm is whether agents doing the work would move that number.
+2. Three shapes side by side
+Shape | Capital | What it serves | Gross margin | Scales with
+SaaS, enterprise software | Up front, before revenue | Pre-determined scenarios: the middle of the bell curve, good for most, great for few | Median 77% to 80% [4][5]; public SaaS 72 to 78%, top quartile above 80% [4] | Adoption
+Custom software and consulting | Near zero | One company at a time | About 30%: Accenture 31.9% [2] | Headcount
+AI-run services | Low | Cases the fixed scenarios never covered: the tail of the curve | 52% for 2026 in the January 2026 edition of ICONIQ's survey [3]; 53% for 2026 and 59% for 2027 in the July 2026 edition [7]; inference about 23% of revenue [3] | Adoption, on the team's own reusable parts glued by agent workflows. Inference cost grows with use
+Most of the gap between those two medians, 25 points by this brief's own subtraction, is inference, which averages 23% of revenue [3]. Two further readings are this brief's own, drawn from the handholding evidence [1] and not measured: the designers' intellectual capital outweighs the capital to hire developers, and the work becomes business process engineering more than software engineering.
+3. The models a small team can run
+Model | Capital | Margin evidence | Defensibility | First revenue | Main risk
+(a) Embedded delivery at a monthly fee | Near zero | Services level [2]; prices about $25,000 a month for a senior builder [8], $3,000 to $7,500 per engineer per month [9] | Low: the asset is people | Weeks | Stops when the founders stop
+(b) Build then operate at a flat operations fee | Near zero | Build at services margin [2]; operate margin unpublished; one price anchor: managed AI operations at $3,000 to $20,000 a month by number of systems [9] | Moderate once the operator holds the runbooks, the monitoring and the record | Weeks | Flat fee while costs scale; "operate" becomes "keep building"; liability
+(c) Outcome pricing | Moderate | 60 to 65% at PartnerHero as its investor reports it, in progress [10]; Fin bills $0.99 per resolution [11] | Moderate to high once the client trusts the meter | Months | Disputes over what counts
+(d) Software product, usage or seat metered | Moderate to high | 45% for AI products in 2025 [7]; seats hold when the seat is the human who judges, not the worker the agent replaces | Moderate to high with data lock-in | Months | No pull; model price shocks
+(e) Open-source runtime plus hosted plane | Moderate | Up to 89% [6] | Moderate: forks and cloud hosts | A year or more | A host or a fork captures the value
+(f) AI-enabled services roll-up | High | 30 to 40% profit-margin targets [10]; one founder-reported 80% gross margin [12]; all self-reported | Moderate | After raising | Overpaying; AI "workslop" costing $186 per person per month in one survey [12]
+(g) Equity in clients | High (forgone cash) | Palantir agreed to put $405.5 million into SPAC targets in 2021 alongside contracts, which produced 2% of its revenue in the first three quarters [13] | High lock-in | Years or never | Conflicts; concentration
+(h) Evidence sold to the party who bears risk | Moderate | None found; the AIUC-1 standard certifies agents through an accredited auditor with quarterly retests [14] | High once a standard | Slow | Someone else sets the standard
+(i) Agent marketplaces | Very high to own | None found | None for sellers | Fast to list | The platform owns the customer
+Claims in this part (the lead and sections 1, 2, 3), with their evidence
+Every checkable claim in this part, as the brief stood when first published on 7 November 2026, graded by a separate session of Claude Opus 5.5 against the cited sources only, before the brief was edited on the result: claims the grade disputed were corrected or removed, non-essential claims with no evidence removed, the rest marked as the brief's own position. E = a cited source carries it (the quote is the proof); N = no evidence published, kept as the brief's own position. Source numbers are the brief's. Check on the grader: 21 claims drawn at random were graded from the sources before any pass result existed, and the passes had to agree. The brief was drafted with Claude Fable 5.1, a model of the same family for the same operator, so this is a check against the brief's own sources, not an independent audit. Full register, with the removed claims, the grader's notes and the source-list entries: claims register. Rows marked 'Re-graded' were revised after the first grade and re-graded by the same session on 7 to 8 November 2026 against the same sources; they show the wording as re-graded and the new verdict. A row marked 'Corrected' was changed again after the re-grade and read against its source by the author's session, not by the grader; its verdict is the author's. 1 source cited when graded (old [3]) has since been removed from the brief; the claims below use the brief's current source numbers.
+C-001 E Figures carry a source number; the brief's own arithmetic is marked as such. Shown by the brief itself. Re-graded. Corrected 8 November 2026 (the one unmarked figure the re-grade found, the 25-point gap, is now marked as the brief's own subtraction) and read against the page by the author's session, not re-graded.
+C-002 E Sources are at the end. Shown by the brief itself.
+C-003 N Producing software got cheaper. Judgement did not. That is this brief's argument Re-graded.
+C-004 N That is this brief's argument: language models made the first working version of most business software cheap Re-graded.
+C-005 N That is this brief's argument [...] deciding what to build, wiring it into a customer's systems and data, and carrying the blame when it fails did not get cheaper. Re-graded.
+C-006 E a16z's "The Palantirization of everything" (January 2026) reports that enterprise implementation "often requires lots of handholding" [...] [1] [1] “The Palantirization of everything Marc Andrusko Posted January 16, 2026”.
+C-007 E a16z's "The Palantirization of everything" (January 2026) reports [...] that postings for forward-deployed engineers rose 800 to 1,000% [1] [1] “Media coverage and data on job postings show FDE roles exploding — up 800–1000% this year”.
+C-008 N On this reading, value moved to the person who makes the software work inside one business, and to the party who carries the risk. Re-graded.
+C-009 E A services firm keeps about a third of revenue after direct costs. [...] Services about a third [2] [2] “Gross margin (gross profit as a percentage of revenues) for fiscal 2025 was 31.9%”.
+C-010 E Classic software keeps three quarters or more. [...] classic software three quarters to nine tenths [4][5][6] [4] “the median SaaS software gross margin is approximately 77% according to Benchmarkit’s 2025 report”.
+C-011 E AI software sits in between, and is projected to rise. [...] AI software about half [3] [3] “Companies projecting 2026 see average gross margins of 52%, up from 45% in 2025 and 41% in 2024”.
+C-012 E Custom software and consulting [...] Accenture 31.9% [2] [2] “Gross margin (gross profit as a percentage of revenues) for fiscal 2025 was 31.9%”.
+C-014 E AI-run services [...] 52% for 2026 in the January 2026 edition of ICONIQ's survey [3] [3] “ICONIQ just released their January 2026”. Re-graded.
+C-015 E SaaS, enterprise software [...] Median 77% to 80% [4][5] [4] “the median SaaS software gross margin is approximately 77% according to Benchmarkit’s 2025 report”.
+C-016 E (e) Open-source runtime plus hosted plane [...] Up to 89% [6] [6] “GAAP Gross margin 89 % 90 %” (via a summarising fetch, no saved copy).
+C-017 E Accenture already sells half of its revenue as managed services: $34.57 billion of $69.67 billion in fiscal 2025, at the company-wide 31.9% margin [2] [2] “$34.57”. Re-graded.
+C-019 E SaaS, enterprise software [...] public SaaS 72 to 78%, top quartile above 80% [4] [4] “The median gross margin for public SaaS companies sits around 72–78%, with top-quartile performers clearing 80%”.
+C-022 E AI-run services [...] edition of ICONIQ's survey [...] 53% for 2026 and 59% for 2027 in the July 2026 edition [7] [7] “jumping from 45% in 2025 to a projected 53% in 2026, and 59% in 2027”. Re-graded.
+C-023 E AI-run services [...] inference about 23% of revenue [3] [3] “Inference Averages 23% of Revenue”. Re-graded.
+C-024 E AI-run services [...] Inference cost grows with use [7] “As products scale, talent's share of cost falls while inference rises”.
+C-025 E Most of the gap between those two medians, 25 points by this brief's own subtraction, is inference, which averages 23% of revenue [3]. [3] “Inference Averages 23% of Revenue”. Re-graded. Wording changed 8 November 2026 to mark the subtraction (77 minus 52) as the brief's own; the grader's verdict on the 23% stands.
+C-026 N Two further readings are this brief's own, drawn from the handholding evidence [1] and not measured: the designers' intellectual capital outweighs the capital to hire developers Re-graded.
+C-027 N Two further readings are this brief's own, drawn from the handholding evidence [1] and not measured [...] the work becomes business process engineering more than software engineering. Re-graded.
+C-028 E Two further readings are this brief's own, drawn from the handholding evidence [1] and not measured [1] “often requires lots of handholding”. Re-graded.
+C-029 E (a) Embedded delivery at a monthly fee [...] Services level [2] [2] “Gross margin (gross profit as a percentage of revenues) for fiscal 2025 was 31.9%”.
+C-030 E (a) Embedded delivery at a monthly fee [...] prices about $25,000 a month for a senior builder [8] [8] “What does A.Team Deployed cost? Roughly $25,000 per month for a senior builder, fully loaded”.
+C-031 E (a) Embedded delivery at a monthly fee [...] $3,000 to $7,500 per engineer per month [9] [9] “Embedded AI Teams cost $3,000–$7,500 per engineer per month depending on role and seniority”.
+C-032 E (b) Build then operate at a flat operations fee [...] Build at services margin [2]; operate margin unpublished [2] “Gross margin (gross profit as a percentage of revenues) for”. Re-graded.
+C-033 E (b) Build then operate at a flat operations fee [...] one price anchor: managed AI operations at $3,000 to $20,000 a month by number of systems [9] [9] “Managed AI Operations runs $3,000”. Re-graded.
+C-034 E (c) Outcome pricing [...] 60 to 65% at PartnerHero as its investor reports it, in progress [10] [10] “Crescendo is now rolling out its AI platform to PartnerHero’s 200 customers, taking gross margins to 60-65% or more”.
+C-035 E (c) Outcome pricing [...] Fin bills $0.99 per resolution [11] [11] “Resolutions, Procedure handoffs, disqualifications, and self-serve routings are $0.99 each”.
+C-036 E (d) Software product, usage or seat metered [...] 45% for AI products in 2025 [7] [7] “Gross margins are improving, jumping from 45% in 2025”.
+C-037 E (f) AI-enabled services roll-up [...] 30 to 40% profit-margin targets [10]; one founder-reported 80% gross margin [12] [10] “aim to double profit margins”. Re-graded.
+C-038 E (f) AI-enabled services roll-up [...] one founder-reported 80% [12] [12] “while achieving an 80% gross margin, according to its founders”.
+C-039 E (f) AI-enabled services roll-up [...] all self-reported [12] “80% gross margin, according to its founders”.
+C-040 E (f) AI-enabled services roll-up [...] AI "workslop" costing $186 per person per month in one survey [12] [12] “the authors of the survey estimate that workslop carries an invisible tax of $186 per month per person”.
+C-041 E Palantir agreed to put $405.5 million into nearly two dozen SPAC targets in 2021, companies that then bought Palantir software, and they produced 2% of its revenue in the first three quarters [13] [13] “agreed to pour $405.5 million into nearly two dozen special purpose acquisition company (SPAC) targets”. Re-graded.
+C-042 N (h) Evidence sold to the party who bears risk [...] None found Re-graded.
+C-043 E (h) Evidence sold to the party who bears risk [...] None found; the AIUC-1 standard certifies agents through an accredited auditor with quarterly retests [14] [14] “Quarterly retests on your AIUC-1 Standard”. Re-graded.
+C-044 N (i) Agent marketplaces [...] None found Re-graded.
+Sources cited in this part
+https://www.a16z.com/the-palantirization-of-everything
+https://newsroom.accenture.com/content/4q-full-fy25-earnings/accenture-reports-fourth-quarter-and-full-year-fiscal-2025-results.pdf
+https://www.saastr.com/iconiqs-latest-state-of-ai-report-the-10-most-important-data-points-for-saas-founders (secondary report of ICONIQ's January 2026 State of AI)
+https://www.cloudzero.com/blog/saas-gross-margin-benchmarks/
+https://www.getaleph.com/answers/saas-gross-margin-2026
+https://www.sec.gov/Archives/edgar/data/1653482/000162828025009422/gitlab-ex99120250131fy25.htm
+https://www.iconiq.com/growth/reports/state-of-ai-2026
+https://www.a.team/hire-forward-deployed-engineers
+https://gigabit.agency/pricing/
+https://www.generalcatalyst.com/stories/the-future-of-services
+https://fin.ai/pricing
+https://techcrunch.com/2025/09/28/the-ai-services-transformation-may-be-harder-than-vcs-think/
+https://fortune.com/2021/11/24/palantir-spac-investments-wall-street-questions
+https://www.aiuc-1.com/
+Figures are as the cited sources report them, or the brief's own arithmetic where marked; margins for AI-enabled services are mostly self-reported targets.
+part 1 · part 2
+=== part-2.html ===
+Business models in the agentic age: a brief (part 2 of 2)
+Business models in the agentic age (part 2 of 2)
+In 2 parts, each with its own claims and sources at the bottom: part 1 · part 2.
+4. The recommendation
+Start with (b): build then operate. A fixed fee for a first working version in about two weeks, credited if the build goes ahead. Then a monthly build fee with a minimum term, and a flat operations fee once the process runs. Use every engagement to build one reusable operating layer the team owns: the runner, the monitoring and the record. Keep (h) as the second step: if the record is something a bank, insurer or auditor will rely on, sell the record, not the hours. Where the reusable layer becomes a product others install, price it as (d), with seats for the humans who judge and endpoints for the agents.
+The unit is a supervised process. The operations fee is priced per process and per environment, between the software price and the human price. The supervision ratio is the margin lever. Take a supervisor who does the work of five and charges what three would cost. Labour is 1 against a price of 3, so 67% before inference and tooling. At the 23% inference share that ICONIQ reports [3], the margin falls to about 44%. Getting back above 50% needs inference under about 15% of the price, or a price nearer four; 60% at a price of 3 would need inference near 7%.
+Supervision arithmetic, this brief's own calculation
+Inference at 23%
+Labour 33% of price
+Labour 33%
+Inference 23% of price
+Inference 23%
+Margin about 44% before tooling
+Margin 44% Inference at 15%
+Labour 33% of price
+Labour 33%
+Inference 15% of price
+Inf. 15%
+Margin about 52% before tooling
+Margin 52% 0123 Price of the process = 3, labour = 1. Tooling not shown.
+Labour Inference Margin
+The supervision arithmetic. This is the brief's own calculation, not a measurement. Only the inference share is sourced [3]. We found no audited margin for a supervised-agent service; the figures that exist are self-reported.
+Guardrails. A usage band in every flat fee, with a pass-through above it. A written list of what "operate" excludes: new features are a new build fee. Capped liability. A record of every agent action, which also feeds (h). Add, never replace: the automation sits next to the client's systems and never replaces what cannot be reversed, so the client can switch it off and go back to the old way. The switch is a pause that a named person or a rule can pull, and a human restarts. The judgement stays with a named human. Nothing in the offer replaces it.
+When the recommendation flips. A capital partner buys a services firm in your domain and keeps control: (f), with a minority stake as upside. Several clients want the same agent: (d) or (c). A clean, countable result at volume: (c). Outside users adopt your runtime unprompted: (e). A risk-bearer asks for your records: (h) becomes primary. Cash runs short before operations fees start: (a), which pays fastest.
+5. Why a client needs an independent provider
+Three reasons, and each is about judgement, not technology.
+Technology bias. Advice on agents often comes from someone who sells the model, the platform or the agents under them, and two of the largest consultancies have tied themselves to vendors. Accenture made OpenAI one of its primary AI partners for its next generation of services in December 2025 [15]. EY and Microsoft put more than a billion US dollars over five years into a joint initiative in May 2026 [16]. A firm with that commitment has answered "which model, which platform" before it has heard the client's process. An independent provider sells none of these. It picks the model, the platform or no agent at all, process by process, and changes its mind when the field moves.
+Asking the right questions. The expensive mistake is not a bad model. It is automating a process nobody should have kept, or automating the judgement instead of the busywork. The first weeks go on the questions a vendor skips: which steps are repetition and which are decisions; who answers when the agent is wrong; what the auditor, the bank or the customer will need to see afterwards; what the business does while the agent is paused. A team with no product to place can ask these without a preferred answer.
+People in the driving seat. Agents are good at the work everyone hates and poor at judging. That is the provider's position, and the design follows from it: a named person sits in the driving seat for every process, the agents do the cases, the person decides the exceptions, and the record shows who decided what. The provider never offers to replace human judgement.
+A small, fast-moving team of professionals with agents has no quota to fill for a vendor and no hidden agenda. It earns its fee when the process runs and the client can prove it did. That is what lets it represent the client's interest against the vendor, including recommending less automation than the vendor would like.
+6. The offer on one page
+What the provider sells. Auditable automation: agents do a company's repetitive business process, a named person judges the results, and every action is recorded so someone who was not there can replay it. A plane fitted with a black box is the picture. The aim is to remove the work everyone hates, not the people. The deliverable is a running system and its record, never a discovery report.
+Who the client is. A company without a dedicated internal software product team, whose next financing, contract, audit or customer depends on software it cannot build or prove itself, with a date attached. The trigger sells, not the sector. Warm introductions come first, in any industry. Companies whose counterparty is a bank, insurer or auditor become the focus once there is a track record.
+The deal shape. Services only. A fixed-fee first version in about two weeks, credited if the build goes ahead. A monthly build fee with a minimum term, planned in months. Then the operations fee, per process and per environment, with the record as a separate line per environment. A provider quotes each engagement on its own. No equity in clients, unless a capital partner the provider knows holds control and the stake is upside on top of fees. The model assumes a provider bootstrapped from fees, with no raise.
+Two contract guardrails. The automation is added next to the client's systems and never replaces what cannot be reversed. The switch is a pause that a named person or a rule can pull, and a human restarts.
+People. People are brought on when a revenue stream covers them. An engagement can carry a lead time so the provider can bring people onboard before delivery starts. This brief's judgement: two people plus agents run a handful of engagements, not thirty.
+What breaks it. 1. The flat fee hides cost growth as volume and inference rise. 2. "Operate" turns into "keep building"; a written list of what operate excludes prevents it. 3. The provider carries liability for a process it does not control. 4. Revenue grows only with the client count. 5. The one-to-five ratio is an assumption about how much one person can verify in an hour, unmeasured until the first clients. 6. A record issued by the team that built the product is worth nothing: the sealed test scenarios must come from the counterparty or from a separate custodian.
+Two early measures. Gross margin per engagement from day one, against the arithmetic in section 4. And verification minutes per agent-hour on the first two clients, which decides whether the one-to-five ratio is real.
+7. The equity question
+Be a supplier or take control. Take a minority stake only when a known capital partner holds control and the stake is upside on top of cash fees. A funded investor with a portfolio can hold stakes at scale: Y Combinator's standard deal is $125,000 for 7% plus $375,000 on an uncapped SAFE with most-favoured-nation terms [17]. A supplier whose money and contracts are tied together cannot: Palantir agreed to put $405.5 million into nearly two dozen SPAC targets in 2021, companies that then bought Palantir software, and they produced 2% of its revenue in the first three quarters [13]. A minority stake without control is exposure without a lever, and equity bends advice. A small warrant on top of full cash fees, with no board seat, costs little. The line that matters is no equity in place of cash.
+Claims in this part (sections 4, 5, 6, 7), with their evidence
+Every checkable claim in this part, as the brief stood when first published on 7 November 2026, graded by a separate session of Claude Opus 5.5 against the cited sources only, before the brief was edited on the result: claims the grade disputed were corrected or removed, non-essential claims with no evidence removed, the rest marked as the brief's own position. E = a cited source carries it (the quote is the proof); N = no evidence published, kept as the brief's own position. Source numbers are the brief's. Check on the grader: 21 claims drawn at random were graded from the sources before any pass result existed, and the passes had to agree. The brief was drafted with Claude Fable 5.1, a model of the same family for the same operator, so this is a check against the brief's own sources, not an independent audit. Full register, with the removed claims, the grader's notes and the source-list entries: claims register. Rows marked 'Re-graded' were revised after the first grade and re-graded by the same session on 7 to 8 November 2026 against the same sources; they show the wording as re-graded and the new verdict. A row marked 'Corrected' was changed again after the re-grade and read against its source by the author's session, not by the grader; its verdict is the author's. 1 source cited when graded (old [3]) has since been removed from the brief; the claims below use the brief's current source numbers.
+C-045 E Take a supervisor who does the work of five and charges what three would cost. Labour is 1 against a price of 3, so 67% before inference and tooling. Shown by the brief itself.
+C-046 E At the 23% inference share that ICONIQ reports [3], the margin falls to about 44%. [3] “9. Inference Averages 23% of Revenue”.
+C-047 E Getting back above 50% needs inference under about 15% of the price, or a price nearer four; 60% at a price of 3 would need inference near 7%. [3] “Inference Averages 23% of Revenue”. Re-graded.
+C-048 E The supervision arithmetic. This is the brief's own calculation, not a measurement. Only the inference share is sourced [3]. [3] “9. Inference Averages 23% of Revenue”.
+C-049 E Inference at 15% [...] Margin about 52% before tooling Shown by the brief itself.
+C-050 N We found no audited margin for a supervised-agent service; the figures that exist are self-reported. Re-graded.
+C-051 N Advice on agents often comes from someone who sells the model, the platform or the agents under them Re-graded.
+C-052 E two of the largest consultancies have tied themselves to vendors. [15] “primary AI partners for its next generation of AI-powered services”. Re-graded.
+C-053 E Accenture made OpenAI one of its primary AI partners for its next generation of services in December 2025 [15]. [15] “OpenAI will be one of Accenture’s primary AI partners for its next generation of AI-powered services”.
+C-054 E EY and Microsoft put more than a billion US dollars over five years into a joint initiative in May 2026 [16]. [16] “un investissement de plus d’un milliard de dollars US sur cinq ans et le lancement d’une nouvelle initiative”.
+C-056 N Agents are good at the work everyone hates and poor at judging. That is the provider's position Re-graded.
+C-057 N The model assumes a provider bootstrapped from fees, with no raise. Re-graded.
+C-058 N The one-to-five ratio is an assumption about how much one person can verify in an hour, unmeasured until the first clients. Re-graded.
+C-059 E A funded investor with a portfolio can hold stakes at scale: Y Combinator's standard deal is $125,000 for 7% plus $375,000 on an uncapped SAFE with most-favoured-nation terms [17] [17] “We have a standard deal for every company that is accepted”. Re-graded.
+C-060 E Y Combinator's standard deal is $125,000 for 7% plus $375,000 on an uncapped SAFE with most-favoured-nation terms [17] [17] “$125,000 of our investment converts into a fixed 7%”. Re-graded.
+Sources cited in this part
+https://www.saastr.com/iconiqs-latest-state-of-ai-report-the-10-most-important-data-points-for-saas-founders (secondary report of ICONIQ's January 2026 State of AI)
+https://fortune.com/2021/11/24/palantir-spac-investments-wall-street-questions
+https://newsroom.accenture.com/news/2025/openai-and-accenture-accelerate-enterprise-reinvention-with-advanced-ai
+https://www.ey.com/fr_ca/newsroom/2026/05/ey-and-microsoft-announce-global-initiative-to-help-clients-scale-ai-enterprise-wide-value-creation-and-move-beyond-experimentation
+https://www.ycombinator.com/deal
+Figures are as the cited sources report them, or the brief's own arithmetic where marked; margins for AI-enabled services are mostly self-reported targets.
+part 1 · part 2

@@ -1,0 +1,115 @@
+{
+ "engine": "check.py",
+ "checker_sha256": "100aaa0581edbed3148af67048945f7b6054000b396e7b116bde28b545bed841",
+ "format_read": "claims-snapshot/0.4",
+ "ran_at": "2026-11-11T10:59:01Z",
+ "manifest_sha256": "ed59db836703dca5fd6d4dabaadd922001725b9e23c893140d0b482cadf47e33",
+ "flags": [],
+ "checks": [
+  {
+   "id": "K1",
+   "status": "PASS",
+   "text": "manifest fields present, format claims-snapshot/0.4, profile cited-sources, 2 holdout gate(s) recorded",
+   "details": []
+  },
+  {
+   "id": "K2",
+   "status": "PASS",
+   "text": "2 files named, hashes match",
+   "details": []
+  },
+  {
+   "id": "K3",
+   "status": "PASS",
+   "text": "74 claims; ids unique; verdicts, kinds, confidence, graded_by and graded_at in order",
+   "details": []
+  },
+  {
+   "id": "K4",
+   "status": "PASS",
+   "text": "every claim text on the audited page(s)",
+   "details": []
+  },
+  {
+   "id": "K5",
+   "status": "WARN",
+   "text": "61 EVIDENCED rows: 7 with a verified proof, 54 untestable without copies, 0 with none; 7 page-internal or arithmetic rows rest on the page itself",
+   "details": [
+    "54 rows untestable without copies (pass --copies or --fetch)"
+   ]
+  },
+  {
+   "id": "K6",
+   "status": "PASS",
+   "text": "0 CONTRADICTED rows: 0 with a verified counter quote",
+   "details": []
+  },
+  {
+   "id": "K7",
+   "status": "PASS",
+   "text": "no NO EVIDENCE PUBLISHED, ON REQUEST or WITHDRAWN row carries a verified source proof",
+   "details": []
+  },
+  {
+   "id": "K8",
+   "status": "PASS",
+   "text": "61 evidenced, 0 on request, 13 no evidence, 0 contradicted (0 high) of 74 checkable: 82% backed, 0% contradicted, band B (recomputed)",
+   "details": []
+  },
+  {
+   "id": "K9",
+   "status": "PASS",
+   "text": "no credential-shaped strings",
+   "details": []
+  },
+  {
+   "id": "K2b",
+   "status": "WARN",
+   "text": "18 sources: 0 with a text copy, 16 hash-only, 2 none; pass --copies or --fetch to test quotes from hash-only sources",
+   "details": [
+    "3 row(s) carry the author's reading, not a grader's verdict (graded_by author)",
+    "gate first grade (r1): first gate failed 20/21 (C-079 against the holdout); re-graded ['C-079']; holdout amended: False"
+   ]
+  },
+  {
+   "id": "K11",
+   "status": "PASS",
+   "text": "audit.jsonl 74 rows without decisions; 1 witness file(s) over its hash, every decision on a listed claim and a candidate it names",
+   "details": []
+  },
+  {
+   "id": "K12",
+   "status": "PASS",
+   "text": "claims.jsonl equals the merge; per-witness scores and missing-claim counts recomputed",
+   "details": [
+    "primary witness \"decisions of the OneDroid claims session (agent.onedroid-claims-verification): the verdict rule and the holdout gates, three rows read by the author's session (graded_by author); converted to this format and signed by trilix-onedroid-business\": 82% / 0% band B, 0 missing-claim row(s)"
+   ]
+  },
+  {
+   "id": "K13",
+   "status": "PASS",
+   "text": "2 signature(s) verified, 0 note(s), 0 broken",
+   "details": [
+    "audit.jsonl: signed by trilix-onedroid-business-test-key-2026-11-11, verified",
+    "witness/onedroid-claims-session.jsonl: signed by trilix-onedroid-business-test-key-2026-11-11, verified"
+   ]
+  },
+  {
+   "id": "K14",
+   "status": "WARN",
+   "text": "0 anchor binding(s) hold, 1 note(s), 0 broken",
+   "details": [
+    "no anchors.json: nothing fixes the signatures in time"
+   ]
+  },
+  {
+   "id": "K15",
+   "status": "WARN",
+   "text": "0 session record(s) listed by hash",
+   "details": [
+    "no recorded sessions listed: how the parts were produced is not on record"
+   ]
+  }
+ ],
+ "result": "WARN"
+}

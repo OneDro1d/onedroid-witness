@@ -1,0 +1,30 @@
+[
+ {
+  "role": "auditor",
+  "file": "audit.jsonl",
+  "sha256": "bfc02de62bb35c24e6a477187aee9693d76fa2e76fb6f600f49c089d96e1943d",
+  "line": "claims-snapshot/0.4 auditor audit.jsonl sha256:bfc02de62bb35c24e6a477187aee9693d76fa2e76fb6f600f49c089d96e1943d",
+  "signer": {
+   "name": "trilix-onedroid-business-test-key-2026-11-11",
+   "key_id": "SHA256:yezPRA8nqu/9eKZJY1YpPS7WB/OHbaH8exs9HMGPdP8",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-11T10:59:00Z",
+  "signature": "audit.jsonl.sig",
+  "commit": null
+ },
+ {
+  "role": "witness",
+  "file": "witness/onedroid-claims-session.jsonl",
+  "sha256": "4a23417440867cc2c0bb58bb650026c1cd9392f2d959740384691a382c7a55b0",
+  "line": "claims-snapshot/0.4 witness witness/onedroid-claims-session.jsonl sha256:4a23417440867cc2c0bb58bb650026c1cd9392f2d959740384691a382c7a55b0 over audit.jsonl sha256:bfc02de62bb35c24e6a477187aee9693d76fa2e76fb6f600f49c089d96e1943d",
+  "signer": {
+   "name": "trilix-onedroid-business-test-key-2026-11-11",
+   "key_id": "SHA256:yezPRA8nqu/9eKZJY1YpPS7WB/OHbaH8exs9HMGPdP8",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-11T10:59:00Z",
+  "signature": "witness/onedroid-claims-session.jsonl.sig",
+  "commit": null
+ }
+]
