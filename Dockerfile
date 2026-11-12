@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssh-client 
 WORKDIR /app
 COPY onedroid_witness /app/onedroid_witness
 COPY vendor /app/vendor
+# the build context may carry owner-only modes (a workspace with umask 077); the service runs as an unprivileged user and must read its code
+RUN chmod -R a+rX /app
 USER witness
 # the configuration, the key directory (a volume) and the OpenRouter key file (a Secret mount) are given at run time:
 #   /etc/onedroid-witness/config.json   {"models": [...], "daily_cap_usd": 2, "keys_dir": "/var/lib/onedroid-witness/keys",
