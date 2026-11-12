@@ -32,6 +32,26 @@ class JobStore:
         self.write_status(jid, {"job_id": jid, "state": "queued", "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
         return jid
 
+    def incoming(self):
+        """A folder for a request under check: outside the job folders, removed by `discard` when the request is refused, moved into a
+        job by `adopt` when it is accepted. A refused request therefore leaves no job and no bytes (gate D11)."""
+        d = self.root / ".incoming" / secrets.token_hex(8)
+        d.mkdir(parents=True)
+        return d
+
+    def discard(self, incoming_dir):
+        import shutil
+        shutil.rmtree(incoming_dir, ignore_errors=True)
+
+    def adopt(self, incoming_dir):
+        """The checked request becomes a job: its folder is moved to <jid>/request and the job is queued."""
+        jid = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + secrets.token_hex(6)
+        d = self.root / jid
+        d.mkdir(parents=True)
+        os.replace(incoming_dir, d / "request")
+        self.write_status(jid, {"job_id": jid, "state": "queued", "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        return jid
+
     def dir(self, jid):
         if not jid or "/" in jid or ".." in jid or not (self.root / jid).is_dir():
             return None
@@ -71,6 +91,8 @@ class JobStore:
     def queued(self):
         out = []
         for d in sorted(self.root.iterdir()):
+            if d.name.startswith("."):
+                continue
             s = self.status(d.name)
             if s and s.get("state") in ("queued", "running"):
                 out.append(d.name)

@@ -24,18 +24,55 @@ def _where(c, by_url):
     return f"source [{src.get('n')}] {src.get('url')} ({copy_text}, http {src.get('status')})"
 
 
+FENCE_CHARS = set("=-_~*#")
+
+
+def one_line(s, width=None):
+    """Caller text as ONE line: a newline inside a quote, a note or a claim text would otherwise end the item's line and could close the
+    data fence the prompt names (gate D4). Newlines become a visible mark, nothing is removed."""
+    t = str(s).replace("\r\n", "\n").replace("\r", "\n").replace("\n", " ⏎ ")
+    return t[:width] if width else t
+
+
+def neutralise_fence_lines(text, fence):
+    """No line of caller data may equal the fence, nor consist of fence-like characters alone (a run of = or -): such a line gets a
+    visible prefix. The data is kept, only its line shape changes."""
+    out = []
+    for l in text.split("\n"):
+        s = l.strip()
+        if l == fence or (len(s) >= 8 and set(s) <= FENCE_CHARS):
+            out.append("| " + l)
+        else:
+            out.append(l)
+    return "\n".join(out)
+
+
+def copy_none_indices(row, by_url):
+    """The candidate indices, per side, whose source the auditor fetched and did not save (copy: none): a verdict resting only on those
+    is UNDECIDED, never EVIDENCED or CONTRADICTED (section 14, gate D3)."""
+    out = {"proofs": set(), "counter": set()}
+    for side in ("proofs", "counter"):
+        for i, c in enumerate(row.get(side) or []):
+            if c.get("file") == "page.txt" or c.get("url") is None:
+                continue
+            src = by_url.get(c.get("url"))
+            if src is not None and src.get("copy") in (None, "none"):
+                out[side].add(i)
+    return out
+
+
 def _candidate_line(i, c, by_url):
     where = _where(c, by_url)
     if c.get("quote") is not None:
-        body = f'quote "{c["quote"]}"'
+        body = f'quote "{one_line(c["quote"])}"'
     elif c.get("expect_status") is not None:
         body = f"status proof: the URL answered {c.get('expect_status')}, no quote"
     elif c.get("file") and c.get("url") is None:
         body = "existence proof: the named file exists at the pinned commit, no quote"
     else:
         body = "existence or status proof, no quote"
-    note = f"; note: {c['note']}" if c.get("note") else ""
-    return f"[{i}] from {where}: {body}{note}"
+    note = f"; note: {one_line(c['note'])}" if c.get("note") else ""
+    return f"[{i}] from {one_line(where)}: {body}{note}"
 
 
 def page_context(row, page_lines, around=1, width=600):
@@ -51,7 +88,7 @@ def page_context(row, page_lines, around=1, width=600):
 def render(row, page, by_url):
     """The rendered claim: id, kind, text, page context, candidates FOR and AGAINST, consulted, searched."""
     lines = page.splitlines()
-    out = [f"claim id: {row['id']}", f"kind: {row.get('kind')}", f"claim text: {row['text']}", "",
+    out = [f"claim id: {one_line(row['id'])}", f"kind: {one_line(row.get('kind'))}", f"claim text: {one_line(row['text'])}", "",
            "page context (the lines around the claim):"]
     out += page_context(row, lines) or ["(no location)"]
     for name, items in (("FOR", row.get("proofs") or []), ("AGAINST", row.get("counter") or [])):
@@ -59,10 +96,11 @@ def render(row, page, by_url):
         out += [_candidate_line(i, c, by_url) for i, c in enumerate(items)] or ["(none)"]
     if row.get("consulted"):
         out += ["", "what the auditor consulted and found where it looked:"]
-        out += [f"- {c.get('url') or c.get('file')}: {str(c.get('quote'))[:400]}" for c in row["consulted"]]
+        out += [f"- {one_line(c.get('url') or c.get('file'))}: {one_line(str(c.get('quote')), 400)}" for c in row["consulted"]]
     if row.get("searched"):
-        out += ["", f"what the auditor searched for and did not find: {row['searched']}"]
-    return "\n".join(out)
+        out += ["", f"what the auditor searched for and did not find: {one_line(row['searched'])}"]
+    from .prompts import DATA_FENCE
+    return neutralise_fence_lines("\n".join(out), DATA_FENCE)
 
 
 def all_copy_none(row, by_url):

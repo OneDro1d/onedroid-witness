@@ -72,8 +72,10 @@ def chat_prompt_sha256(profile):
 
 
 def wrap_data(rendered):
-    """The rendered claim as delimited data (section 6)."""
-    return DATA_FENCE + "\n" + rendered + "\n" + DATA_FENCE
+    """The rendered claim as delimited data (section 6). No data line may equal the fence: render() keeps every caller item on one line and
+    prefixes fence-like lines; this is the second guard on the same rule (gate D4)."""
+    body = "\n".join(("| " + l) if l == DATA_FENCE else l for l in rendered.split("\n"))
+    return DATA_FENCE + "\n" + body + "\n" + DATA_FENCE
 
 
 # Decision models (contract 3e.4): one choice question for the verdict, one yes/no per candidate; the questions are the prompt.

@@ -5,7 +5,7 @@ then add_witness.py into a copy of the snapshot and check.py. Prints every step'
 import hashlib, http.client, io, json, pathlib, shutil, subprocess, sys, tarfile, time, urllib.parse, uuid
 
 base, snap, out, models, published = sys.argv[1], pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]), sys.argv[4], sys.argv[5]
-VENDOR = pathlib.Path("/home/coder/code/providentiaww/notepads/trilix-onedroid-business/witness-service/vendor")
+VENDOR = pathlib.Path(__file__).resolve().parents[1] / "vendor"  # the repository's own pinned scripts, so the client runs from a fresh clone (gate D6)
 u = urllib.parse.urlparse(base)
 out.mkdir(parents=True, exist_ok=True)
 
@@ -51,6 +51,10 @@ st, headers, tar_bytes = get(f"/witness/{jid}/answer.tar")
 sha = hashlib.sha256(tar_bytes).hexdigest()
 print("answer.tar", st, len(tar_bytes), "bytes; sha matches status:", sha == s["answer_sha256"], "; matches header:", headers.get("X-Answer-SHA256") == sha)
 (out / "answer.tar").write_bytes(tar_bytes)
+if sha != s["answer_sha256"] or headers.get("X-Answer-SHA256") != sha:
+    # 3c.9: an answer whose tar sha256 differs from the one the status announced is refused; nothing is unpacked or inserted (gate D6)
+    print("REFUSED: the tar's sha256 differs from the announced one; nothing unpacked, nothing inserted")
+    sys.exit(2)
 ans_dir = out / "answer"
 with tarfile.open(fileobj=io.BytesIO(tar_bytes)) as tar:
     tar.extractall(ans_dir, filter="data")

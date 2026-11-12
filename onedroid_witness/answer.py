@@ -47,6 +47,8 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     questions_sha = prompts.decision_questions_sha256(profile)
     rendered = {r["id"]: render.render(r, request.page, by_url) for r in request.audit}
     copy_none = {r["id"]: render.all_copy_none(r, by_url) for r in request.audit}
+    copy_none_idx = {r["id"]: render.copy_none_indices(r, by_url) for r in request.audit}
+    prices = prices or {}
     pass_through = {r["id"]: normalise.passthrough(r) for r in request.audit}
     asked = [m["id"] for m in models_cfg]
     for m in models_cfg:
@@ -68,6 +70,7 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
             primary_verdict = {r["id"]: r.get("verdict") for r in (json.loads(l) for l in pf.read_text(encoding="utf-8").splitlines()[1:] if l.strip())}
     for m in models_cfg:
         model, kind, max_tokens = m["id"], m["kind"], int(m.get("max_tokens", 400))
+        provider_order = list(m.get("providers") or []) or None  # the configured provider order, pinned on every call when set (3b.3)
         if running_est + est_per_model.get(model, 0) > budget - spent:
             service["models_skipped"].append({"model": model, "reason": "estimate", "detail": f"estimate {est_per_model.get(model)} would cross the remaining budget {round(budget - spent, 5)}"})
             continue
@@ -78,10 +81,11 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         def call(row):
             if pass_through[row["id"]] is not None:
                 return {"passthrough": True}
+            extra = {"providers": provider_order} if provider_order else {}
             try:
                 if kind == "chat":
-                    return client.chat(model, system_prompt, prompts.wrap_data(rendered[row["id"]]), max_tokens)
-                return client.decide(model, rendered[row["id"]], prompts.decision_questions(profile, row))
+                    return client.chat(model, system_prompt, prompts.wrap_data(rendered[row["id"]]), max_tokens, **extra)
+                return client.decide(model, rendered[row["id"]], prompts.decision_questions(profile, row), **extra)
             except CapReached:
                 return {"error": "CAP"}
         with concurrent.futures.ThreadPoolExecutor(max_workers=in_flight) as ex:
@@ -101,7 +105,7 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
                     body, ok = normalise.chat_answer(res.get("text"), res.get("finish"), r)
                 else:
                     body, ok = normalise.decision_answer(res.get("answers"), r)
-                body = normalise.apply_row_rules(body, r, copy_none[r["id"]])
+                body = normalise.apply_row_rules(body, r, copy_none[r["id"]], copy_none_idx[r["id"]])
                 cost += res.get("cost_usd") or 0
                 pt += res.get("prompt_tokens") or 0
                 ct += res.get("completion_tokens") or 0
@@ -123,9 +127,13 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         if len([s for s in served if s]) > 1:
             service["models_skipped"].append({"model": model, "reason": "router", "detail": f"the id served more than one model: {served}"})
             continue
-        name = f"onedroid-witness-{_slug(served_id)}"
-        principal, priv, signer_line, fp, ktype = keystore.key_for(served_id)
-        header = {"witness": name, "kind": "model", "model": served_id, "method": "classify", "over": {"file": "audit.jsonl", "sha256": request.audit_sha256},
+        # the witness is named by the provider's id WITH its version (section 14, gate D9): OpenRouter's canonical_slug carries the dated
+        # snapshot for chat models (openai/gpt-4.1-nano -> openai/gpt-4.1-nano-2025-04-14); decision models already serve a dated id
+        versioned = (prices.get(served_id) or prices.get(model) or {}).get("canonical_slug") or served_id
+        name = f"onedroid-witness-{_slug(versioned)}"
+        principal, priv, signer_line, fp, ktype = keystore.key_for(versioned)
+        fallback_served = sorted(p for p in providers if p and provider_order and p not in provider_order)
+        header = {"witness": name, "kind": "model", "model": versioned, "method": "classify", "over": {"file": "audit.jsonl", "sha256": request.audit_sha256},
                   "started_at": started, "finished_at": finished,
                   "note": (f"{service_name}: {'chat' if kind == 'chat' else 'decision'} model through OpenRouter; "
                            + (f"prompt sha256 {prompt_sha}; temperature 0, max_tokens {max_tokens}, response_format json_object; parse: the first JSON object in the text, a code fence stripped"
@@ -141,14 +149,15 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         if signer_line not in signers:
             signers.append(signer_line)
         n_und = sum(1 for x in rows if x["verdict"] == "UNDECIDED")
-        entries_m.append({"name": name, "kind": "model", "model": served_id, "method": "classify", "signer": f"{principal} <{fp}>", "file": f"witness/{name}.jsonl",
+        entries_m.append({"name": name, "kind": "model", "model": versioned, "method": "classify", "signer": f"{principal} <{fp}>", "file": f"witness/{name}.jsonl",
                           "sha256": wsha, "primary": False, "score": _score(check, request.audit, rows, name), "missing_claims": 0, "undecided": n_und})
         entries_s.append({"role": "witness", "file": f"witness/{name}.jsonl", "sha256": wsha, "line": line, "signer": {"name": principal, "key_id": fp, "kind": ktype},
                           "signed_at": now(), "signature": f"witness/{name}.jsonl.sig", "commit": None})
         decided = [x for x in rows if x["verdict"] not in ("UNDECIDED", "EVIDENCE AVAILABLE ON REQUEST", "WITHDRAWN")]
         agree = sum(1 for x in decided if x["verdict"] == primary_verdict.get(x["id"]))
         service["models_run"].append(model)
-        service["per_model"][model] = {"kind": kind, "served": served, "providers": providers, "max_tokens": max_tokens if kind == "chat" else None, "temperature": 0 if kind == "chat" else None,
+        service["per_model"][model] = {"kind": kind, "served": served, "model_versioned": versioned, "providers": providers, "provider_order": provider_order,
+                                       "fallback_served": fallback_served, "max_tokens": max_tokens if kind == "chat" else None, "temperature": 0 if kind == "chat" else None,
                                        "calls": len(request.audit), "cost_usd": round(cost, 5), "prompt_tokens": pt, "completion_tokens": ct,
                                        "latency_s_median": sorted(lat)[len(lat) // 2] if lat else None, "errors": errors, "undecided": n_und,
                                        "verdicts": {v: sum(1 for x in rows if x["verdict"] == v) for v in VERDICTS},
@@ -168,7 +177,21 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     service["finished_at"] = now()
     service["total_cost_usd"] = round(spent, 5)
     service["split_claims"] = len(split)
-    (answer / "service.json").write_text(json.dumps(service, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    # the service's own signature over service.json (section 5, gate D7): the service key's principal is onedroid-witness-service, its
+    # allowed_signers line travels with the answer; the line signed is `onedroid-witness/1 service.json sha256:<hex of the bytes written>`.
+    # The signature entry is recorded in the status and in service.json.sig's sidecar, not inside service.json (a file cannot carry its own hash).
+    body = json.dumps(service, indent=1, ensure_ascii=False) + "\n"
+    (answer / "service.json").write_text(body, encoding="utf-8")
+    s_principal, s_priv, s_line, s_fp, s_ktype = keystore.key_for("service")
+    s_sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    signed_line = f"onedroid-witness/1 service.json sha256:{s_sha}"
+    keystore.sign(s_priv, signed_line, answer / "service.json.sig")
+    if s_line not in signers:
+        signers.append(s_line)
+        (answer / "allowed_signers").write_text("\n".join(signers) + "\n", encoding="utf-8")
+    service["signature"] = {"role": "service", "file": "service.json", "sha256": s_sha, "line": signed_line, "signature": "service.json.sig",
+                            "signer": {"name": s_principal, "key_id": s_fp, "kind": s_ktype}, "signed_at": now()}
+    (answer / "service-signature.json").write_text(json.dumps(service["signature"], indent=1) + "\n", encoding="utf-8")
     return service
 
 

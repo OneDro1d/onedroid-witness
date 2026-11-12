@@ -30,8 +30,8 @@ class FakeClient:
                 return row
         return None
 
-    def chat(self, model, system_prompt, user_text, max_tokens):
-        self.calls.append(("chat", model, max_tokens))
+    def chat(self, model, system_prompt, user_text, max_tokens, providers=None):
+        self.calls.append(("chat", model, max_tokens, providers))
         if model in self.fail_models:
             return {"error": "HTTP_502", "detail": "fake provider error", "latency_s": 0.1}
         row = self._row(model, user_text)
@@ -42,8 +42,8 @@ class FakeClient:
                 "served_model": self.served_override.get(model, row.get("served_model") or model), "cost_usd": row.get("cost_usd") or 0,
                 "prompt_tokens": 900, "completion_tokens": 100, "latency_s": row.get("latency_s") or 0.1}
 
-    def decide(self, model, state, questions):
-        self.calls.append(("decide", model, len(questions)))
+    def decide(self, model, state, questions, providers=None):
+        self.calls.append(("decide", model, len(questions), providers))
         if model in self.fail_models:
             return {"error": "HTTP_404", "detail": "fake: not served", "latency_s": 0.1}
         row = self._row(model, state)

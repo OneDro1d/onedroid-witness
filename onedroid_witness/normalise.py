@@ -111,10 +111,20 @@ def decision_answer(answers, row):
     return {"verdict": word, "on": dict(UND), "note": note}, True
 
 
-def apply_row_rules(body, row, row_all_copy_none):
-    """Rules that stand above any model's answer (section 14 and 3d.3): NO EVIDENCE PUBLISHED on an all copy-none row is UNDECIDED."""
-    if row_all_copy_none and body["verdict"] == "NO EVIDENCE PUBLISHED":
+def apply_row_rules(body, row, row_all_copy_none, copy_none_idx=None):
+    """Rules that stand above any model's answer (section 14 and 3d.3). A candidate the auditor fetched and did not save (copy: none) is
+    not visible to a classifier, so: NO EVIDENCE PUBLISHED on an all copy-none row is UNDECIDED (the model cannot know nothing was
+    published); and a decided verdict that rests ONLY on copy-none candidates (every index it names is one, or the row has nothing
+    else) is UNDECIDED, never EVIDENCED or CONTRADICTED (gate D3). `copy_none_idx` = {"proofs": {i...}, "counter": {i...}}."""
+    v = body["verdict"]
+    idx = copy_none_idx or {"proofs": set(), "counter": set()}
+    if row_all_copy_none and v in ("NO EVIDENCE PUBLISHED", "EVIDENCED", "CONTRADICTED"):
         return {"verdict": "UNDECIDED", "on": dict(UND), "note": "the candidates were fetched and not saved; the model said: " + body["note"]}
+    side = "proofs" if v == "EVIDENCED" else ("counter" if v == "CONTRADICTED" else None)
+    if side:
+        named = [i for i in (body.get("on") or {}).get(side, []) if isinstance(i, int)]
+        if named and all(i in idx.get(side, set()) for i in named):
+            return {"verdict": "UNDECIDED", "on": dict(UND), "note": f"the {side} candidate(s) the model named were fetched and not saved (copy: none), so the verdict rests on nothing a reader can see; the model said: " + body["note"]}
     return body
 
 

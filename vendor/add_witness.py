@@ -3,12 +3,15 @@
 (SPEC.md section 14). Standard library plus ssh-keygen on PATH.
 
 usage: python3 -I add_witness.py SNAPSHOT_DIR ANSWER_DIR --key PRIVATE_KEY --identity NAME [--keys FILE]
+       python3 -I add_witness.py SNAPSHOT_DIR answer.tar --sha256 HEX --key PRIVATE_KEY --identity NAME [--keys FILE]
+  answer.tar with --sha256 (3c.9, 12 Nov 2026): the tar as the service served it and the sha256 the service announced in the job status;
+    the hash is checked over the bytes before anything is unpacked, and a mismatch refuses the whole answer
   ANSWER_DIR holds what the service returned:
     witness/<name>.jsonl and witness/<name>.jsonl.sig   one pair per model witness
     allowed_signers                                     the fragment: one line per principal, `<principal> namespaces="claims-snapshot" <type> <base64>`
     manifest-entry.json                                 the witness entry for grading.witnesses[] (one object, or a list of them)
     signatures-entry.json                               the signatures.json entry (one object, or a list of them), role witness
-    service.json, split.jsonl                           optional; copied to the folder root and listed in the manifest's `files`
+    service.json, service.json.sig, service-signature.json, split.jsonl   optional; copied to the folder root and listed in the manifest's `files`
   --key/--identity   the adder's private key and principal: the manifest is re-signed with them (sign.py --role manifest), last
   --keys FILE        passed to check.py (the published key list)
 What it does, in this order, after checking everything first and refusing before it writes anything: copies the witness files in,
@@ -17,7 +20,7 @@ appends the signatures entries, lists service.json and split.jsonl with their sh
 added, re-signs the manifest, and runs check.py on the folder: prints its SUMMARY line and exits with check.py's exit code.
 It never touches audit.jsonl, claims.jsonl, an existing witness file, the pages, the sources or the primary witness's score
 (it hashes them before and after, and says so)."""
-import json, pathlib, shutil, subprocess, sys
+import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -42,6 +45,27 @@ def main(argv):
     snap, ans = pathlib.Path(argv[1]), pathlib.Path(argv[2])
     key, ident, keys_file = arg(argv, "--key"), arg(argv, "--identity"), arg(argv, "--keys")
     problems = []
+    tmp_unpack = None
+    if ans.is_file():
+        # 3c.9 (12 Nov 2026): the answer as the tar the service served, with the sha256 the service announced; the hash is checked over
+        # the bytes BEFORE anything is unpacked, and a mismatch refuses the whole answer (nothing written, nothing inserted)
+        want = arg(argv, "--sha256")
+        if not want:
+            print("refused: an answer given as a tar needs --sha256 <the hash the service announced in the job status>", file=sys.stderr)
+            return 1
+        got = hashlib.sha256(ans.read_bytes()).hexdigest()
+        if got != want.lower():
+            print(f"refused, nothing written: the tar's sha256 {got[:16]}... is not the announced {want[:16]}...", file=sys.stderr)
+            return 1
+        tmp_unpack = tempfile.mkdtemp(prefix="add-witness-")
+        with tarfile.open(ans) as tar:
+            for m in tar.getmembers():
+                if m.name.startswith(("/", "..")) or "/../" in m.name or not (m.isfile() or m.isdir()):
+                    print(f"refused, nothing written: the tar holds an entry outside the answer folder or not a plain file: {m.name!r}", file=sys.stderr)
+                    shutil.rmtree(tmp_unpack, ignore_errors=True)
+                    return 1
+            tar.extractall(tmp_unpack, filter="data")
+        ans = pathlib.Path(tmp_unpack)
     try:
         M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
     except Exception as e:
@@ -100,7 +124,7 @@ def main(argv):
         if not any(se.get("file") == f for se in sig_entries):
             problems.append(f"{f}: no signatures entry in the answer")
     extra = []
-    for name in ("service.json", "split.jsonl"):
+    for name in ("service.json", "service.json.sig", "service-signature.json", "split.jsonl"):  # the service's own signature travels with its record (12 Nov 2026)
         if (ans / name).is_file():
             if (snap / name).exists():
                 problems.append(f"{name} already exists in the snapshot: refused to overwrite")
@@ -154,6 +178,8 @@ def main(argv):
     print(next((l for l in r.stdout.splitlines() if l.startswith("SUMMARY:")), "check.py printed no SUMMARY line"))
     if r.returncode not in (0, 1):
         print(r.stderr[-400:], file=sys.stderr)
+    if tmp_unpack:
+        shutil.rmtree(tmp_unpack, ignore_errors=True)
     return r.returncode
 
 

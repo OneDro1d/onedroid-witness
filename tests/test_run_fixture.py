@@ -137,16 +137,18 @@ class RunFixture(unittest.TestCase):
 
     def test_keys_list_records_every_key_with_a_window_and_a_retire_keeps_it(self):
         snap, ans, svc, ks = self._run(models=[{"id": "typesafe/jev-1.14", "kind": "decision"}])
-        keys = ks.keys_list()["keys"]
-        self.assertEqual(len(keys), 1)
-        self.assertEqual(keys[0]["model"], "typesafe/jev-1.14-20261014")
-        self.assertIsNone(keys[0]["valid_to"])
+        # since 0.1.1 the service's own key (principal onedroid-witness-service, which signs service.json) is listed beside the model keys
+        model_keys = [k for k in ks.keys_list()["keys"] if k["principal"] != "onedroid-witness-service"]
+        self.assertEqual(len(model_keys), 1)
+        self.assertEqual(model_keys[0]["model"], "typesafe/jev-1.14-20261014")
+        self.assertIsNone(model_keys[0]["valid_to"])
+        self.assertEqual(sum(1 for k in ks.keys_list()["keys"] if k["principal"] == "onedroid-witness-service"), 1)
         ks.retire("typesafe/jev-1.14-20261014")
-        keys = ks.keys_list()["keys"]
-        self.assertEqual(len(keys), 1)
-        self.assertIsNotNone(keys[0]["valid_to"])
+        model_keys = [k for k in ks.keys_list()["keys"] if k["principal"] != "onedroid-witness-service"]
+        self.assertEqual(len(model_keys), 1)
+        self.assertIsNotNone(model_keys[0]["valid_to"])
         ks.key_for("typesafe/jev-1.14-20261014")
-        self.assertEqual(len(ks.keys_list()["keys"]), 2)
+        self.assertEqual(len([k for k in ks.keys_list()["keys"] if k["principal"] != "onedroid-witness-service"]), 2)
 
 
 class Refusals(unittest.TestCase):

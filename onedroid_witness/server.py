@@ -127,8 +127,8 @@ def make_handler(cfg):
                         return self._json(400, {"error": f"{m} is not one of the service's models (GET /models)"})
             except RouterRefused as e:
                 return self._json(400, {"error": str(e)})
-            jid = cfg["store"].new()
-            d = cfg["store"].dir(jid) / "request"
+            # the parts are checked in an incoming folder; a refused request is discarded with its bytes and gets no job id (gate D11)
+            d = cfg["store"].incoming()
             for name, data in parts.items():
                 (d / name).write_bytes(data)
             try:
@@ -136,25 +136,40 @@ def make_handler(cfg):
                 if not cfg["private_mode"]:
                     request_mod.check_published(req, params.get("published_url"), cfg.get("catalogue_lookup"))
             except request_mod.Refused as e:
-                cfg["store"].write_status(jid, {"job_id": jid, "state": "refused", "reason": str(e)[:500]})
-                return self._json(422, {"error": str(e), "job_id": jid})
+                cfg["store"].discard(d)
+                return self._json(422, {"error": str(e)})
             models_cfg = [known[m] for m in models]
             by_url = __import__("onedroid_witness.render", fromlist=["render"]).source_index(req.manifest)
             rendered_chars = sum(len(__import__("onedroid_witness.render", fromlist=["render"]).render(r, req.page, by_url)) for r in req.audit)
             per_model, total = answer_mod.estimate(models_cfg, cfg["prices"], rendered_chars, len(req.audit), len(prompts.chat_prompt(req.profile)))
-            max_cost = float(params["max_cost_usd"]) if params.get("max_cost_usd") not in (None, "") else None
+            try:
+                max_cost = float(params["max_cost_usd"]) if params.get("max_cost_usd") not in (None, "") else None
+            except ValueError:
+                cfg["store"].discard(d)
+                return self._json(400, {"error": "max_cost_usd must be a number"})
             remaining = cfg["ledger"].remaining()
-            if (max_cost is not None and total > max_cost) or total > remaining:
-                cfg["store"].write_status(jid, {"job_id": jid, "state": "refused", "reason": "the estimate alone crosses the bound", "estimate_usd": per_model, "estimate_total_usd": total,
-                                                "max_cost_usd": max_cost, "daily_cap_remaining_usd": round(remaining, 4)})
-                return self._json(422, {"error": "the estimate alone crosses max_cost_usd or the day's remaining cap", "estimate_usd": per_model, "estimate_total_usd": total,
-                                        "max_cost_usd": max_cost, "daily_cap_remaining_usd": round(remaining, 4), "job_id": jid})
+            budget = min(remaining, max_cost if max_cost is not None else float("inf"))
+            # a partial run (3b.1, gate D5): the models that fit the bound in the order asked run, the rest are named as skipped with the
+            # estimate; only when none fits is the request refused. answer.run applies the same rule when it runs.
+            planned, skipped, running = [], [], 0.0
+            for m in models:
+                e_ = per_model.get(m, 0)
+                if running + e_ <= budget:
+                    planned.append(m)
+                    running += e_
+                else:
+                    skipped.append({"model": m, "reason": "estimate", "detail": f"estimate {e_} would cross the bound {round(budget, 5)} with {round(running, 5)} already planned"})
+            if not planned:
+                cfg["store"].discard(d)
+                return self._json(422, {"error": "the estimate alone crosses max_cost_usd or the day's remaining cap for every model asked", "estimate_usd": per_model, "estimate_total_usd": total,
+                                        "max_cost_usd": max_cost, "daily_cap_remaining_usd": round(remaining, 4)})
             (d / "params.json").write_text(json.dumps({"models": models, "max_cost_usd": max_cost, "published_url": params.get("published_url")}), encoding="utf-8")
-            cfg["store"].write_status(jid, {"job_id": jid, "state": "queued", "claims": len(req.audit), "profile": req.profile, "models": models,
-                                            "estimate_usd": per_model, "estimate_total_usd": total, "max_cost_usd": max_cost})
+            jid = cfg["store"].adopt(d)
+            cfg["store"].write_status(jid, {"job_id": jid, "state": "queued", "claims": len(req.audit), "profile": req.profile, "models": models, "models_run_planned": planned,
+                                            "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total, "max_cost_usd": max_cost})
             cfg["worker"].submit(jid)
-            return self._json(202, {"job_id": jid, "status_url": f"/witness/{jid}", "claims": len(req.audit), "profile": req.profile,
-                                    "estimate_usd": per_model, "estimate_total_usd": total})
+            return self._json(202, {"job_id": jid, "status_url": f"/witness/{jid}", "claims": len(req.audit), "profile": req.profile, "models_run_planned": planned,
+                                    "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total})
 
     return Handler
 

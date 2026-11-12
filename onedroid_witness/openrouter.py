@@ -29,8 +29,9 @@ class RouterRefused(ValueError):
 def refuse_routers(model_id):
     """A witness file names the model that answered, never a router or an alias that resolves per request (3e.1)."""
     low = model_id.lower()
-    if low.startswith("~") or "router" in low or low.endswith(":free") or low.endswith("-latest") or "/auto" in low:
-        raise RouterRefused(f"{model_id} is a router, an alias or a free tier, not a model identity")
+    variant = low.rsplit(":", 1)[1] if ":" in low else ""
+    if low.startswith("~") or "router" in low or "/auto" in low or low.endswith("-latest") or variant in ("free", "beta", "nitro", "online", "extended", "floor", "exacto", "thinking"):
+        raise RouterRefused(f"{model_id} is a router, an alias, a variant or a free tier, not a model identity")
     return model_id
 
 
@@ -51,7 +52,7 @@ def fetch_prices(opener=urllib.request.urlopen, timeout=30):
                 continue  # variable pricing (a router)
             mods = (m.get("architecture") or {}).get("output_modalities") or []
             out[m["id"]] = {"prompt": pi, "completion": po, "kind": "decision" if "decisions" in mods else kind,
-                            "context_length": m.get("context_length")}
+                            "context_length": m.get("context_length"), "canonical_slug": m.get("canonical_slug") or m["id"]}
     return out
 
 
@@ -129,9 +130,11 @@ class Client:
         self.ledger.add(cost)
         return usage, cost
 
-    def chat(self, model, system_prompt, user_text, max_tokens):
+    def chat(self, model, system_prompt, user_text, max_tokens, providers=None):
         body = {"model": model, "temperature": 0, "max_tokens": int(max_tokens), "response_format": {"type": "json_object"},
                 "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}]}
+        if providers:
+            body["provider"] = {"order": list(providers), "allow_fallbacks": True}  # the pinned order (3b.3); a fallback that served is named in service.json
         ans, latency, err = self._post(CHAT_API, body)
         if err:
             return {"error": err["error"], "detail": err.get("detail"), "latency_s": latency}
@@ -142,8 +145,11 @@ class Client:
                 "cost_usd": cost, "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
                 "latency_s": latency, "provider_error": choice.get("error")}
 
-    def decide(self, model, state, questions):
-        ans, latency, err = self._post(DECISIONS_API, {"model": model, "state": state, "questions": questions})
+    def decide(self, model, state, questions, providers=None):
+        body = {"model": model, "state": state, "questions": questions}
+        if providers:
+            body["provider"] = {"order": list(providers), "allow_fallbacks": True}
+        ans, latency, err = self._post(DECISIONS_API, body)
         if err:
             return {"error": err["error"], "detail": err.get("detail"), "latency_s": latency}
         usage, cost = self._account(ans)
