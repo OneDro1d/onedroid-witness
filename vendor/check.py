@@ -1209,7 +1209,23 @@ def main(argv):
                 kind_ = {dict: "object", str: "string", bool: "boolean", int: "number", float: "number"}.get(type(sigs), "null" if sigs is None else type(sigs).__name__)
                 bad.append(f"signatures.json: a JSON {kind_} is not a list of signature entries")
                 sigs = []
-            sigs_d = [e_ for e_ in sigs if isinstance(e_, dict)]
+            # V2b (the twelfth re-gate's sealed Q06, 13 Nov 2026 10:3xZ): an object entry whose role, file, sha256, line or signature is not a
+            # string, or whose signer is not an object, FAILs by field and JSON kind and is not checked further (5573fee2 crashed on a string
+            # signer and on a list signature). sigs_d holds the object entries of the right shape; every later rule reads it alone.
+            JSON_KIND = {dict: "object", list: "array", str: "string", bool: "boolean", int: "number", float: "number", type(None): "null"}
+            sigs_d, shape_bad_ = [], set()
+            for i_, e_ in enumerate(sigs):
+                if not isinstance(e_, dict):
+                    continue
+                wrong_ = [(k_, "a string") for k_ in ("role", "file", "sha256", "line", "signature") if k_ in e_ and not isinstance(e_[k_], str)]
+                if "signer" in e_ and not isinstance(e_["signer"], dict):
+                    wrong_.append(("signer", "an object"))
+                if wrong_:
+                    k_, want_ = wrong_[0]
+                    bad.append(f"signatures[{i_}]: field {k_} is a JSON {JSON_KIND.get(type(e_[k_]), type(e_[k_]).__name__)}, not {want_} (role, file, sha256, line and signature are strings, signer an object): the entry is not checked")
+                    shape_bad_.add(i_)
+                else:
+                    sigs_d.append(e_)
             tool = shutil.which("ssh-keygen")
             listed_keys = allowed_keys(allowed) if allowed.exists() else {}
             # O1 (the one-auditor cut, 13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): one entry per fixed role. A second `auditor`
@@ -1218,7 +1234,7 @@ def main(argv):
             # manifest once. The entries are still verified below, the FAIL stands beside them; names in entry order.
             if isinstance(sigs, list):
                 for role_ in ("auditor", "sources", "manifest"):
-                    ents_ = [e_ for e_ in sigs if isinstance(e_, dict) and e_.get("role") == role_]
+                    ents_ = [e_ for e_ in sigs_d if e_.get("role") == role_]
                     if len(ents_) > 1:
                         why_ = {"auditor": "a second entry over audit.jsonl is a second auditor, not a co-signer",
                                 "sources": "the auditor signs the sources list once",
@@ -1228,6 +1244,8 @@ def main(argv):
                 if not isinstance(e, dict):
                     bad.append(f"signatures[{i}]: entry {e!r} is not an object (role, file, sha256, signer, signature)")
                     continue
+                if i in shape_bad_:
+                    continue  # V2b: its FAIL line is already written
                 role, f = e.get("role"), e.get("file")
                 # the sources cut (13 Nov 2026, NEXT-REVISION 25b): manifest.json takes two roles, `manifest` (over its bytes, by whoever last
                 # changed the folder) and `sources` (the AUDITOR's, over the bound digest of the five bound sections; R1 to R6 of the cut)
@@ -1290,7 +1308,7 @@ def main(argv):
                     # and no other (the tenth re-gate's K16 added a second auditor entry with its own file and A2 matched the sources key
                     # against it); no auditor entry names it, or it is missing or not an SSHSIG: no readable auditor signature.
                     if emb is not None:
-                        a_emb = sshsig_public_key(snap / "audit.jsonl.sig") if any(isinstance(e_, dict) and e_.get("role") == "auditor" and e_.get("signature") == "audit.jsonl.sig" for e_ in sigs) else None
+                        a_emb = sshsig_public_key(snap / "audit.jsonl.sig") if any(e_.get("role") == "auditor" and e_.get("signature") == "audit.jsonl.sig" for e_ in sigs_d) else None
                         if a_emb is None:
                             bad.append("manifest.json: a sources signature with no readable auditor signature to match")
                             continue
@@ -1396,7 +1414,7 @@ def main(argv):
                     if len(f_) >= 3 and not l.lstrip().startswith("#") and key_of(f_[1:]):
                         for p_ in f_[0].split(","):
                             shipped.setdefault(p_, set()).add(key_of(f_[1:]))
-            sig_list = sigs if (sig_p.exists() and isinstance(sigs, list)) else []
+            sig_list = sigs_d if sig_p.exists() else []
             for w in model_ws:
                 wf_, hdr = w.get("file"), w_hdr[w.get("name")]
                 principal = next(((e.get("signer") or {}).get("name") for e in sig_list if isinstance(e, dict) and e.get("role") == "witness" and e.get("file") == wf_), None)
