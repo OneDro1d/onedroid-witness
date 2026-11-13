@@ -66,7 +66,11 @@ def manifest_sha(snap):
 
 
 def carried_hashes(snap):
-    return {p: sha256(b) for p, b in carried_parts(snap).items()}
+    # 0.1.7 (sixth re-gate J1): `carried` records page.txt beside the files under sources/ and sessions/; every fixture carries a page
+    out = {p: sha256(b) for p, b in carried_parts(snap).items()}
+    if (snap / "page.txt").is_file():
+        out["page.txt"] = sha256((snap / "page.txt").read_bytes())
+    return out
 
 
 class DictFetcher:
@@ -218,8 +222,8 @@ class R1R3R11Public(_Server):
 
     def test_r11_healthz_names_the_version_the_profiles_and_the_unchanged_prompts(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.6-dev")
-        self.assertEqual(h["version"], "0.1.6-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.7-dev")  # 0.1.6-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.7-dev")
         self.assertEqual(h["mode"], "public")
         self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)
@@ -358,10 +362,12 @@ class R7R8Offline(unittest.TestCase):
 
     def test_r7_service_json_and_every_witness_header_record_the_manifest_and_carried_hashes(self):
         # cs4's manifest names sources/rates.txt under sources[0].file, so the fixture folder carries ONE file (the brief said none): the
-        # "nothing carried" case is cs4's six fixed parts alone, which gives {}
-        for snap, n, fixed_only in ((AW4, 3, False), (AW6, 9, False), (CS4, 1, False), (CS4, 0, True)):
+        # "nothing carried" case is cs4's six fixed parts alone, which gave {} in 0.1.6
+        # 0.1.7 (J1): page.txt is recorded in `carried` too, so the six fixed parts alone give {"page.txt": sha256 of the page bytes} and
+        # every count is one more
+        for snap, n, fixed_only in ((AW4, 4, False), (AW6, 10, False), (CS4, 2, False), (CS4, 1, True)):
             d, ans, svc = self._run(snap, snap.name + ("-fixed-only" if fixed_only else ""), fixed_only)
-            want_m, want_c = manifest_sha(snap), ({} if fixed_only else carried_hashes(snap))
+            want_m, want_c = manifest_sha(snap), ({"page.txt": sha256((snap / "page.txt").read_bytes())} if fixed_only else carried_hashes(snap))
             self.assertEqual(len(want_c), n, snap.name)
             on_disk = json.loads((ans / "service.json").read_text(encoding="utf-8"))
             self.assertEqual(on_disk["manifest_sha256"], want_m, snap.name)

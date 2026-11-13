@@ -21,7 +21,8 @@ writer shaped it) and drops signatures.json, allowed_signers, anchors.json and C
 hash: NEXT-REVISION 22), recomputes the sha256 of every file it added, re-signs the manifest, and runs check.py on the folder: prints
 its SUMMARY line and exits with check.py's exit code. A pre-witness folder (no claims.jsonl) is taken as it is (13 Nov 2026).
 It never touches audit.jsonl, claims.jsonl, an existing witness file, the pages, the sources or the primary witness's score
-(it hashes them before and after, and says so)."""
+(it hashes them before and after, and says so). A witness header's `carried` (13 Nov 2026, NEXT-REVISION 25c) must name only pages, sources and
+session records this snapshot's manifest lists, each with the manifest's sha256, else the whole answer is refused before anything is written."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -140,6 +141,29 @@ def main(argv):
         # (the format owner's withheld case W17 of 12 Nov 2026: the first cut overwrote it silently)
         if (ans / str(f)).is_file() and e.get("sha256") is not None and e.get("sha256") != check.sha256(ans / str(f)):
             problems.append(f"entry {n!r}: sha256 {str(e.get('sha256'))[:12]}… is not the witness file's {check.sha256(ans / str(f))[:12]}…: the answer does not describe its own file")
+        # the carried cut (13 Nov 2026, NEXT-REVISION 25c): the header's `carried` must name only pages, sources and session records THIS
+        # snapshot's manifest lists, each with the manifest's hash; a witness that read other bytes is refused before anything is written
+        # (a header without `carried` is accepted here; K11 warns later where it applies). The inventory is check.carried_inventory, K11's.
+        if (ans / str(f)).is_file():
+            try:
+                hdr, _ = check.load_witness(ans / str(f))
+            except (ValueError, UnicodeDecodeError) as ex:
+                hdr = None
+                problems.append(f"entry {n!r}: {f} unreadable: {ex}")
+            else:
+                if hdr is None:
+                    problems.append(f"entry {n!r}: {f} has no header line")
+            if hdr is not None and "carried" in hdr:
+                if not isinstance(hdr["carried"], dict):
+                    problems.append(f"entry {n!r}: carried is not an object of path to sha256")
+                else:
+                    inv = check.carried_inventory(M)
+                    for cpath in sorted(hdr["carried"]):
+                        ch = hdr["carried"][cpath]
+                        if cpath not in inv:
+                            problems.append(f"entry {n!r}: carried {cpath!r} is not a page, source or session record this snapshot's manifest lists")
+                        elif ch != inv[cpath]:
+                            problems.append(f"entry {n!r}: carried {cpath!r} sha256 {str(ch)[:12]}… differs from the manifest's {inv[cpath][:12]}…: the witness read other bytes than this snapshot holds")
         if e.get("kind") not in (None, "human", "agent", "model"):
             problems.append(f"entry {n!r}: kind {e.get('kind')!r}")
     files_new = {e.get("file") for e in entries}

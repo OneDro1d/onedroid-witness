@@ -3,8 +3,9 @@ folder out, the same code the service runs); `keys` lists or retires the service
 
 Configuration (JSON): {"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
 "check_py", "openrouter_key_file" (or the environment variable OPENROUTER_API_KEY), "private_mode", "host", "port", "profiles_served"
-(default request.PROFILES_SERVED: cited-sources, agent-work, test-run; publisher-surfaces is out until NEXT-REVISION 23)}. The key file is
-read once and never logged.
+(default request.PROFILES_SERVED: cited-sources, agent-work, test-run; publisher-surfaces is out until NEXT-REVISION 23), "models_not_served"
+({model id: reason}, default {}; 0.1.7: shown on /healthz and /models, a request naming one is refused by name with the reason)}. The key
+file is read once and never logged.
 """
 import argparse
 import json
@@ -41,6 +42,12 @@ def load_cfg(path):
         m.setdefault("kind", "chat")
         if m["kind"] == "chat":
             m.setdefault("max_tokens", 400)
+    not_served = cfg.get("models_not_served")
+    if not_served is None:
+        not_served = {}
+    if not isinstance(not_served, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in not_served.items()):
+        sys.exit("models_not_served must be an object of model id to reason text")
+    cfg["models_not_served"] = not_served
     return cfg
 
 
@@ -68,7 +75,8 @@ def cmd_serve(args):
     from .server import serve
     serve({"store": store, "worker": worker, "models_cfg": cfg["models"], "prices": prices, "ledger": ledger, "keystore": keystore,
            "private_mode": bool(cfg.get("private_mode")), "version": __version__,
-           "profiles_served": tuple(cfg.get("profiles_served", request.PROFILES_SERVED))}, host=cfg.get("host", "0.0.0.0"), port=int(cfg.get("port", 8080)))
+           "profiles_served": tuple(cfg.get("profiles_served", request.PROFILES_SERVED)),
+           "models_not_served": cfg.get("models_not_served", {})}, host=cfg.get("host", "0.0.0.0"), port=int(cfg.get("port", 8080)))
 
 
 def cmd_run(args):

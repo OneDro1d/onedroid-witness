@@ -1,0 +1,16 @@
+[
+ {
+  "role": "auditor",
+  "file": "audit.jsonl",
+  "sha256": "b2179cc8101ed57d1b62bb30c5cfd367df0bfb0c1d5ac7e9f8f29a119ace5f41",
+  "line": "claims-snapshot/0.4 auditor audit.jsonl sha256:b2179cc8101ed57d1b62bb30c5cfd367df0bfb0c1d5ac7e9f8f29a119ace5f41",
+  "signer": {
+   "name": "onedroid-claims-verification-gate",
+   "key_id": "SHA256:BSWGbLTyXXJDZHrIpvKmFDP5c56Shnezqbq2VoGWvns",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-13T03:58:41Z",
+  "signature": "audit.jsonl.sig",
+  "commit": null
+ }
+]

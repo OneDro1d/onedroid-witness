@@ -19,11 +19,11 @@ data:
         {"id": "google/gemini-decision-1", "kind": "decision"},
         {"id": "morph/reflex", "kind": "decision"},
         {"id": "typesafe/jev-1.14", "kind": "decision"},
-        {"id": "openai/gpt-4.1-nano", "kind": "chat", "max_tokens": 400},
         {"id": "openai/gpt-4.1-mini", "kind": "chat", "max_tokens": 400},
         {"id": "google/gemini-2.5-flash-lite", "kind": "chat", "max_tokens": 400},
         {"id": "mistralai/mistral-small-3.2-24b-instruct", "kind": "chat", "max_tokens": 400}
       ],
+      "models_not_served": {"openai/gpt-4.1-nano": "answered EVIDENCED on 21 of 21 rows holding a planted instruction in the carried text (the claims session's sixth re-gate, 13 Nov 2026); a model that follows an instruction written in the data is not a reader of this format"},
       "daily_cap_usd": 2.0,
       "keys_dir": "/var/lib/onedroid-witness/keys",
       "jobs_dir": "/var/lib/onedroid-witness/jobs",

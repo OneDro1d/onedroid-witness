@@ -1,0 +1,57 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Example Card fees (synthetic)",
+  "url": "https://example.org/",
+  "publisher": "Example Card (fictional)"
+ },
+ "taken_at": "2026-11-13T04:10:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "e324fe8c7bfbce0f53c248892f736b5439d24459146c755dfe10884b99f04ff1",
+   "lines": 3,
+   "note": "the claims' text, one per line (synthetic)"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": "https://example.org/fees",
+   "file": "sources/fees.txt",
+   "copy": "text",
+   "fetched_at": "2026-11-13T04:10:09Z",
+   "status": 200,
+   "sha256": "14f47887230295d9e9d2b08e4d1b45a9960989c65f655cc9c82092efade564b0"
+  },
+  {
+   "n": 2,
+   "url": "https://example.org/annual-2025",
+   "file": null,
+   "sha256": null,
+   "copy": "none",
+   "fetched_at": "2026-11-13T04:10:09Z",
+   "status": 403,
+   "note": "HTTP 403"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "cited-sources",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 sixth re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "769dcf0bec7d388bb2a4d06feb5d579a606a178f7c34298d307bca3e0025cc59",
+   "signer": "onedroid-claims-verification-gate <SHA256:BSWGbLTyXXJDZHrIpvKmFDP5c56Shnezqbq2VoGWvns>"
+  }
+ },
+ "counts": {
+  "claims": 3,
+  "checkable": 3
+ }
+}

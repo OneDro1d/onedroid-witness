@@ -27,7 +27,7 @@ python3 -m onedroid_witness.cli run --config config.json <snapshot folder> <answ
 python3 -m onedroid_witness.cli serve --config config.json                                   # the service
 ```
 Configuration: `{"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
-"check_py", "openrouter_key_file" (or `OPENROUTER_API_KEY`), "private_mode", "host", "port", "profiles_served"}`. `vendor/check.py` is the
+"check_py", "openrouter_key_file" (or `OPENROUTER_API_KEY`), "private_mode", "host", "port", "profiles_served", "models_not_served"}`. `vendor/check.py` is the
 public checker at the hash the service pins (`onedroid_witness/checkpin.py`); the service refuses to start on any other. `profiles_served`
 defaults to cited-sources, agent-work and test-run: publisher-surfaces is refused by name until the format carries a candidate kind
 (restatement or artefact) from the auditor and a gate passes on it (NEXT-REVISION 23 of the format). For an agent-work or test-run claim the
@@ -37,11 +37,17 @@ line with its neighbours, the handed-in output, each artefact by name and hash, 
 that cannot be read here (not sent, held by hash, not listed) is said so by name and never carries a verdict, and the models' `on` indexes
 the evidence list. A test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13). In public mode the request's manifest is
 bound to the published snapshot: `manifest.json` is fetched beside the published `audit.jsonl` (the same rules as the audit fetch) and the
-request is refused by name when its `subject`, `sources`, `grading.profile` or `grading.sessions` differ from the published ones, so a carried
-file can only be one the published record lists at that hash. Every answer records what the models read: `service.json` and every witness
-header carry `manifest_sha256` and `carried` (each carried file's path and sha256). Inside any text a model sees, a run of eight or more
-fence-like characters is broken with a visible mark, so a planted "fence" inside a carried line is never one. `GET /healthz` lists the profiles
-served and, for each not served, why.
+request is refused by name when its `subject`, `sources`, `pages`, `grading.profile` or `grading.sessions` differ from the published ones, so a
+carried file can only be one the published record lists at that hash. The audited page is a carried file too (0.1.7): `page.txt` is
+hash-checked against the manifest's `pages` entry and refused by name when it differs or when no entry names it. Every answer records what
+the models read: `service.json` and every witness header carry `manifest_sha256` and `carried` (each carried file's path and sha256,
+`page.txt` included), and the public checker at the pinned hash (the carried cut, 559e54a9…) fails a witness whose `carried` differs
+from the snapshot's manifest, as `add_witness.py` refuses it before writing. Inside any text a model sees, a run of eight or more
+fence-like characters is broken with a visible mark, so a planted "fence" inside a carried line is never one; a planted instruction needs
+no fence, though, so a model that follows one (gpt-4.1-nano answered EVIDENCED on 21 of 21 planted rows in the claims session's sixth
+re-gate, 13 Nov 2026) is named in the configuration's `models_not_served` with the reason and refused by name. A `published_url` on a
+gist needs the gist's revision URL (`raw/<revision>/audit.jsonl`): a raw gist URL names one blob under any file name, and the refusal
+says so. `GET /healthz` lists the profiles served and, for each not served, why, and the models not served with the reason.
 
 ## HTTP surface
 `POST /witness` (multipart or JSON: `manifest.json`, `audit.jsonl`, `audit.jsonl.sig`, `allowed_signers`, `signatures.json`, the audited

@@ -58,8 +58,12 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         refuse_routers(m["id"])
     est_per_model, est_total = estimate(models_cfg, prices or {}, sum(len(t) for t in rendered.values()), len(request.audit), len(system_prompt))
     # 0.1.6 (fifth re-gate H1): what the models read, recorded in service.json and in every witness header (so the witness signature covers
-    # it): the request manifest's sha256 and the sha256 of every carried file, by manifest path, keys sorted ({} when nothing was carried)
-    carried = {p: hashlib.sha256(b).hexdigest() for p, b in sorted(request.carried.items())}
+    # it): the request manifest's sha256 and the sha256 of every carried file, by manifest path, keys sorted ({} when nothing was carried);
+    # 0.1.7 (sixth re-gate J1): plus "page.txt" when the request carried a page (the models read its lines on every row with a location)
+    carried = {p: hashlib.sha256(b).hexdigest() for p, b in request.carried.items()}
+    if request.page_sha256:
+        carried["page.txt"] = request.page_sha256
+    carried = dict(sorted(carried.items()))
     service = {"service": service_name, "mode": "private" if private_mode else "public", "published": published,
                "request_sha256": request.audit_sha256, "manifest_sha256": request.manifest_sha256, "carried": carried,
                "profile": profile, "claims": len(request.audit), "models_asked": asked, "models_run": [],

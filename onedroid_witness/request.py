@@ -170,14 +170,33 @@ class Request:
             raise Refused(f"a test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13); this one has {len(ids)} row(s): "
                           + ", ".join(str(i) for i in ids[:10]))
         self.page = self._text_optional("page.txt") or ""
+        self.page_sha256 = None  # 0.1.7 (sixth re-gate J1): the sha256 of the page.txt BYTES as received, None when absent
         refuse_credentials("audit.jsonl", self.audit_bytes.decode("utf-8", "replace"))
         refuse_credentials("page.txt", self.page)
         refuse_credentials("manifest.json", json.dumps(self.manifest, ensure_ascii=False))
+        self._check_page()  # after the credential rule (gate D10 keeps the first word on a planted page), before the carried files
         self._check_manifest_hash()
         self._check_auditor_signature(verify_signature)
         self.carried = {}  # manifest path -> bytes, the files this request carries for the evidence pointers (S-1)
         self._check_carried()
         self.primary = next((w for w in (self.manifest.get("grading") or {}).get("witnesses", []) if w.get("primary")), None)
+
+    def _check_page(self):
+        """0.1.7 (sixth re-gate J1): the audited page a model reads is bound like every other carried file. When page.txt is present
+        (non-empty bytes) the manifest's `pages` must hold an entry whose `file` is page.txt, and that entry's sha256, when present, must
+        equal the sha256 of the bytes received; refused by name otherwise (B15b: a forged page with the manifest unchanged was accepted).
+        An absent or empty page.txt checks nothing. page.txt is NOT put in self.carried (render.evidence_index iterates it as evidence
+        files); answer.run records page_sha256 under "page.txt" in `carried` beside them."""
+        p = self.root / "page.txt"
+        page_bytes = p.read_bytes() if p.is_file() else b""
+        if not page_bytes:
+            return
+        self.page_sha256 = sha256_bytes(page_bytes)
+        entry = next((e for e in self.manifest.get("pages") or [] if isinstance(e, dict) and e.get("file") == "page.txt"), None)
+        if entry is None:
+            raise Refused("part page.txt is named by no page of the manifest")
+        if entry.get("sha256") and entry["sha256"] != self.page_sha256:
+            raise Refused("part page.txt sha256 differs from the manifest's")
 
     def _check_carried(self):
         """S-1, D1: every file under sources/ or sessions/ of the folder is a carried part. One that no manifest entry (sources[].file,
@@ -360,9 +379,11 @@ def fetch_published(url, opener_factory=None, resolve=None, connect=None):
 
 
 # The parts of the manifest public mode binds to the published snapshot (0.1.6, fifth re-gate H1): what the carried evidence is checked
-# against (sources[].file + sha256, grading.sessions[].record_sha256), the profile the prompt is chosen by, and the subject. grading.witnesses,
-# files and signatures are NOT compared: inserting a witness changes them.
-BOUND_MANIFEST_SECTIONS = ("subject", "sources", "grading.profile", "grading.sessions")
+# against (sources[].file + sha256, grading.sessions[].record_sha256), the profile the prompt is chosen by, and the subject; since 0.1.7
+# (sixth re-gate J1) `pages` too, so the audited page's hash (pages[].sha256, which _check_page holds page.txt to) is the published one and
+# a forged page.txt with a manifest changed to match is refused against the genuine publication. grading.witnesses, files and signatures
+# are NOT compared: inserting a witness changes them.
+BOUND_MANIFEST_SECTIONS = ("subject", "sources", "pages", "grading.profile", "grading.sessions")
 
 
 def _canonical(x):
@@ -383,8 +404,8 @@ def check_published(request, published_url=None, catalogue_lookup=None, fetch=fe
     """Public mode: the auditor part must be published, as a catalogue record (preferred) or at a public URL whose audit.jsonl matches
     byte for byte; and since 0.1.6 (fifth re-gate H1) the request's manifest is bound to the published snapshot's: a catalogue record
     must carry the request manifest's sha256; by URL, the published manifest.json is fetched beside the published audit.jsonl (the same
-    `fetch`, so the same SSRF rules) and its subject, sources, grading.profile and grading.sessions must equal the request's, section by
-    section in canonical JSON. Without this, the carried files a model reads are hash-checked against the caller's own, unpublished manifest
+    `fetch`, so the same SSRF rules) and its subject, sources, pages (0.1.7), grading.profile and grading.sessions must equal the request's,
+    section by section in canonical JSON. Without this, the carried files a model reads are hash-checked against the caller's own, unpublished manifest
     only (the X01 case: a forged carried file with a matching manifest hash, witnessed over the genuine audit part). Private mode skips all
     of it, with no fetch at all: the caller's own estate, the caller's own key."""
     if request.private_mode:
@@ -412,7 +433,13 @@ def check_published(request, published_url=None, catalogue_lookup=None, fetch=fe
     except (UnicodeDecodeError, ValueError):
         published_manifest = None
     if not isinstance(published_manifest, dict):
-        raise Refused("the published manifest.json is not a JSON object")
+        # 0.1.7 (the sixth re-gate's gist note): the bytes fetched are named, and when they are the audit part's own bytes the cause is said:
+        # a raw gist URL (gist.githubusercontent.com/<user>/<id>/raw/<file>) names ONE blob under any file name, so manifest.json beside
+        # audit.jsonl answers the audit bytes; the gist's revision URL (raw/<revision>/manifest.json) names each file
+        same = sha256_bytes(mdata) == request.audit_sha256
+        raise Refused(f"the published manifest.json is not a JSON object ({len(mdata)} bytes, sha256 {sha256_bytes(mdata)[:16]}..., at {manifest_url})"
+                      + (" and is byte-equal to the published audit.jsonl: a raw gist URL names one blob under any file name, use the gist's revision URL "
+                         "(raw/<revision>/manifest.json)" if same else ""))
     for section in BOUND_MANIFEST_SECTIONS:
         if _canonical(_section(published_manifest, section)) != _canonical(_section(request.manifest, section)):
             raise Refused(f"the manifest's {section} differs from the published snapshot's at {manifest_url}")

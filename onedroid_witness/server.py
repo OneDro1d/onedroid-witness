@@ -2,10 +2,13 @@
   POST /witness                 multipart/form-data with the parts (manifest.json, audit.jsonl, audit.jsonl.sig, allowed_signers,
                                 signatures.json optional, page.txt or the audited text) and the fields models (comma-separated ids),
                                 max_cost_usd, published_url (public mode); or application/json {parts: {name: text}, models, ...}.
+                                A published_url on a gist needs the gist's REVISION URL (raw/<revision>/audit.jsonl): a raw gist URL names
+                                one blob under any file name, so manifest.json beside it would answer the audit bytes (0.1.7).
                                 Answers 202 {job_id, estimate_usd} after the request is checked and the estimate made; 4xx with the refusal.
   GET  /witness/{job_id}        the status (queued | running | done | refused | failed) with the answer's sha256 when done
   GET  /witness/{job_id}/answer.tar  the answer folder as a tar; the sha256 is in the status and in the X-Answer-SHA256 header
-  GET  /models                  the models the service runs, with kind, max_tokens and the price used for the estimate
+  GET  /models                  the models the service runs, with kind, max_tokens and the price used for the estimate; and under
+                                not_served the models the configuration names as NOT served, with the reason (0.1.7, models_not_served)
   GET  /keys                    every key the service has ever used, with valid_from and valid_to; never deletes one
   GET  /healthz                 liveness, the daily cap remaining, the checker's pin
 No identity: abuse control is the daily cap, the size cap and a per-address rate limit (section 7).
@@ -44,7 +47,8 @@ class RateLimit:
 
 
 def make_handler(cfg):
-    """cfg: store, worker, models_cfg (list), prices, ledger, keystore, private_mode, version."""
+    """cfg: store, worker, models_cfg (list), prices, ledger, keystore, private_mode, version; optional profiles_served, models_not_served
+    ({model id: reason}, 0.1.7), catalogue_lookup, fetch (tests only)."""
     rate = RateLimit()
 
     class Handler(BaseHTTPRequestHandler):
@@ -73,6 +77,7 @@ def make_handler(cfg):
                                         "daily_cap_remaining_usd": round(cfg["ledger"].remaining(), 4), "check_py_sha256": CHECK_PY_SHA256,
                                         "profiles_served": served,
                                         "profiles_not_served": {p: request_mod.PROFILES_NOT_SERVED_WHY.get(p, "not in this service's configuration") for p in request_mod.PROFILES if p not in served},
+                                        "models_not_served": dict(cfg.get("models_not_served") or {}),
                                         "prompt_sha256": {p: prompts.chat_prompt_sha256(p) for p in prompts.PROFILES},
                                         "questions_sha256": {p: prompts.decision_questions_sha256(p) for p in prompts.PROFILES}})
             if path == "/models":
@@ -80,7 +85,8 @@ def make_handler(cfg):
                 for m in cfg["models_cfg"]:
                     p = cfg["prices"].get(m["id"], {})
                     out.append({**m, "price_per_million_input_usd": round(p.get("prompt", 0) * 1e6, 4), "price_per_million_output_usd": round(p.get("completion", 0) * 1e6, 4)})
-                return self._json(200, {"models": out, "note": "a router, an alias or a free tier is never a model identity and is refused"})
+                return self._json(200, {"models": out, "not_served": dict(cfg.get("models_not_served") or {}),
+                                        "note": "a router, an alias or a free tier is never a model identity and is refused"})
             if path == "/keys":
                 return self._json(200, cfg["keystore"].keys_list())
             if path.startswith("/witness/"):
@@ -133,9 +139,12 @@ def make_handler(cfg):
             if not models:
                 return self._json(400, {"error": "name at least one model from GET /models"})
             known = {m["id"]: m for m in cfg["models_cfg"]}
+            not_served = cfg.get("models_not_served") or {}
             try:
                 for m in models:
                     refuse_routers(m)
+                    if m in not_served:  # 0.1.7 (M1): a model the configuration names as not served is refused by name with the reason, before any job; this refusal wins over `models`
+                        return self._json(400, {"error": f"{m} is not served by this service: {not_served[m]}"})
                     if m not in known:
                         return self._json(400, {"error": f"{m} is not one of the service's models (GET /models)"})
             except RouterRefused as e:

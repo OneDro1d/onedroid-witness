@@ -216,6 +216,24 @@ def load_witness(p):
     return rows[0], rows[1:]
 
 
+def carried_inventory(M):
+    """The paths a witness header's `carried` may name, with the manifest's hash for each (the carried cut, 13 Nov 2026, NEXT-REVISION 25):
+    the pages by `file` and `sha256` (the page the models read is a carried file too: the sixth re-gate's J1, 13 Nov 2026), the sources by
+    `file` and `sha256`, the session records by `file` and `record_sha256`. Nothing else: not the witness files, not the structural files. One helper for K11 and add_witness.py, so the two rules cannot drift."""
+    inv = {}
+    for p_ in (M.get("pages") or []) if isinstance(M.get("pages"), list) else []:
+        if isinstance(p_, dict) and p_.get("file") and p_.get("sha256"):
+            inv[p_["file"]] = p_["sha256"]
+    for s_ in (M.get("sources") or []) if isinstance(M.get("sources"), list) else []:
+        if isinstance(s_, dict) and s_.get("file") and s_.get("sha256"):
+            inv[s_["file"]] = s_["sha256"]
+    g_ = M.get("grading") if isinstance(M.get("grading"), dict) else {}
+    for s_ in (g_.get("sessions") or []) if isinstance(g_.get("sessions"), list) else []:
+        if isinstance(s_, dict) and s_.get("file") and s_.get("record_sha256"):
+            inv[s_["file"]] = s_["record_sha256"]
+    return inv
+
+
 def merge_rows(audit, wrows, witness_name):
     """claims.jsonl from the auditor's rows and one witness's decisions (SPEC.md 4b). MISSING CLAIM rows are not merged.
     A claim the witness did not decide gets verdict None, which K3 then rejects."""
@@ -457,10 +475,16 @@ def main(argv):
             bad.append(f"{c.get('id')}: checkable not a boolean")
         if not c.get("text", "").strip():
             bad.append(f"{c.get('id')}: empty text")
+        # the carried cut (13 Nov 2026, NEXT-REVISION 24): `on_request`, when present, is an object; `true` or any other non-object is a
+        # violation by name, never a traceback (absent or null on an ON REQUEST row keeps the message below)
+        orq = c.get("on_request")
         if c.get("verdict") == "EVIDENCE AVAILABLE ON REQUEST":
-            orq = c.get("on_request") or {}
-            if not (orq.get("holder") and orq.get("sha256")):
+            if orq is not None and not isinstance(orq, dict):
+                bad.append(f"{c.get('id')}: on_request is not an object (holder, sha256, …)")
+            elif not (isinstance(orq, dict) and orq.get("holder") and orq.get("sha256")):
                 bad.append(f"{c.get('id')}: EVIDENCE AVAILABLE ON REQUEST without on_request.holder and on_request.sha256")
+        elif orq is not None and not isinstance(orq, dict):
+            bad.append(f"{c.get('id')}: on_request is not an object")
         if c.get("verdict") == "WITHDRAWN" and not (c.get("history") or c.get("note")):
             bad.append(f"{c.get('id')}: WITHDRAWN without a history or note saying so")
     R.add("K3", "FAIL" if bad else "PASS", ("pre-witness: " if pre else "") + f"{len(claims)} claims; " + (f"{len(bad)} id, vocabulary or provenance violation(s)" if bad else ("ids unique; kinds and texts in order (no verdicts yet)" if pre else "ids unique; verdicts, kinds, confidence, graded_by and graded_at in order")), bad)
@@ -819,6 +843,29 @@ def main(argv):
                         ek = kv
                 else:
                     kind_bad.append(f"witness {name!r}: {src_} kind {kv!r} is not human, agent or model")
+            # the carried cut (13 Nov 2026, NEXT-REVISION 25a): a model witness header's `carried` {path: sha256} names what the models were
+            # shown; every path must be a page, source or session record the manifest lists, with the manifest's hash (a witness that read other
+            # bytes than the record holds is broken, by name). A bound path prints no line, so a published folder's output does not change.
+            # `manifest_sha256` is the hash of the manifest the SERVICE was given, shape-checked only: insertion changed the folder's since.
+            if "carried" in header:
+                carried_ = header["carried"]
+                if not isinstance(carried_, dict):
+                    bad.append(f"witness {name!r}: header carried is not an object of path to sha256")
+                else:
+                    inv_ = carried_inventory(M)
+                    for cpath_ in sorted(carried_):
+                        ch_ = carried_[cpath_]
+                        if cpath_ not in inv_:
+                            bad.append(f"witness {name!r}: carried {cpath_!r} is not a page, source or session record the manifest lists")
+                        elif not (isinstance(ch_, str) and HEX64.match(ch_)):
+                            bad.append(f"witness {name!r}: carried {cpath_!r}: sha256 {ch_!r} is not 64 hex characters")
+                        elif ch_ != inv_[cpath_]:
+                            bad.append(f"witness {name!r}: carried {cpath_!r} sha256 {ch_[:12]}… differs from the manifest's {inv_[cpath_][:12]}…: the witness read other bytes than the record holds")
+            elif ek == "model" and (profile in ("agent-work", "test-run") or any(isinstance(a_.get("evidence"), list) for a_ in audit)):
+                # evidence-shaped auditor part (SPEC 12 and 13): the decisive input is the carried files, so a model witness must say what it read
+                k11_warn.append(f"witness {name!r}: a model witness over an evidence-shaped auditor part records no `carried`: what the models read is not on record (0.1.6 of the witness service writes it)")
+            if "manifest_sha256" in header and not (isinstance(header["manifest_sha256"], str) and HEX64.match(header["manifest_sha256"])):
+                bad.append(f"witness {name!r}: header manifest_sha256 {header['manifest_sha256']!r} is not 64 hex characters")
             w_hdr[name], w_kind[name], w_kind_file[wf] = header, ek, ek
             if header.get("method") == "classify" and ek != "model":
                 bad.append(f"witness {name!r}: method 'classify' is for a witness of kind 'model' only (this one is {ek!r})")

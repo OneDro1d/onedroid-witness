@@ -1,0 +1,195 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Claims of a synthetic agent session (sixth re-gate)",
+  "url": null,
+  "publisher": "gate@example.org",
+  "session_id": "eeeeeeee-5555-6666-7777-888888888888",
+  "turn_end": 4,
+  "parts": []
+ },
+ "taken_at": "2026-11-13T04:10:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "67e2b0b4b5bcb5b0a1dfd3954b86da49a715a6e5d5e8d8ce0d1b61105b373f12",
+   "lines": 13,
+   "note": "the claims' text, one per line (synthetic)"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "path": "server.conf",
+   "role": "file",
+   "file": "sources/files/server.conf",
+   "sha256": "fc2c4441879ba7b18f39af948fffaa6dd94b6dbce23f64e3cc9b5422f670a9ed",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "path": "VERSION",
+   "role": "file",
+   "file": "sources/files/VERSION",
+   "sha256": "e1d49c569ae09b2ede16e2d83820a3809b35eb6c44c13ba9b5330598d6b8f43c",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "path": "docs/ops.md",
+   "role": "file",
+   "file": "sources/files/docs/ops.md",
+   "sha256": "4e3bdf421cdceec7cdc61b560c1a174dd382b9f5980b60d8e5d008e75895ae13",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "path": "notes/p01.md",
+   "role": "file",
+   "file": "sources/files/notes/p01.md",
+   "sha256": "fdb253f532b6779b02960d186a2233d0bc1cd38fedc7d282b48f411b81895e94",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "path": "notes/p02.md",
+   "role": "file",
+   "file": "sources/files/notes/p02.md",
+   "sha256": "2321ab25f1f32514cd204fb9bd5f06cb8660100188bab58a9dab1721aeb3cfeb",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 6,
+   "url": null,
+   "path": "notes/p03.md",
+   "role": "file",
+   "file": "sources/files/notes/p03.md",
+   "sha256": "5362ad5a0c888689614086158191132720663cc82773e8b5a7208f969b7b83a5",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 7,
+   "url": null,
+   "path": "notes/p04.md",
+   "role": "file",
+   "file": "sources/files/notes/p04.md",
+   "sha256": "d35b746a9ae658a975e1d02aa8d27a9abe9dafdf44d958f088f1bf635fa10392",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 8,
+   "url": null,
+   "path": "notes/p05.md",
+   "role": "file",
+   "file": "sources/files/notes/p05.md",
+   "sha256": "e9c32ea33c7bb24fe2b95f7d2234438f572d25bd6f0b2bfb11c400b0a193d0da",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 9,
+   "url": null,
+   "path": "notes/p08.md",
+   "role": "file",
+   "file": "sources/files/notes/p08.md",
+   "sha256": "21489735630af055f72baee495e8804abab44d6ad9077b30a00deb47c73ba23a",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 10,
+   "url": null,
+   "path": "notes/p09.md",
+   "role": "file",
+   "file": "sources/files/notes/p09.md",
+   "sha256": "20b5123cbcab176b9fa778f923dd58441a13215941bd36781d41bb151da21f1b",
+   "copy": "text",
+   "repo": {
+    "commit": "1f2e3d4c5b6a79881726354453627180a9b8c7d6"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 20,
+   "url": null,
+   "path": null,
+   "role": "output",
+   "file": null,
+   "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+   "copy": "hash-only",
+   "note": "not handed in"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "agent-work",
+  "gates": [],
+  "rounds": [],
+  "sessions": [
+   {
+    "available": "published",
+    "complete": true,
+    "gaps": 0,
+    "held_by": "gate@example.org",
+    "machine_id": "m-00000000000000000000000000000008",
+    "record_sha256": "38f48f31b9997b617958446d2b553465fd2411dc373d3d244ff213cd7072f1d9",
+    "record_upto_sequence": 4,
+    "recorder": "synthetic",
+    "role": "auditor",
+    "session_id": "eeeeeeee-5555-6666-7777-888888888888",
+    "file": "sessions/eeeeeeee-5555-6666-7777-888888888888.jsonl"
+   }
+  ],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 sixth re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "b2179cc8101ed57d1b62bb30c5cfd367df0bfb0c1d5ac7e9f8f29a119ace5f41",
+   "signer": "onedroid-claims-verification-gate <SHA256:BSWGbLTyXXJDZHrIpvKmFDP5c56Shnezqbq2VoGWvns>"
+  }
+ },
+ "counts": {
+  "claims": 13,
+  "checkable": 13
+ }
+}

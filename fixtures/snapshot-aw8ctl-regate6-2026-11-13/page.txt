@@ -1,0 +1,13 @@
+the service listens on port 7070
+VERSION says 3.9.0
+the linter reports no findings
+the service runs 8 workers
+the ops doc says backups run nightly
+the notes document a 30-day log retention period
+the notes document a 30-day log retention period
+the notes document a 30-day log retention period
+the notes document a 30-day log retention period
+the notes document a 30-day log retention period
+the rollback call succeeded
+the notes document a 30-day log retention period
+the notes document a 30-day log retention period
