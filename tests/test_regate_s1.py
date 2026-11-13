@@ -73,6 +73,73 @@ class PublisherSurfaces(unittest.TestCase):
         self.assertNotIn("the publisher's own surface", own)
         self.assertNotIn("another site", own)
 
+    def test_n1_a_trailing_dot_in_a_host_names_the_same_site(self):
+        # second re-gate note: subject.url "https://example.org./about" left the site as "example.org." and every example.org source was
+        # marked "another site"
+        self.assertEqual(render._site("https://example.org./about"), "example.org")
+        self.assertEqual(render._site("https://WWW.Example.ORG./"), "example.org")
+        self.assertEqual(render._site("https://example.org/"), "example.org")
+
+
+class PublisherSurfacesScope(ServerRules):
+    """Second re-gate N1 (the claims session, 13 Nov 2026): with the publisher relation rendered and named in the prompt, chat models still
+    answered EVIDENCED on 3 of 6 restatements on the publisher's own surface, and a subdomain was marked "another site". A row rule cannot
+    tell a restatement from an artefact (a terms page is own-surface AND the artefact), so the owner's call: publisher-surfaces is OUT of
+    the public service's scope for model witnesses until a candidate kind (restatement | artefact) from the auditor exists in the format
+    (NEXT-REVISION 23) and a gate passes on it. The service refuses the profile by name, before any model call, with nothing kept; the
+    profiles it serves are on /healthz. The rendering and the prompt keep the marks for the day the profile returns."""
+
+    def _publisher_parts(self):
+        parts = {n: (SNAP / n).read_bytes() for n in PARTS}
+        M = json.loads(parts["manifest.json"].decode("utf-8"))
+        M["grading"] = dict(M["grading"])
+        M["grading"]["profile"] = "publisher-surfaces"
+        parts["manifest.json"] = json.dumps(M, ensure_ascii=False).encode("utf-8")
+        return parts
+
+    def test_n1_publisher_surfaces_is_refused_by_name_with_nothing_kept(self):
+        before = self._jobs()
+        st, ans = self._post(*multipart(self._publisher_parts(), {"models": "typesafe/jev-1.14"}))
+        self.assertEqual(st, 422, ans)
+        self.assertNotIn("job_id", ans)
+        self.assertIn("publisher-surfaces", ans["error"])
+        self.assertIn("NEXT-REVISION 23", ans["error"])
+        self.assertEqual(self._jobs(), before)
+        self.assertEqual(list((pathlib.Path(self.tmp) / "jobs" / ".incoming").iterdir()), [])
+
+    def test_n1_healthz_names_the_profiles_served(self):
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        c.request("GET", "/healthz")
+        h = json.loads(c.getresponse().read())
+        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
+        self.assertIn("publisher-surfaces", h["profiles_not_served"])
+
+    def test_n1_the_request_library_still_reads_every_profile_when_no_scope_is_given(self):
+        # the one-shot private mode and the tests read the profile; the scope is the service's, passed in by the handler
+        from onedroid_witness import request as request_mod
+        import shutil
+        import tempfile
+        d = pathlib.Path(tempfile.mkdtemp(prefix="witness-scope-"))
+        try:
+            for n, data in self._publisher_parts().items():
+                (d / n).write_bytes(data)
+            self.assertEqual(request_mod.Request(d, private_mode=True).profile, "publisher-surfaces")
+            with self.assertRaises(request_mod.Refused) as cm:
+                request_mod.Request(d, private_mode=True, profiles_served=request_mod.PROFILES_SERVED)
+            self.assertIn("publisher-surfaces", str(cm.exception))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_n1_note_a_utf8_bom_in_audit_jsonl_is_refused_naming_the_bom(self):
+        # second re-gate note: a BOM was refused as "line 1 is not JSON"; the format's reader takes none, so the refusal stays, by name
+        parts = {n: (SNAP / n).read_bytes() for n in PARTS}
+        parts["audit.jsonl"] = b"\xef\xbb\xbf" + parts["audit.jsonl"]
+        st, ans = self._post(*multipart(parts, {"models": "typesafe/jev-1.14"}))
+        self.assertEqual(st, 422, ans)
+        self.assertIn("BOM", ans["error"])
+        self.assertEqual(list((pathlib.Path(self.tmp) / "jobs" / ".incoming").iterdir()), [])
+
 
 class MalformedParts(ServerRules):
     def _refused_cleanly(self, broken, label):
@@ -123,6 +190,95 @@ class MalformedParts(ServerRules):
         broken = dict(parts)
         broken["manifest.json"] = b"[1, 2, 3]"
         self._refused_cleanly(broken, "manifest is a list")
+
+
+class RenderPathCrash(ServerRules):
+    """Second re-gate P1 (the claims session, 13 Nov 2026, gate/2026-11-13-witness-s1-regate2/RESULT.md): server.py's catch-all covered
+    the Request block only, while source_index, render and estimate ran outside it, so a manifest whose `sources` is an object or a list
+    holding a string passed every check, raised in source_index, got NO HTTP answer and left its bytes in jobs/.incoming (64 MB bodies at
+    30 a minute against a 5 Gi volume). Two layers fix it: the manifest's shape is checked in Request (refused 422 by name), and the whole
+    path after incoming() runs in one try whose finally discards whatever was not kept."""
+
+    def _manifest(self, **edits):
+        m = json.loads((SNAP / "manifest.json").read_text(encoding="utf-8"))
+        for k, v in edits.items():
+            m[k] = v
+        return m
+
+    def _parts_with(self, manifest):
+        parts = {n: (SNAP / n).read_bytes() for n in PARTS}
+        parts["manifest.json"] = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+        return parts
+
+    def _answered(self, parts, label, status=422):
+        before = self._jobs()
+        try:
+            st, ans = self._post(*multipart(parts, {"models": "typesafe/jev-1.14"}))
+        except Exception as e:  # pragma: no cover - the defect itself: no HTTP answer
+            self.fail(f"{label}: no HTTP answer ({type(e).__name__}: {e})")
+        self.assertEqual(st, status, (label, ans))
+        self.assertNotIn("job_id", ans, label)
+        self.assertIn("error", ans, label)
+        self.assertEqual(self._jobs(), before, label)
+        self.assertEqual(list((pathlib.Path(self.tmp) / "jobs" / ".incoming").iterdir()), [], f"{label}: bytes left in .incoming")
+        return ans["error"]
+
+    def test_p1_a_manifest_whose_sources_is_an_object_is_refused_by_name_with_no_bytes(self):
+        err = self._answered(self._parts_with(self._manifest(sources={"a": 1})), "sources is an object")
+        self.assertIn("sources", err)
+
+    def test_p1_a_sources_list_holding_a_string_is_refused_by_name_with_no_bytes(self):
+        m = self._manifest()
+        m["sources"] = list(m["sources"]) + ["https://example.org/x"]
+        err = self._answered(self._parts_with(m), "sources holds a string")
+        self.assertIn("sources", err)
+
+    def test_p1_a_source_whose_url_is_not_a_string_is_refused_by_name_with_no_bytes(self):
+        m = self._manifest()
+        m["sources"] = list(m["sources"]) + [{"n": 99, "url": ["https://example.org/x"]}]
+        err = self._answered(self._parts_with(m), "source url is a list")
+        self.assertIn("sources", err)
+
+    def test_p1_a_pages_value_that_is_not_a_list_of_objects_is_refused_by_name_with_no_bytes(self):
+        err = self._answered(self._parts_with(self._manifest(pages="page.txt")), "pages is a string")
+        self.assertIn("pages", err)
+        err = self._answered(self._parts_with(self._manifest(pages=[1])), "pages holds a number")
+        self.assertIn("pages", err)
+
+    def test_p1_a_subject_that_is_not_an_object_is_refused_by_name_with_no_bytes(self):
+        err = self._answered(self._parts_with(self._manifest(subject="https://example.org/")), "subject is a string")
+        self.assertIn("subject", err)
+
+    def test_p1_a_grading_witnesses_that_is_not_a_list_of_objects_is_refused_by_name_with_no_bytes(self):
+        m = self._manifest()
+        m["grading"] = dict(m["grading"])
+        m["grading"]["witnesses"] = "primary"
+        err = self._answered(self._parts_with(m), "witnesses is a string")
+        self.assertIn("witnesses", err)
+        m["grading"]["witnesses"] = [{"primary": True}, "x"]
+        err = self._answered(self._parts_with(m), "witnesses holds a string")
+        self.assertIn("witnesses", err)
+
+    def test_p1_a_null_sources_is_refused_by_name_with_no_bytes(self):
+        err = self._answered(self._parts_with(self._manifest(sources=None)), "sources is null")
+        self.assertIn("sources", err)
+
+    def test_p1_the_unchanged_manifest_still_passes_the_shape_check(self):
+        from onedroid_witness import request as request_mod
+        req = request_mod.Request(SNAP, private_mode=True)
+        self.assertEqual(req.profile, "cited-sources")
+
+    def test_p1_an_exception_anywhere_after_incoming_is_answered_and_leaves_no_bytes(self):
+        from unittest import mock
+        parts = {n: (SNAP / n).read_bytes() for n in PARTS}
+        with mock.patch.object(render, "source_index", side_effect=RuntimeError("planted")):
+            err = self._answered(parts, "source_index raises", status=500)
+        self.assertIn("RuntimeError", err)
+        self.assertNotIn("planted", err)  # the exception text is not echoed to the caller
+        from onedroid_witness import answer as answer_mod
+        with mock.patch.object(answer_mod, "estimate", side_effect=ZeroDivisionError("planted")):
+            err = self._answered(parts, "estimate raises", status=500)
+        self.assertIn("ZeroDivisionError", err)
 
 
 if __name__ == "__main__":

@@ -27,8 +27,11 @@ python3 -m onedroid_witness.cli run --config config.json <snapshot folder> <answ
 python3 -m onedroid_witness.cli serve --config config.json                                   # the service
 ```
 Configuration: `{"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
-"check_py", "openrouter_key_file" (or `OPENROUTER_API_KEY`), "private_mode", "host", "port"}`. `vendor/check.py` is the public checker at
-the hash the service pins (`onedroid_witness/checkpin.py`); the service refuses to start on any other.
+"check_py", "openrouter_key_file" (or `OPENROUTER_API_KEY`), "private_mode", "host", "port", "profiles_served"}`. `vendor/check.py` is the
+public checker at the hash the service pins (`onedroid_witness/checkpin.py`); the service refuses to start on any other. `profiles_served`
+defaults to cited-sources, agent-work and test-run: publisher-surfaces is refused by name until the format carries a candidate kind
+(restatement or artefact) from the auditor and a gate passes on it (NEXT-REVISION 23 of the format); `GET /healthz` lists the profiles served
+and, for each not served, why.
 
 ## HTTP surface
 `POST /witness` (multipart or JSON: `manifest.json`, `audit.jsonl`, `audit.jsonl.sig`, `allowed_signers`, `signatures.json`, the audited

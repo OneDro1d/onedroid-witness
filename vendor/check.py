@@ -16,7 +16,10 @@ K5/K6 check its evidence pointers from the folder, K7 does not apply to them, K1
 K13 fails a witness signed with the auditor's key.
 0.5 adds the test-run profile (a scenario run as a claim record: three claims, evidence by artefact hash; SPEC.md section 13).
 0.6 adds witnesses of kind human | agent | model, the method classify, the witness verdict UNDECIDED, per-witness scores without
-undecided rows, split lines across model witnesses, the key list, the manifest signature role (SPEC.md section 14)."""
+undecided rows, split lines across model witnesses, the key list, the manifest signature role (SPEC.md section 14).
+0.6 (12 Nov 2026) also names the pre-witness stage: grading.kind "pre-witness" is the auditor's part published alone (no claims.jsonl,
+no score, no claims_sha256, no grader or model; witnesses may be listed, none primary); K1 reads the declaration, K5 tests the
+auditor's pointers and candidate quotes without a verdict, K8 and K12 WARN that no score exists yet, K11 asks for no primary."""
 import datetime, hashlib, html, json, pathlib, re, shutil, subprocess, sys, urllib.error, urllib.request
 
 FORMATS = {"claims-snapshot/0.2", "claims-snapshot/0.3", "claims-snapshot/0.4", "claims-snapshot/0.5", "claims-snapshot/0.6"}
@@ -25,6 +28,8 @@ WITNESS_KINDS = {"human", "agent", "model"}  # the witness header `kind` (0.6); 
 KEY_LIST = "keys/model-keys.jsonl"
 SIGN_NAMESPACE = "claims-snapshot"
 ANCHOR_METHODS = {"ots", "argus-commitment", "armarium"}
+# the structural files of a folder: never named by hash in the manifest's `files` (K2 refuses it, NEXT-REVISION 22, 13 Nov 2026)
+STRUCTURAL_FILES = ("manifest.json", "signatures.json", "allowed_signers", "anchors.json", "CHECK.json", "CHECK.txt")
 # the order of keys in a merged claims.jsonl row (SPEC.md 4b): the auditor's row with the witness's decision in the 0.3 places
 MERGE_ORDER = ["id", "text", "location", "kind", "checkable", "verdict", "confidence", "proofs", "counter", "located", "consulted",
                "searched", "note", "history", "graded_by", "graded_at", "witness", "evidence_missing", "carried_from", "on_request",
@@ -189,7 +194,10 @@ class Report:
 
 
 def load_jsonl(p):
-    return [json.loads(l) for l in pathlib.Path(p).read_text(encoding="utf-8").splitlines() if l.strip()]
+    """JSON lines, split on "\\n" ONLY (a trailing "\\r" is stripped, so a CRLF file still reads; empty and whitespace lines skipped).
+    Never str.splitlines(): it also cuts a line at U+2028, U+2029, U+0085, \\v, \\f and \\x1c to \\x1e, which are valid inside a JSON
+    string and which dump_jsonl (ensure_ascii=False) writes as is, so a claim text holding one was cut in two on read (13 Nov 2026)."""
+    return [json.loads(l.rstrip("\r")) for l in pathlib.Path(p).read_text(encoding="utf-8").split("\n") if l.strip()]
 
 
 def signed_line(role, file, h, over=None):
@@ -270,7 +278,12 @@ def main(argv):
         R.add("K1", "FAIL", f"manifest.json unreadable: {e}")
         print(R.text())
         return 1
-    missing = [k for k in ("format", "subject", "taken_at", "pages", "sources", "grading", "counts", "score", "claims_sha256") if k not in M]
+    # 0.6, the pre-witness stage (12 Nov 2026, SPEC 14): grading.kind "pre-witness" declares the auditor's part alone, no primary
+    # witness named yet: no claims.jsonl, no score, no claims_sha256, no grading.grader or grading.model; witnesses may be listed, none
+    # primary. The declaration is required: an undeclared folder missing those fields fails K1 as before.
+    pre = isinstance(M.get("grading"), dict) and M["grading"].get("kind") == "pre-witness"
+    top_fields = ("format", "subject", "taken_at", "pages", "sources", "grading", "counts") if pre else ("format", "subject", "taken_at", "pages", "sources", "grading", "counts", "score", "claims_sha256")
+    missing = [k for k in top_fields if k not in M]
     if M.get("format") not in FORMATS:
         missing.append(f"format={M.get('format')!r} unknown")
     pages = M.get("pages") or []
@@ -281,11 +294,29 @@ def main(argv):
             if k not in pg:
                 missing.append(f"pages[{i}].{k}")
     g = M.get("grading", {})
-    for k in ("kind", "grader", "model", "profile"):
+    for k in (("kind", "profile") if pre else ("kind", "grader", "model", "profile")):
         if k not in g:
             missing.append(f"grading.{k}")
     if g.get("profile") not in PROFILES:
         missing.append(f"grading.profile={g.get('profile')!r} not in {sorted(PROFILES)}")
+    pre_bad = []  # pre-witness (SPEC 14): what the stage forbids, said as such
+    if pre:
+        if M.get("format") != "claims-snapshot/0.6":
+            pre_bad.append(f"format {M.get('format')!r}: the stage exists from claims-snapshot/0.6")
+        for k in ("score", "claims_sha256"):
+            if k in M:
+                pre_bad.append(f"carries {k}: the score comes with the primary witness")
+        for k in ("grader", "model"):
+            if k in g:
+                pre_bad.append(f"carries grading.{k}: they name the primary witness")
+        if (snap / "claims.jsonl").exists():
+            pre_bad.append("holds claims.jsonl: the merge comes with the primary witness")
+        if not (snap / "audit.jsonl").exists():
+            pre_bad.append("has no audit.jsonl: nothing is published")
+        if not isinstance(g.get("witnesses"), list):
+            pre_bad.append("grading.witnesses must be a list (empty before the first witness)")
+        elif any(isinstance(w, dict) and w.get("primary") for w in g["witnesses"]):
+            pre_bad.append("marks a witness primary: naming the primary ends the stage (grading.kind self-audit | split, claims.jsonl, score)")
     tr_bad = []  # test-run (SPEC 13): problems that are not missing fields, said as such
     if g.get("profile") == "test-run":
         # 0.5, the test-run profile (SPEC 13): the subject's fields, the evidence locator, the times
@@ -339,29 +370,66 @@ def main(argv):
         for k in ("run", "size", "sealed_sha256", "sealed_at", "first_gate", "final"):
             if k not in gate:
                 missing.append(f"grading.gates[{i}].{k}")
-    k1_text = "manifest fields" + (": missing " + ", ".join(missing) if missing else (" present" if tr_bad else f" present, format {M.get('format')}, profile {g.get('profile')}, {len(g.get('gates', []) or [])} holdout gate(s) recorded"))
+    k1_text = "manifest fields" + (": missing " + ", ".join(missing) if missing else (" present" if tr_bad or pre_bad else f" present, format {M.get('format')}, profile {g.get('profile')}, {len(g.get('gates', []) or [])} holdout gate(s) recorded"))
     if tr_bad:
         k1_text += "; test-run subject or locator: " + ", ".join(tr_bad)
-    R.add("K1", "FAIL" if missing or tr_bad else "PASS", k1_text)
-    if missing or tr_bad:
+    if pre_bad:
+        k1_text += "; pre-witness folder " + ", ".join(pre_bad)
+    elif pre and not missing:
+        k1_text += "; pre-witness: the auditor's part alone, no primary witness named yet"
+    R.add("K1", "FAIL" if missing or tr_bad or pre_bad else "PASS", k1_text)
+    if missing or tr_bad or pre_bad:
         print(R.text())
         return 1
 
-    # K2 files and hashes
+    # K2 files and hashes: every content file the manifest names, wherever it names it, each once (13 Nov 2026, NEXT-REVISION 20 and 22):
+    # pages, sources, claims.jsonl (not pre-witness), the auditor part through grading.auditor.sha256 (0.4 and later), every witness
+    # file through its grading.witnesses entry, and `files` in both shapes, a list of {file, sha256} (the examples, add_witness.py) or
+    # an object file -> sha256 (the kit's writer). A file named twice with one hash counts once; two different hashes is a FAIL detail.
+    # A `files` entry naming a STRUCTURAL file is refused and its hash is not checked: signatures.json and allowed_signers grow with
+    # every signature, anchors.json with every anchor, and the manifest's own signature lands in signatures.json after the manifest
+    # is hashed, so such a hash is stale the moment the folder is signed or witnessed.
     bad = []
     files = [(pg["file"], pg["sha256"]) for pg in pages] + [(s["file"], s["sha256"]) for s in M["sources"] if s.get("file")]
-    files.append(("claims.jsonl", M["claims_sha256"]))
-    if isinstance(M.get("files"), list):  # 0.6: files listed beside the above (service.json, split.jsonl), each with its sha256
-        files += [(e_["file"], e_.get("sha256")) for e_ in M["files"] if isinstance(e_, dict) and e_.get("file")]
+    if not pre:
+        files.append(("claims.jsonl", M["claims_sha256"]))
+    au_ = g.get("auditor") if isinstance(g.get("auditor"), dict) else {}
+    if au_.get("file") and au_.get("sha256"):
+        files.append((au_["file"], au_["sha256"]))
+    for w_ in (g.get("witnesses") or []) if isinstance(g.get("witnesses"), list) else []:
+        if isinstance(w_, dict) and w_.get("file") and w_.get("sha256"):
+            files.append((w_["file"], w_["sha256"]))
+    fl_ = M.get("files")
+    if isinstance(fl_, list):
+        listed = [(e_["file"], e_.get("sha256")) for e_ in fl_ if isinstance(e_, dict) and e_.get("file")]
+    elif isinstance(fl_, dict):
+        listed = [(f_, h_) for f_, h_ in fl_.items() if isinstance(f_, str) and f_]
+    else:
+        listed = []
+        if fl_ is not None:  # present but of a shape nobody writes: said by name, not skipped
+            bad.append("files: neither a list of {file, sha256} nor an object file -> sha256")
+    for f, h in listed:
+        if f in STRUCTURAL_FILES:
+            bad.append(f"{f}: a structural file named by hash in files (NEXT-REVISION 22: signatures.json and allowed_signers grow with every "
+                       "signature, anchors.json with every anchor, the manifest's own signature lands in signatures.json after the manifest is hashed)")
+        else:
+            files.append((f, h))
+    named = {}
     for f, h in files:
+        named.setdefault(f, [])
+        if h and h not in named[f]:
+            named[f].append(h)
+    for f, hs in named.items():
         p = snap / f
-        if not p.exists():
+        if len(hs) > 1:
+            bad.append(f"{f}: named with two different sha256")
+        elif not p.exists():
             bad.append(f"{f}: missing")
-        elif h and sha256(p) != h:
-            bad.append(f"{f}: sha256 {sha256(p)[:12]}… differs from manifest {h[:12]}…")
-    R.add("K2", "FAIL" if bad else "PASS", f"{len(files)} files named, hashes " + ("differ" if bad else "match"), bad)
+        elif hs and sha256(p) != hs[0]:
+            bad.append(f"{f}: sha256 {sha256(p)[:12]}… differs from manifest {hs[0][:12]}…")
+    R.add("K2", "FAIL" if bad else "PASS", f"{len(named)} files named, hashes " + ("differ" if bad else "match"), bad)
 
-    claims = load_jsonl(snap / "claims.jsonl")
+    claims = load_jsonl(snap / "audit.jsonl") if pre else load_jsonl(snap / "claims.jsonl")  # pre-witness: the auditor's rows stand in, no verdicts
     page_files = [pg["file"] for pg in pages]
     page_text = {pg["file"]: page_text_of(pg["file"], (snap / pg["file"]).read_text(encoding="utf-8", errors="replace")) for pg in pages if (snap / pg["file"]).exists()}
     pages_norm = norm(" ".join(page_text.values()))
@@ -375,15 +443,15 @@ def main(argv):
     if dup:
         bad.append("duplicate ids: " + ", ".join(sorted(dup)))
     for c in claims:
-        if c.get("verdict") not in VERDICTS:
+        if not pre and c.get("verdict") not in VERDICTS:
             bad.append(f"{c.get('id')}: verdict {c.get('verdict')!r}")
         if c.get("kind") not in KINDS:
             bad.append(f"{c.get('id')}: kind {c.get('kind')!r}")
         if c.get("verdict") == "CONTRADICTED" and c.get("confidence") not in ("high", "low"):
             bad.append(f"{c.get('id')}: CONTRADICTED without confidence")
-        if c.get("graded_by") not in GRADED_BY:
+        if not pre and c.get("graded_by") not in GRADED_BY:
             bad.append(f"{c.get('id')}: graded_by {c.get('graded_by')!r}")
-        if not c.get("graded_at"):
+        if not pre and not c.get("graded_at"):
             bad.append(f"{c.get('id')}: no graded_at")
         if not isinstance(c.get("checkable", True), bool):
             bad.append(f"{c.get('id')}: checkable not a boolean")
@@ -395,7 +463,7 @@ def main(argv):
                 bad.append(f"{c.get('id')}: EVIDENCE AVAILABLE ON REQUEST without on_request.holder and on_request.sha256")
         if c.get("verdict") == "WITHDRAWN" and not (c.get("history") or c.get("note")):
             bad.append(f"{c.get('id')}: WITHDRAWN without a history or note saying so")
-    R.add("K3", "FAIL" if bad else "PASS", f"{len(claims)} claims; " + (f"{len(bad)} id, vocabulary or provenance violation(s)" if bad else "ids unique; verdicts, kinds, confidence, graded_by and graded_at in order"), bad)
+    R.add("K3", "FAIL" if bad else "PASS", ("pre-witness: " if pre else "") + f"{len(claims)} claims; " + (f"{len(bad)} id, vocabulary or provenance violation(s)" if bad else ("ids unique; kinds and texts in order (no verdicts yet)" if pre else "ids unique; verdicts, kinds, confidence, graded_by and graded_at in order")), bad)
 
     # K4 claim text on the pages
     bad = []
@@ -467,9 +535,9 @@ def main(argv):
         f = s_.get("file")
         if f and (snap / f).exists() and sha256(snap / f) == s_.get("record_sha256"):
             seqs = set()
-            for l in (snap / f).read_text(encoding="utf-8", errors="replace").splitlines():
+            for l in (snap / f).read_text(encoding="utf-8", errors="replace").split("\n"):  # JSON lines: "\n" only, as load_jsonl
                 try:
-                    e = json.loads(l)
+                    e = json.loads(l.rstrip("\r"))
                 except Exception:
                     continue
                 if isinstance(e, dict) and isinstance(e.get("sequence"), int):
@@ -527,8 +595,17 @@ def main(argv):
         return isinstance(c.get("evidence"), list) and not c.get("proofs") and not c.get("counter")
 
     k5_fail, k5_warn, k6_fail, k6_warn, k7_fail, page_only, bad_quotes, existence, published_misses = [], [], [], [], [], [], [], [], []
+    pre_tally = {"verified": 0, "untestable": 0, "failed": 0}  # pre-witness: every pointer or candidate quote of the auditor's rows, tested without a verdict
     for c in claims:
         v = c.get("verdict")
+        if pre:
+            if agent_shape(c):
+                for i, p in enumerate(c["evidence"]):
+                    pre_tally[test_pointer(c, p, i)] += 1
+            else:
+                for p in c.get("proofs", []) + c.get("counter", []):
+                    pre_tally[test_quote(c, p, "candidate")] += 1
+            continue
         if agent_shape(c) and v in ("EVIDENCED", "CONTRADICTED"):
             # EVIDENCED and CONTRADICTED both rest on the agent's pointers (SPEC 4b, Indie shape): at least one must hold
             rs = [test_pointer(c, p, i) for i, p in enumerate(c["evidence"])]
@@ -583,7 +660,16 @@ def main(argv):
                     if t is not None and (p.get("quote") is None or (norm(p.get("quote", "")) and norm(p["quote"]) in t)):
                         k7_fail.append(f"{c['id']}: {v} but a source proof verifies: {f}")
     n_e = sum(1 for c in claims if c.get("verdict") == "EVIDENCED")
-    R.add("K5", "FAIL" if (k5_fail or published_misses) else ("WARN" if (k5_warn or bad_quotes or (page_only and pages_prove)) else "PASS"),
+    if pre:
+        # pre-witness: no verdict to test; the auditor's pointers and candidate quotes are tested from the folder and reported.
+        # A quote missing from a copy published in this very snapshot still fails: the folder must carry what it quotes.
+        n_p = sum(pre_tally.values())
+        R.add("K5", "FAIL" if published_misses else ("WARN" if (pre_tally["failed"] or bad_quotes) else "PASS"),
+              f"pre-witness: {len(claims)} auditor rows, {n_p} evidence pointer(s) or candidate quote(s): {pre_tally['verified']} hold in the folder, {pre_tally['untestable']} not testable from it, {pre_tally['failed']} do not hold; no verdicts to test yet"
+              + (f"; {len(published_misses)} quote(s) missing from a copy published in this snapshot (a published copy must carry every quote taken from it)" if published_misses else ""),
+              published_misses + (bad_quotes if len(bad_quotes) <= 10 else bad_quotes[:10] + [f"... and {len(bad_quotes) - 10} more quotes not found"]))
+    else:
+      R.add("K5", "FAIL" if (k5_fail or published_misses) else ("WARN" if (k5_warn or bad_quotes or (page_only and pages_prove)) else "PASS"),
           f"{n_e} EVIDENCED rows: {n_e - len(k5_fail) - len(k5_warn)} with a verified proof, {len(k5_warn)} untestable without copies, {len(k5_fail)} with none"
           + (f"; {len(published_misses)} quote(s) missing from a copy published in this snapshot (a published copy must carry every quote taken from it)" if published_misses else "")
           + ((f"; {len(page_only)} rows verified only by quotes from the publisher's own pages (their other proofs, if any, are untestable offline; the grader judged the surface itself the artefact): " + ", ".join(page_only[:12]) + ("…" if len(page_only) > 12 else "")) if page_only and pages_prove else
@@ -593,21 +679,36 @@ def main(argv):
           k5_fail + published_misses + (k5_warn if len(k5_warn) <= 10 else [f"{len(k5_warn)} rows untestable without copies (pass --copies or --fetch)"])
           + (bad_quotes if len(bad_quotes) <= 10 else bad_quotes[:10] + [f"... and {len(bad_quotes) - 10} more quotes not found"]))
     n_c = sum(1 for c in claims if c.get("verdict") == "CONTRADICTED")
-    R.add("K6", "FAIL" if k6_fail else ("WARN" if k6_warn else "PASS"), f"{n_c} CONTRADICTED rows: {n_c - len(k6_fail) - len(k6_warn)} with a verified counter quote", k6_fail + k6_warn)
-    R.add("K7", "FAIL" if k7_fail else "PASS", "no NO EVIDENCE PUBLISHED, ON REQUEST or WITHDRAWN row carries a verified source proof" if not k7_fail else f"{len(k7_fail)} rows", k7_fail)
+    if pre:
+        R.add("K6", "PASS", "pre-witness: no verdicts yet, no counter quote to test")
+        R.add("K7", "PASS", "pre-witness: no verdicts yet, nothing to contradict")
+    else:
+        R.add("K6", "FAIL" if k6_fail else ("WARN" if k6_warn else "PASS"), f"{n_c} CONTRADICTED rows: {n_c - len(k6_fail) - len(k6_warn)} with a verified counter quote", k6_fail + k6_warn)
+        R.add("K7", "FAIL" if k7_fail else "PASS", "no NO EVIDENCE PUBLISHED, ON REQUEST or WITHDRAWN row carries a verified source proof" if not k7_fail else f"{len(k7_fail)} rows", k7_fail)
 
     # K8 counts and score, recomputed by evidence-score/1
-    s = evidence_score(claims)
-    bad = []
-    for k in ("claims", "checkable", "evidenced", "on_request", "no_evidence", "contradicted", "contradicted_high", "withdrawn", "author_read"):
-        if M["counts"].get(k) != s.get(k):
-            bad.append(f"counts.{k}: manifest {M['counts'].get(k)} vs {s.get(k)}")
-    for k in ("coverage_pct", "contradiction_pct", "band"):
-        if M["score"].get(k) != s.get(k):
-            bad.append(f"score.{k}: manifest {M['score'].get(k)} vs {s.get(k)}")
-    if M["score"].get("formula") != "evidence-score/1":
-        bad.append(f"score.formula {M['score'].get('formula')!r}: this checker knows evidence-score/1")
-    R.add("K8", "FAIL" if bad else "PASS", f"{s['evidenced']} evidenced, {s['on_request']} on request, {s['no_evidence']} no evidence, {s['contradicted']} contradicted ({s['contradicted_high']} high) of {s['checkable']} checkable: {s['coverage_pct']}% backed, {s['contradiction_pct']}% contradicted, band {s['band']} (recomputed)" + ("" if not bad else "; manifest differs"), bad)
+    if pre:
+        # pre-witness: no score yet (it comes with the primary witness); counts.claims and counts.checkable are recomputed from
+        # the auditor's rows the way evidence-score/1 counts them (checkable true or absent, kind not promise)
+        n_chk = sum(1 for c in claims if c.get("checkable", True) and c.get("kind") != "promise")
+        s = {"author_read": 0}
+        bad = []
+        for k, v_ in (("claims", len(claims)), ("checkable", n_chk)):
+            if M["counts"].get(k) != v_:
+                bad.append(f"counts.{k}: manifest {M['counts'].get(k)} vs {v_} from audit.jsonl")
+        R.add("K8", "FAIL" if bad else "WARN", f"pre-witness: {len(claims)} claims, {n_chk} checkable" + (" (counts agree)" if not bad else "; manifest differs") + "; no score yet: it comes with the primary witness", bad)
+    else:
+        s = evidence_score(claims)
+        bad = []
+        for k in ("claims", "checkable", "evidenced", "on_request", "no_evidence", "contradicted", "contradicted_high", "withdrawn", "author_read"):
+            if M["counts"].get(k) != s.get(k):
+                bad.append(f"counts.{k}: manifest {M['counts'].get(k)} vs {s.get(k)}")
+        for k in ("coverage_pct", "contradiction_pct", "band"):
+            if M["score"].get(k) != s.get(k):
+                bad.append(f"score.{k}: manifest {M['score'].get(k)} vs {s.get(k)}")
+        if M["score"].get("formula") != "evidence-score/1":
+            bad.append(f"score.formula {M['score'].get('formula')!r}: this checker knows evidence-score/1")
+        R.add("K8", "FAIL" if bad else "PASS", f"{s['evidenced']} evidenced, {s['on_request']} on request, {s['no_evidence']} no evidence, {s['contradicted']} contradicted ({s['contradicted_high']} high) of {s['checkable']} checkable: {s['coverage_pct']}% backed, {s['contradiction_pct']}% contradicted, band {s['band']} (recomputed)" + ("" if not bad else "; manifest differs"), bad)
 
     # K9 secrets
     bad = []
@@ -681,10 +782,11 @@ def main(argv):
                 bad.append(f"grading.auditor: file {au.get('file')!r} / sha256 {str(au.get('sha256'))[:12]}… does not match audit.jsonl {audit_h[:12]}…")
             if not au.get("name"):
                 bad.append("grading.auditor.name missing")
-        if not witnesses:
-            bad.append("grading.witnesses: none listed")
-        if sum(1 for w in witnesses if w.get("primary")) != 1:
-            bad.append(f"grading.witnesses: {sum(1 for w in witnesses if w.get('primary'))} marked primary, need exactly 1")
+        if not pre:  # pre-witness (0.6, SPEC 14): no witness yet, or witnesses with none primary; K1 refused a primary mark
+            if not witnesses:
+                bad.append("grading.witnesses: none listed")
+            if sum(1 for w in witnesses if w.get("primary")) != 1:
+                bad.append(f"grading.witnesses: {sum(1 for w in witnesses if w.get('primary'))} marked primary, need exactly 1")
         by_audit_id = {a.get("id"): a for a in audit}
         for w in witnesses:
             name, wf = w.get("name"), w.get("file")
@@ -813,15 +915,20 @@ def main(argv):
 
         # K12 the merge and the per-witness scores
         bad, info, k12_warn = [], [], []
-        if primary and audit:
-            merged = merge_rows(audit, primary[1], primary[0])
-            published = load_jsonl(snap / "claims.jsonl")  # as published: K5 has set proofs[].verified on the rows in memory
-            if merged != published:
-                diff = [m.get("id") for m, c in zip(merged, published) if m != c]
-                if len(merged) != len(published):
-                    diff.append(f"{len(merged)} merged rows vs {len(published)} in claims.jsonl")
-                bad.append("claims.jsonl is not the merge of audit.jsonl and the primary witness: " + ", ".join(str(d) for d in diff[:10]) + ("…" if len(diff) > 10 else ""))
-            p_verdicts = {r["id"]: r.get("verdict") for r in primary[1] if r.get("verdict") != "MISSING CLAIM"}
+        if (primary or pre) and audit:
+            if primary:
+                merged = merge_rows(audit, primary[1], primary[0])
+                published = load_jsonl(snap / "claims.jsonl")  # as published: K5 has set proofs[].verified on the rows in memory
+                if merged != published:
+                    diff = [m.get("id") for m, c in zip(merged, published) if m != c]
+                    if len(merged) != len(published):
+                        diff.append(f"{len(merged)} merged rows vs {len(published)} in claims.jsonl")
+                    bad.append("claims.jsonl is not the merge of audit.jsonl and the primary witness: " + ", ".join(str(d) for d in diff[:10]) + ("…" if len(diff) > 10 else ""))
+                p_verdicts = {r["id"]: r.get("verdict") for r in primary[1] if r.get("verdict") != "MISSING CLAIM"}
+            else:
+                # pre-witness (0.6, SPEC 14): no primary named yet, so no merge and no score; each listed witness is still recomputed
+                k12_warn.append(f"pre-witness: no primary witness named yet, so no claims.jsonl and no score; {len([w for w in witnesses if w.get('name') in w_rows_by_name])} witness file(s) recomputed below")
+                p_verdicts = {}
             for w in witnesses:
                 rows = w_rows_by_name.get(w.get("name"))
                 if rows is None:
@@ -847,7 +954,7 @@ def main(argv):
                 if not w.get("primary"):
                     both = [r for r in rows if r.get("id") in p_verdicts and r.get("verdict") != "UNDECIDED"]  # the agreement counts the rows the witness decided
                     agree = sum(1 for r in both if r.get("verdict") == p_verdicts[r["id"]])
-                    info.append(f"witness {w.get('name')!r}: {sc.get('coverage_pct')}% / {sc.get('contradiction_pct')}% band {sc.get('band')}, {n_missing} missing-claim row(s); agrees with the primary on {agree} of {len(both)} claims both decided")
+                    info.append(f"witness {w.get('name')!r}: {sc.get('coverage_pct')}% / {sc.get('contradiction_pct')}% band {sc.get('band')}, {n_missing} missing-claim row(s)" + ("" if pre else f"; agrees with the primary on {agree} of {len(both)} claims both decided"))
                 else:
                     info.append(f"primary witness {w.get('name')!r}: {sc.get('coverage_pct')}% / {sc.get('contradiction_pct')}% band {sc.get('band')}, {n_missing} missing-claim row(s)")
             # 0.6: one line per claim on which witnesses of kind model split (UNDECIDED is a side); no majority rule, no verdict change
@@ -863,7 +970,7 @@ def main(argv):
                         info.append(f"split on {a_.get('id')}: " + ", ".join(f"{n_} {v_}" for n_, v_ in sides))
         else:
             bad.append("no primary witness or no audit rows to merge")
-        R.add("K12", "FAIL" if bad else ("WARN" if k12_warn else "PASS"), ("claims.jsonl equals the merge; per-witness scores and missing-claim counts recomputed" if not bad else f"{len(bad)} difference(s)"), bad + k12_warn + info)
+        R.add("K12", "FAIL" if bad else ("WARN" if k12_warn else "PASS"), (("pre-witness: no merge yet; per-witness scores and missing-claim counts recomputed" if pre else "claims.jsonl equals the merge; per-witness scores and missing-claim counts recomputed") if not bad else f"{len(bad)} difference(s)"), bad + k12_warn + info)
 
         # K13 signatures over the prescribed line, verified with ssh-keygen when it is on PATH
         parts = {"audit.jsonl": "auditor"} | {w.get("file"): "witness" for w in witnesses if w.get("file")} | {"manifest.json": "manifest"}  # manifest: 0.6, optional
@@ -968,9 +1075,9 @@ def main(argv):
             entries = []
             if lst_p is not None:
                 try:
-                    for ln in lst_p.read_text(encoding="utf-8").splitlines():
+                    for ln in lst_p.read_text(encoding="utf-8").split("\n"):  # JSON lines: "\n" only, as load_jsonl
                         if ln.strip():
-                            e_ = json.loads(ln)
+                            e_ = json.loads(ln.rstrip("\r"))
                             if not isinstance(e_, dict):
                                 raise ValueError("a line is not an object")
                             entries.append(e_)

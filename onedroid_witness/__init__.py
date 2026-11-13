@@ -9,4 +9,4 @@ Built by trilix-onedroid-business for mission M-20261112-EVIDENCE-STEP1 (Michal'
 gates its own build: the gate is the claims session's, from a fresh clone, with withheld audit parts (draft v6 section 9).
 """
 
-__version__ = "0.1.2-dev"  # 0.1.1: the S1 gate's eleven defects fixed; 0.1.2: the re-gate's N1 to N3 (the claims session, 13 Nov 2026)
+__version__ = "0.1.3-dev"  # 0.1.1: the S1 gate's eleven defects fixed; 0.1.2: the re-gate's N1 to N3; 0.1.3: the second re-gate's P1 (one try around the whole request path, manifest shape checked), N1 (publisher-surfaces out of scope), check.py repinned to the K2 cut (13 Nov 2026)

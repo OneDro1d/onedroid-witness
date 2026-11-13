@@ -66,8 +66,11 @@ def make_handler(cfg):
                 return self._json(429, {"error": "rate limit"})
             path = self.path.split("?")[0]
             if path == "/healthz":
+                served = list(cfg.get("profiles_served", request_mod.PROFILES_SERVED))
                 return self._json(200, {"ok": True, "service": "onedroid-witness", "version": cfg["version"], "mode": "private" if cfg["private_mode"] else "public",
                                         "daily_cap_remaining_usd": round(cfg["ledger"].remaining(), 4), "check_py_sha256": CHECK_PY_SHA256,
+                                        "profiles_served": served,
+                                        "profiles_not_served": {p: request_mod.PROFILES_NOT_SERVED_WHY.get(p, "not in this service's configuration") for p in request_mod.PROFILES if p not in served},
                                         "prompt_sha256": {p: prompts.chat_prompt_sha256(p) for p in prompts.PROFILES},
                                         "questions_sha256": {p: prompts.decision_questions_sha256(p) for p in prompts.PROFILES}})
             if path == "/models":
@@ -127,29 +130,49 @@ def make_handler(cfg):
                         return self._json(400, {"error": f"{m} is not one of the service's models (GET /models)"})
             except RouterRefused as e:
                 return self._json(400, {"error": str(e)})
-            # the parts are checked in an incoming folder; a refused request is discarded with its bytes and gets no job id (gate D11)
+            # the parts are checked in an incoming folder; a refused request is discarded with its bytes and gets no job id (gate D11).
+            # Second re-gate P1 (the claims session, 13 Nov 2026): EVERYTHING after incoming() runs inside one try, and the finally
+            # discards the folder unless the request became a job, so no path, whatever raises and wherever, can answer nothing and
+            # leave bytes behind (64 MB bodies at 30 a minute against a 5 Gi volume).
+            # The answer is computed first and sent LAST, after the finally has discarded the folder: a caller that reads "nothing was
+            # kept" must find nothing kept.
             d = cfg["store"].incoming()
+            kept = {"jid": None}
+            try:
+                status, body = self._accept(d, parts, params, models, known, kept)
+            except Exception as e:  # P1's backstop: an exception the checks did not foresee still gets an answer; its text is not echoed
+                if kept["jid"] is None:
+                    status, body = 500, {"error": f"the request could not be processed ({type(e).__name__}); nothing was kept"}
+                else:
+                    status, body = 500, {"error": f"the job was kept but could not be queued ({type(e).__name__})", "job_id": kept["jid"], "status_url": f"/witness/{kept['jid']}"}
+            finally:
+                if kept["jid"] is None:
+                    cfg["store"].discard(d)
+            return self._json(status, body)
+
+        def _accept(self, d, parts, params, models, known, kept):
+            """Everything between incoming() and the answer: the parts written, checked (Request, the published copy), rendered for the
+            estimate, the budget applied, then the folder adopted as a job. Returns (status, body); sets kept["jid"] once the folder is a
+            job, so the caller's finally knows what to discard."""
             for name, data in parts.items():
                 (d / name).write_bytes(data)
             try:
-                req = request_mod.Request(d, private_mode=cfg["private_mode"])
+                req = request_mod.Request(d, private_mode=cfg["private_mode"], profiles_served=cfg.get("profiles_served", request_mod.PROFILES_SERVED))
                 if not cfg["private_mode"]:
                     request_mod.check_published(req, params.get("published_url"), cfg.get("catalogue_lookup"))
             except request_mod.Refused as e:
-                cfg["store"].discard(d)
-                return self._json(422, {"error": str(e)})
+                return 422, {"error": str(e)}
             except Exception as e:  # re-gate N3: a part that does not read answers 422 and leaves no bytes, whatever raised
-                cfg["store"].discard(d)
-                return self._json(422, {"error": f"the parts do not read ({type(e).__name__}); nothing was kept"})
+                return 422, {"error": f"the parts do not read ({type(e).__name__}); nothing was kept"}
             models_cfg = [known[m] for m in models]
-            by_url = __import__("onedroid_witness.render", fromlist=["render"]).source_index(req.manifest)
-            rendered_chars = sum(len(__import__("onedroid_witness.render", fromlist=["render"]).render(r, req.page, by_url)) for r in req.audit)
+            render_mod = __import__("onedroid_witness.render", fromlist=["render"])
+            by_url = render_mod.source_index(req.manifest)
+            rendered_chars = sum(len(render_mod.render(r, req.page, by_url)) for r in req.audit)
             per_model, total = answer_mod.estimate(models_cfg, cfg["prices"], rendered_chars, len(req.audit), len(prompts.chat_prompt(req.profile)))
             try:
                 max_cost = float(params["max_cost_usd"]) if params.get("max_cost_usd") not in (None, "") else None
             except ValueError:
-                cfg["store"].discard(d)
-                return self._json(400, {"error": "max_cost_usd must be a number"})
+                return 400, {"error": "max_cost_usd must be a number"}
             remaining = cfg["ledger"].remaining()
             budget = min(remaining, max_cost if max_cost is not None else float("inf"))
             # a partial run (3b.1, gate D5): the models that fit the bound in the order asked run, the rest are named as skipped with the
@@ -163,16 +186,16 @@ def make_handler(cfg):
                 else:
                     skipped.append({"model": m, "reason": "estimate", "detail": f"estimate {e_} would cross the bound {round(budget, 5)} with {round(running, 5)} already planned"})
             if not planned:
-                cfg["store"].discard(d)
-                return self._json(422, {"error": "the estimate alone crosses max_cost_usd or the day's remaining cap for every model asked", "estimate_usd": per_model, "estimate_total_usd": total,
-                                        "max_cost_usd": max_cost, "daily_cap_remaining_usd": round(remaining, 4)})
+                return 422, {"error": "the estimate alone crosses max_cost_usd or the day's remaining cap for every model asked", "estimate_usd": per_model, "estimate_total_usd": total,
+                             "max_cost_usd": max_cost, "daily_cap_remaining_usd": round(remaining, 4)}
             (d / "params.json").write_text(json.dumps({"models": models, "max_cost_usd": max_cost, "published_url": params.get("published_url")}), encoding="utf-8")
             jid = cfg["store"].adopt(d)
+            kept["jid"] = jid
             cfg["store"].write_status(jid, {"job_id": jid, "state": "queued", "claims": len(req.audit), "profile": req.profile, "models": models, "models_run_planned": planned,
                                             "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total, "max_cost_usd": max_cost})
             cfg["worker"].submit(jid)
-            return self._json(202, {"job_id": jid, "status_url": f"/witness/{jid}", "claims": len(req.audit), "profile": req.profile, "models_run_planned": planned,
-                                    "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total})
+            return 202, {"job_id": jid, "status_url": f"/witness/{jid}", "claims": len(req.audit), "profile": req.profile, "models_run_planned": planned,
+                         "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total}
 
     return Handler
 

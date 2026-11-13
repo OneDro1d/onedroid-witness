@@ -8,7 +8,7 @@ import pathlib
 import subprocess
 import sys
 
-CHECK_PY_SHA256 = "0495931bc60509143bf84a7c95216838382c1e9f81ba52b37e7bff1c495013bf"  # claims-snapshot 0.6, erratum 1 (12 Nov 2026)
+CHECK_PY_SHA256 = "f2edc3f4f99694461af57d3ed8ce4c456d8d42e917487f99196ddca7985bc653"  # claims-snapshot 0.6, the K2 cut of 13 Nov 2026 (K2 complete over both shapes of files, structural files refused, JSON lines split on \n only); erratum 1 was 0495931b…
 
 
 def sha256(path):

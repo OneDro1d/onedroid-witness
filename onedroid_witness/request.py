@@ -29,6 +29,13 @@ def sha256_bytes(b):
 
 
 PROFILES = ("cited-sources", "publisher-surfaces", "agent-work", "test-run")  # check.py PROFILES; the prompts module names the same four
+# The profiles the SERVICE runs model witnesses on (second re-gate N1, 13 Nov 2026): publisher-surfaces is out until the format carries a
+# candidate kind (restatement | artefact) from the auditor and a gate passes on it (NEXT-REVISION 23). With the publisher relation rendered
+# and named in the prompt, chat models still answered EVIDENCED on 3 of 6 restatements on the publisher's own surface, and no row rule can
+# tell a restatement from an artefact (a terms page is own-surface AND the artefact). A configuration may widen this list; the default is here.
+PROFILES_SERVED = ("cited-sources", "agent-work", "test-run")
+PROFILES_NOT_SERVED_WHY = {"publisher-surfaces": "model witnesses do not apply the restatement rule reliably; out of scope until the auditor marks each candidate "
+                                                 "restatement or artefact (NEXT-REVISION 23) and a gate passes on it"}
 
 # check.py's K9 patterns (the format's own rule): a credential-shaped string in any part is refused before any model call (gate D10)
 SECRET_PATTERNS = [
@@ -51,6 +58,36 @@ def profile_of(manifest):
     return p
 
 
+def check_manifest_shape(manifest):
+    """Second re-gate P1 (the claims session, 13 Nov 2026): the parts of the manifest the service reads after the request checks
+    (source_index, render, the estimate, the worker's add_witness and check.py) have the shapes SPEC.md gives them, or the request is
+    refused here, by name, before anything runs on them. Absent keys stay allowed where the renderer tolerates their absence; a key that
+    is present has to have its shape (null is not absent: `sources: null` would be iterated)."""
+    def list_of_objects(key, value):
+        if not isinstance(value, list):
+            raise Refused(f"manifest {key} is not a list")
+        for i, entry in enumerate(value):
+            if not isinstance(entry, dict):
+                raise Refused(f"manifest {key}[{i}] is not an object")
+    if "sources" in manifest:
+        list_of_objects("sources", manifest["sources"])
+        for i, s in enumerate(manifest["sources"]):
+            if s.get("url") is not None and not isinstance(s.get("url"), str):
+                raise Refused(f"manifest sources[{i}].url is not a string")
+    if "pages" in manifest:
+        list_of_objects("pages", manifest["pages"])
+    if "subject" in manifest and not isinstance(manifest["subject"], dict):
+        raise Refused("manifest subject is not an object")
+    if "grading" in manifest:
+        g = manifest["grading"]
+        if not isinstance(g, dict):
+            raise Refused("manifest grading is not an object")
+        if "witnesses" in g:
+            list_of_objects("grading.witnesses", g["witnesses"])
+        if "auditor" in g and not isinstance(g["auditor"], dict):
+            raise Refused("manifest grading.auditor is not an object")
+
+
 def refuse_credentials(name, text):
     """A credential-shaped string in a part is refused by the part's name and the pattern's shape; the value is never repeated."""
     for pat in SECRET_PATTERNS:
@@ -61,7 +98,9 @@ def refuse_credentials(name, text):
 class Request:
     """A loaded, checked request. `root` is the folder holding the parts (a job's request/ folder or a snapshot folder)."""
 
-    def __init__(self, root, private_mode=False, verify_signature=None):
+    def __init__(self, root, private_mode=False, verify_signature=None, profiles_served=None):
+        """profiles_served: the profiles this caller runs model witnesses on (the service passes PROFILES_SERVED or its configuration's
+        list); None reads every profile the format has, for the library's own readers."""
         self.root = pathlib.Path(root)
         self.private_mode = private_mode
         self.manifest = self._json("manifest.json")
@@ -73,6 +112,8 @@ class Request:
             text = self.audit_bytes.decode("utf-8")
         except UnicodeDecodeError as e:
             raise Refused(f"audit.jsonl is not UTF-8 (byte {e.start})")
+        if text.startswith("﻿"):  # second re-gate note: said by name rather than as "line 1 is not JSON"; the format's reader takes none
+            raise Refused("audit.jsonl starts with a UTF-8 BOM (bytes EF BB BF); the format's reader takes none: remove it and sign the bytes again")
         self.audit = []
         for n, l in enumerate(text.split("\n"), 1):
             if not l.strip():
@@ -88,6 +129,7 @@ class Request:
             raise Refused("audit.jsonl holds no rows")
         if not isinstance(self.manifest, dict):
             raise Refused("manifest.json is not a JSON object")
+        check_manifest_shape(self.manifest)
         if len(self.audit) > MAX_CLAIMS:
             raise Refused(f"{len(self.audit)} claims exceed the cap of {MAX_CLAIMS} per request; split by surface and merge by claim id")
         ids = [r.get("id") for r in self.audit]
@@ -101,6 +143,9 @@ class Request:
                 if f in r:
                     raise Refused(f"audit.jsonl row {r.get('id')} carries a decision field ({f}); the auditor part carries no verdicts (K11)")
         self.profile = profile_of(self.manifest)
+        if profiles_served is not None and self.profile not in profiles_served:
+            why = PROFILES_NOT_SERVED_WHY.get(self.profile, "not in this service's configuration")
+            raise Refused(f"the {self.profile} profile is not served by this service ({why}); profiles served: {', '.join(profiles_served)}")
         self.page = self._text_optional("page.txt") or ""
         refuse_credentials("audit.jsonl", self.audit_bytes.decode("utf-8", "replace"))
         refuse_credentials("page.txt", self.page)

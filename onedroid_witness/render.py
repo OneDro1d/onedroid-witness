@@ -11,9 +11,10 @@ PUBLISHER = ("publisher-host",)  # the key under which source_index keeps the au
 
 
 def _site(url):
-    """The site of a URL for the publisher relation: the host, lower-cased, a leading www. dropped; None when there is none."""
+    """The site of a URL for the publisher relation: the host, lower-cased, a leading www. and a trailing dot (an absolute DNS name,
+    second re-gate note) dropped; None when there is none."""
     try:
-        host = (urllib.parse.urlsplit(str(url)).hostname or "").lower()
+        host = (urllib.parse.urlsplit(str(url)).hostname or "").lower().rstrip(".")
     except ValueError:
         return None
     return host[4:] if host.startswith("www.") else (host or None)

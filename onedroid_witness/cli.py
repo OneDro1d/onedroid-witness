@@ -2,8 +2,9 @@
 folder out, the same code the service runs); `keys` lists or retires the service's keys.
 
 Configuration (JSON): {"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
-"check_py", "openrouter_key_file" (or the environment variable OPENROUTER_API_KEY), "private_mode", "host", "port"}. The key file is read
-once and never logged.
+"check_py", "openrouter_key_file" (or the environment variable OPENROUTER_API_KEY), "private_mode", "host", "port", "profiles_served"
+(default request.PROFILES_SERVED: cited-sources, agent-work, test-run; publisher-surfaces is out until NEXT-REVISION 23)}. The key file is
+read once and never logged.
 """
 import argparse
 import json
@@ -66,7 +67,8 @@ def cmd_serve(args):
     worker.start()
     from .server import serve
     serve({"store": store, "worker": worker, "models_cfg": cfg["models"], "prices": prices, "ledger": ledger, "keystore": keystore,
-           "private_mode": bool(cfg.get("private_mode")), "version": __version__}, host=cfg.get("host", "0.0.0.0"), port=int(cfg.get("port", 8080)))
+           "private_mode": bool(cfg.get("private_mode")), "version": __version__,
+           "profiles_served": tuple(cfg.get("profiles_served", request.PROFILES_SERVED))}, host=cfg.get("host", "0.0.0.0"), port=int(cfg.get("port", 8080)))
 
 
 def cmd_run(args):
@@ -75,7 +77,7 @@ def cmd_run(args):
     known = {m["id"]: m for m in cfg["models"]}
     ids = args.models.split(",") if args.models else list(known)
     models = [known[i] for i in ids]
-    req = request.Request(args.snapshot, private_mode=True)
+    req = request.Request(args.snapshot, private_mode=True, profiles_served=tuple(cfg.get("profiles_served", request.PROFILES_SERVED)))
     svc = answer.run(req, models, client, keystore, check, args.answer, prices=prices, max_cost_usd=args.max_cost_usd, private_mode=True)
     print(json.dumps({"models_run": svc["models_run"], "models_skipped": svc["models_skipped"], "total_cost_usd": svc["total_cost_usd"], "split_claims": svc["split_claims"],
                       "per_model": {m: {k: v[k] for k in ("agrees_with_primary", "undecided", "cost_usd")} for m, v in svc["per_model"].items()}}, indent=1))
