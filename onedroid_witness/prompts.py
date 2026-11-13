@@ -22,7 +22,10 @@ NO EVIDENCE PUBLISHED.""",
 on the publisher's own surfaces, or in a public register named among the sources, that would be false if the claim were false; a claim
 that is merely restated on another surface is NO EVIDENCE PUBLISHED; CONTRADICTED when two of the publisher's surfaces disagree, or a
 public register disagrees with a registration claim. A quote from one of the audited pages counts as a proof only when that page is the
-artefact (a terms page for a liability cap, a changelog for a dated change), never when it merely restates the claim.""",
+artefact (a terms page for a liability cap, a changelog for a dated change), never when it merely restates the claim. Each source is
+marked either "the publisher's own surface" (same site as the audited page) or "another site": a quote on the publisher's own surface
+that only repeats the claim is a restatement, NO EVIDENCE PUBLISHED, however many of the publisher's pages say it; a public register
+or an independent record on another site that would be false if the claim were false is evidence.""",
     "agent-work": """Verdict rule, agent-work profile (an agent's account of its own work): EVIDENCED if the pointed-to work (a file at a commit, a test
 output, a recorded tool result, as rendered) shows what the claim says; CONTRADICTED if it shows the opposite; else NO EVIDENCE
 PUBLISHED. The agent's own sentence about its work is never evidence for itself.""",
@@ -74,7 +77,7 @@ def chat_prompt_sha256(profile):
 def wrap_data(rendered):
     """The rendered claim as delimited data (section 6). No data line may equal the fence: render() keeps every caller item on one line and
     prefixes fence-like lines; this is the second guard on the same rule (gate D4)."""
-    body = "\n".join(("| " + l) if l == DATA_FENCE else l for l in rendered.split("\n"))
+    body = "\n".join(("| " + l) if l == DATA_FENCE else l for l in rendered.splitlines())  # every separator a line end (re-gate N2)
     return DATA_FENCE + "\n" + body + "\n" + DATA_FENCE
 
 

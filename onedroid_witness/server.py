@@ -138,6 +138,9 @@ def make_handler(cfg):
             except request_mod.Refused as e:
                 cfg["store"].discard(d)
                 return self._json(422, {"error": str(e)})
+            except Exception as e:  # re-gate N3: a part that does not read answers 422 and leaves no bytes, whatever raised
+                cfg["store"].discard(d)
+                return self._json(422, {"error": f"the parts do not read ({type(e).__name__}); nothing was kept"})
             models_cfg = [known[m] for m in models]
             by_url = __import__("onedroid_witness.render", fromlist=["render"]).source_index(req.manifest)
             rendered_chars = sum(len(__import__("onedroid_witness.render", fromlist=["render"]).render(r, req.page, by_url)) for r in req.audit)

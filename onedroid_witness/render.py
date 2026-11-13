@@ -3,15 +3,41 @@
 The text a model sees is DATA from a publisher's page and an auditor's record; the prompt says so and the caller's bytes never
 reach the prompt itself. The same rendering goes to every model (chat or decision), so two models' answers are about one text.
 """
+import re
+import urllib.parse
+
+
+PUBLISHER = ("publisher-host",)  # the key under which source_index keeps the audited page's site; a tuple never collides with a URL
+
+
+def _site(url):
+    """The site of a URL for the publisher relation: the host, lower-cased, a leading www. dropped; None when there is none."""
+    try:
+        host = (urllib.parse.urlsplit(str(url)).hostname or "").lower()
+    except ValueError:
+        return None
+    return host[4:] if host.startswith("www.") else (host or None)
 
 
 def source_index(manifest):
-    """url -> the manifest's source entry (n, url, copy, status, file)."""
-    return {s.get("url"): s for s in manifest.get("sources", []) if s.get("url")}
+    """url -> the manifest's source entry (n, url, copy, status, file), plus the audited page's site under PUBLISHER (re-gate N1: the
+    publisher-surfaces rule turns on whether a source is one of the publisher's own surfaces, so the rendering has to say which are)."""
+    idx = {s.get("url"): s for s in manifest.get("sources", []) if s.get("url")}
+    idx[PUBLISHER] = _site((manifest.get("subject") or {}).get("url")) if isinstance(manifest.get("subject"), dict) else None
+    return idx
+
+
+def _relation(url, by_url):
+    """' , the publisher's own surface (same site as the audited page)' or ' , another site', or nothing when no subject URL is known."""
+    site = by_url.get(PUBLISHER)
+    if not site:
+        return ""
+    return ", the publisher's own surface (same site as the audited page)" if _site(url) == site else ", another site"
 
 
 def _where(c, by_url):
-    """Where a candidate comes from, in words a model can use: the page itself, a numbered source with its copy status, or unknown."""
+    """Where a candidate comes from, in words a model can use: the page itself, a numbered source with its copy status and whether it is
+    one of the publisher's own surfaces, or unknown."""
     if c.get("file") == "page.txt" or (c.get("url") is None and c.get("file") in (None, "page.txt")):
         return "the audited page itself (page.txt)"
     src = by_url.get(c.get("url"))
@@ -21,24 +47,28 @@ def _where(c, by_url):
         return f"source {c.get('url')} (not in the manifest)"
     copy = src.get("copy")
     copy_text = "fetched and not saved: copy: none" if copy in (None, "none") else f"copy: {copy}"
-    return f"source [{src.get('n')}] {src.get('url')} ({copy_text}, http {src.get('status')})"
+    return f"source [{src.get('n')}] {src.get('url')} ({copy_text}, http {src.get('status')}{_relation(src.get('url'), by_url)})"
 
 
 FENCE_CHARS = set("=-_~*#")
 
 
+# every separator str.splitlines() honours (re-gate N2): \r\n, \n, \r, \v, \f, the C1 and Unicode line and paragraph separators
+LINE_SEPARATORS = re.compile("\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
+
+
 def one_line(s, width=None):
-    """Caller text as ONE line: a newline inside a quote, a note or a claim text would otherwise end the item's line and could close the
-    data fence the prompt names (gate D4). Newlines become a visible mark, nothing is removed."""
-    t = str(s).replace("\r\n", "\n").replace("\r", "\n").replace("\n", " ⏎ ")
+    """Caller text as ONE line: a line separator inside a quote, a note or a claim text would otherwise end the item's line and could
+    close the data fence the prompt names (gate D4). Every separator str.splitlines() knows becomes a visible mark, nothing is removed."""
+    t = LINE_SEPARATORS.sub(" ⏎ ", str(s))
     return t[:width] if width else t
 
 
 def neutralise_fence_lines(text, fence):
     """No line of caller data may equal the fence, nor consist of fence-like characters alone (a run of = or -): such a line gets a
-    visible prefix. The data is kept, only its line shape changes."""
+    visible prefix. The data is kept, only its line shape changes. Lines are what str.splitlines() sees (re-gate N2), joined with \\n."""
     out = []
-    for l in text.split("\n"):
+    for l in text.splitlines():
         s = l.strip()
         if l == fence or (len(s) >= 8 and set(s) <= FENCE_CHARS):
             out.append("| " + l)

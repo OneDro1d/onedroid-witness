@@ -67,14 +67,35 @@ class Request:
         self.manifest = self._json("manifest.json")
         self.audit_bytes = self._bytes("audit.jsonl")
         self.audit_sha256 = sha256_bytes(self.audit_bytes)
-        self.audit = [json.loads(l) for l in self.audit_bytes.decode("utf-8").splitlines() if l.strip()]
+        # re-gate N3: a part that does not read is a refusal with an answer, never an exception past the handler; rows are split on \n
+        # only, because a raw U+2028 or U+2029 inside a JSON string is valid JSON and str.splitlines() would cut the row in two
+        try:
+            text = self.audit_bytes.decode("utf-8")
+        except UnicodeDecodeError as e:
+            raise Refused(f"audit.jsonl is not UTF-8 (byte {e.start})")
+        self.audit = []
+        for n, l in enumerate(text.split("\n"), 1):
+            if not l.strip():
+                continue
+            try:
+                row = json.loads(l)
+            except ValueError:
+                raise Refused(f"audit.jsonl line {n} is not JSON")
+            if not isinstance(row, dict):
+                raise Refused(f"audit.jsonl line {n} is not a JSON object")
+            self.audit.append(row)
         if not self.audit:
             raise Refused("audit.jsonl holds no rows")
+        if not isinstance(self.manifest, dict):
+            raise Refused("manifest.json is not a JSON object")
         if len(self.audit) > MAX_CLAIMS:
             raise Refused(f"{len(self.audit)} claims exceed the cap of {MAX_CLAIMS} per request; split by surface and merge by claim id")
         ids = [r.get("id") for r in self.audit]
         if len(set(ids)) != len(ids) or any(not i for i in ids):
             raise Refused("audit.jsonl ids must be present and unique")
+        for r in self.audit:
+            if not isinstance(r.get("text"), str):
+                raise Refused(f"audit.jsonl row {r.get('id')} has no claim text")
         for r in self.audit:
             for f in ("verdict", "confidence", "graded_by", "graded_at"):
                 if f in r:
@@ -97,8 +118,10 @@ class Request:
     def _json(self, name):
         try:
             return json.loads(self._bytes(name).decode("utf-8"))
+        except UnicodeDecodeError as e:
+            raise Refused(f"{name} is not UTF-8 (byte {e.start})")
         except ValueError as e:
-            raise Refused(f"{name} is not JSON: {e}")
+            raise Refused(f"{name} is not JSON: {e.msg if hasattr(e, 'msg') else 'parse error'} (line {getattr(e, 'lineno', '?')})")
 
     def _text_optional(self, name):
         p = self.root / name
