@@ -133,9 +133,17 @@ def main(argv):
     except Exception as e:
         print(f"refused: {snap}/manifest.json unreadable: {e}", file=sys.stderr)
         return 1
+    # V2e (the fifteenth re-gate, 13 Nov 2026): a parent manifest of another shape is refused by name, never a traceback.
+    if not isinstance(M, dict):
+        print(f"refused: {snap}/manifest.json is a JSON {check.json_kind(M)}, not an object", file=sys.stderr)
+        return 1
     g = M.get("grading")
     if not isinstance(g, dict) or not isinstance(g.get("witnesses"), list) or not (snap / "audit.jsonl").exists():
         print("refused: not a 0.4 or later snapshot (no grading.witnesses or no audit.jsonl)", file=sys.stderr)
+        return 1
+    bad_w_ = next((i_ for i_, w_ in enumerate(g["witnesses"]) if not isinstance(w_, dict)), None)
+    if bad_w_ is not None:
+        print(f"refused: {snap}/manifest.json: grading.witnesses[{bad_w_}] is a JSON {check.json_kind(g['witnesses'][bad_w_])}, not an object", file=sys.stderr)
         return 1
     try:
         entries = as_list(ans / "manifest-entry.json")
@@ -147,6 +155,13 @@ def main(argv):
     if not entries or not all(isinstance(e, dict) for e in entries) or not all(isinstance(e, dict) for e in sig_entries):
         print("refused: manifest-entry.json and signatures-entry.json must hold witness entries (objects)", file=sys.stderr)
         return 1
+    # V2e (the fifteenth re-gate's T05b, 13 Nov 2026): the manifest entry's fields this tool uses as names and paths are strings, checked
+    # before any of them is used (a list name made a TypeError in a set).
+    for i_, e_ in enumerate(entries):
+        for k_ in ("name", "file", "sha256"):
+            if k_ in e_ and not isinstance(e_[k_], str):
+                print(f"refused, nothing written: the answer's manifest entry [{i_}]: field {k_} is a JSON {check.json_kind(e_[k_])}, not a string", file=sys.stderr)
+                return 1
     # V2d (the fourteenth re-gate's T05, 13 Nov 2026): the answer's own signature entries are shape-checked BEFORE the first write, by the rule
     # check.py judges the folder by; a malformed answer used to leave the owner's folder half-written and unsigned.
     for i_, se_ in enumerate(sig_entries):

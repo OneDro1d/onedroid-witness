@@ -222,8 +222,8 @@ class R1R3R11Public(_Server):
 
     def test_r11_healthz_names_the_version_the_profiles_and_the_unchanged_prompts(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.15-dev")  # 0.1.6-dev when written; the version pin follows the cut
-        self.assertEqual(h["version"], "0.1.15-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.16-dev")  # 0.1.6-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.16-dev")
         self.assertEqual(h["mode"], "public")
         self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)

@@ -78,6 +78,26 @@ def main(argv):
     except Exception as ex_:
         print(f"manifest.json is unreadable: {ex_}: fix manifest.json before signing, nothing written", file=sys.stderr)
         return 1
+    # V2e (the fifteenth re-gate's T03, 13 Nov 2026): every part of the manifest this tool reads after writing is checked by shape BEFORE the
+    # first write; a manifest of another shape used to crash after signatures.json and the .sig were already written.
+    shape_ = None
+    if not isinstance(M, dict):
+        shape_ = f"a JSON {check.json_kind(M)} is not an object"
+    elif "grading" in M and not isinstance(M["grading"], dict):
+        shape_ = f"grading is a JSON {check.json_kind(M['grading'])}, not an object"
+    elif isinstance(M.get("grading"), dict):
+        g_ = M["grading"]
+        if g_.get("auditor") and not isinstance(g_["auditor"], dict):
+            shape_ = f"grading.auditor is a JSON {check.json_kind(g_['auditor'])}, not an object"
+        elif g_.get("witnesses") and not isinstance(g_["witnesses"], list):
+            shape_ = f"grading.witnesses is a JSON {check.json_kind(g_['witnesses'])}, not a list"
+        else:
+            bad_w_ = next((i_ for i_, w_ in enumerate(g_.get("witnesses") or []) if not isinstance(w_, dict)), None)
+            if bad_w_ is not None:
+                shape_ = f"grading.witnesses[{bad_w_}] is a JSON {check.json_kind(g_['witnesses'][bad_w_])}, not an object"
+    if shape_:
+        print(f"manifest.json: {shape_}: fix manifest.json before signing, nothing written", file=sys.stderr)
+        return 1
     allowed = snap / "allowed_signers"
     given = f"{key_type} {key_b64}"
     keys = check.allowed_keys(allowed) if allowed.exists() else {}
