@@ -1,0 +1,7 @@
+{"id": "C-001", "text": "config.yaml sets retries to 3", "kind": "process", "evidence": [{"file": "config.yaml", "line": 2}]}
+{"id": "C-002", "text": "config.yaml sets the timeout to 30 seconds", "kind": "process", "evidence": [{"file": "config.yaml", "line": 3}]}
+{"id": "C-003", "text": "the tests pass", "kind": "process", "evidence": [{"test": "go test ./...", "output_sha256": "f9697ef0a2f8be3f6c539fc63b5915d93e9960dc7a7ac7172bb332bd47806338"}]}
+{"id": "C-004", "text": "the linter reports no findings", "kind": "process", "evidence": [{"command": "golangci-lint run", "output_sha256": "7777777777777777777777777777777777777777777777777777777777777777"}]}
+{"id": "C-005", "text": "the deploy call returned 200", "kind": "process", "evidence": [{"record": "bbbbbbbb-0000-1111-2222-333333333333#7"}]}
+{"id": "C-006", "text": "the README documents the retry setting", "kind": "process", "evidence": [{"file": "README.md", "line": 1}]}
+{"id": "C-007", "text": "no credential is in the record", "kind": "process", "evidence": []}

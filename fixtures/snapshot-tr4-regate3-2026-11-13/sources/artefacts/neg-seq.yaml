@@ -1,0 +1,4 @@
+id: NEG-SEQ
+steps:
+  - post a batch with sequence -1
+  - expect 422

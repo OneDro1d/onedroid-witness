@@ -1,0 +1,3 @@
+service: example-ingest
+retries: 3
+timeout_s: 10

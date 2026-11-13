@@ -1,0 +1,5 @@
+=== RUN   TestRetry
+--- FAIL: TestRetry (0.01s)
+    retry_test.go:14: got 2 attempts, want 3
+FAIL
+FAIL	example-ingest	0.012s

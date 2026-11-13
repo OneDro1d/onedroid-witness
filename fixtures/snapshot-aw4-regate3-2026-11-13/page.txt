@@ -1,0 +1,7 @@
+config.yaml sets retries to 3
+config.yaml sets the timeout to 30 seconds
+the tests pass
+the linter reports no findings
+the deploy call returned 200
+the README documents the retry setting
+no credential is in the record

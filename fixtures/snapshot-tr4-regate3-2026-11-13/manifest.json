@@ -1,0 +1,114 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "kind": "test-run",
+  "title": "Test run of NEG-SEQ at 4be1c0d9e8f7 (synthetic)",
+  "url": null,
+  "publisher": "gate-example-runner",
+  "scenario": {
+   "id": "NEG-SEQ",
+   "sha256": "1ffad12034e9e6b58258276ecc0adbb766e972e4d19fa06758f44a75da1fba0d"
+  },
+  "environment": {
+   "name": "dev",
+   "sha256": "72e9d7a4e36f580775e5056b22d3cb75b6a4c847db40498c0dca4c4c82fc6af9"
+  },
+  "system_under_test": {
+   "repository": "github.com/example/ingest",
+   "commit": "4be1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
+   "image_digest": null
+  },
+  "runner": {
+   "id": "gate-example",
+   "machine_id": "m-00000000000000000000000000000003"
+  },
+  "started_at": "2026-11-13T02:00:00Z",
+  "finished_at": "2026-11-13T02:00:12Z"
+ },
+ "taken_at": "2026-11-13T02:00:12Z",
+ "evidence_locator": {
+  "held_by": "folder",
+  "where": null,
+  "expires_at": null,
+  "note": "every artefact is in this folder"
+ },
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "name": "neg-seq.yaml",
+   "role": "artefact",
+   "artefact_role": "scenario",
+   "sha256": "1ffad12034e9e6b58258276ecc0adbb766e972e4d19fa06758f44a75da1fba0d",
+   "file": "sources/artefacts/neg-seq.yaml",
+   "copy": "text"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "name": "sut.json",
+   "role": "artefact",
+   "artefact_role": "sut",
+   "sha256": "9d4d98c3fcbc621dd40dc431812fd37e25084a3bc4b17d5bed75f9647eee4997",
+   "file": "sources/artefacts/sut.json",
+   "copy": "text"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "name": "dev.json",
+   "role": "artefact",
+   "artefact_role": "environment",
+   "sha256": "72e9d7a4e36f580775e5056b22d3cb75b6a4c847db40498c0dca4c4c82fc6af9",
+   "file": "sources/artefacts/dev.json",
+   "copy": "text"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "name": "result.json",
+   "role": "artefact",
+   "artefact_role": "result",
+   "sha256": "93883c84eb3f7842021fc483efc7da724efe0f0ddf142230e20b27517169a00f",
+   "file": "sources/artefacts/result.json",
+   "copy": "text"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "name": "corr-neg-seq.log",
+   "role": "artefact",
+   "artefact_role": "log",
+   "sha256": "82976445782d02345997808c809d2a69a5796fa3ac68e2fea796365e22638d74",
+   "file": "sources/artefacts/corr-neg-seq.log",
+   "copy": "text"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "test-run",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 third re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "86fb11605e4567f1d3c96d157c889b266d9bf6964c148e8cbcf5117d7a5e02ff",
+   "signer": "onedroid-claims-verification-gate <SHA256:uJjig+jCZZPoujSBMjiasWWFUV21GEVZVdvzDrdENgM>"
+  }
+ },
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "2ebb3add8c0f929c63cbee53197c46020ef0db489a239f74ecef792f7b4d69f9",
+   "lines": 3,
+   "note": "the claims' text, one per line (synthetic)"
+  }
+ ],
+ "counts": {
+  "claims": 3,
+  "checkable": 3
+ }
+}

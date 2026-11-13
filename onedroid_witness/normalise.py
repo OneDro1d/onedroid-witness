@@ -27,6 +27,18 @@ def _within(indices, n):
     return all(isinstance(i, int) and not isinstance(i, bool) and 0 <= i < n for i in indices)
 
 
+def _is_evidence_row(row):
+    return isinstance(row.get("evidence"), list) and not row.get("proofs") and not row.get("counter")
+
+
+def _sides(row):
+    """(n FOR, n AGAINST) a model may index: the proofs and counter lists, or, for a row with one `evidence` list (agent-work and test-run,
+    SPEC 4b), the evidence list on BOTH sides, as check.py 880 counts them."""
+    if _is_evidence_row(row):
+        return len(row["evidence"]), len(row["evidence"])
+    return len(row.get("proofs") or []), len(row.get("counter") or [])
+
+
 def chat_answer(text, finish, row):
     """A chat model's text to a row body. Parse rule (3d.1): the first JSON object in the text, a code fence around it ignored."""
     if not text or not text.strip():
@@ -55,7 +67,9 @@ def chat_answer(text, finish, row):
     note = str(a.get("note") or "").strip()
     if not note:
         return _undecided("the model gave no note")
-    np_, nc = len(row.get("proofs") or []), len(row.get("counter") or [])
+    np_, nc = _sides(row)
+    if _is_evidence_row(row) and not row["evidence"] and v in ("EVIDENCED", "CONTRADICTED"):
+        return _undecided("the auditor named no pointer: " + note)
     if not _within(p, np_) or not _within(c, nc):
         return _undecided(f"the model named a candidate index that does not exist (proofs {p}, counter {c}; the row has {np_} FOR and {nc} AGAINST): " + note)
     if v == "EVIDENCED" and not p:
@@ -80,7 +94,7 @@ def decision_answer(answers, row):
     word = WORD_OF[choice]
     probs = v.get("probabilities") or {}
     conf = v.get("confidence")
-    nf, nc = len(row.get("proofs") or []), len(row.get("counter") or [])
+    nf, nc = _sides(row)
 
     def nouls(prefix, n):
         out = []
@@ -111,11 +125,15 @@ def decision_answer(answers, row):
     return {"verdict": word, "on": dict(UND), "note": note}, True
 
 
-def apply_row_rules(body, row, row_all_copy_none, copy_none_idx=None):
+def apply_row_rules(body, row, row_all_copy_none, copy_none_idx=None, unreadable_idx=None, all_unreadable=False):
     """Rules that stand above any model's answer (section 14 and 3d.3). A candidate the auditor fetched and did not save (copy: none) is
     not visible to a classifier, so: NO EVIDENCE PUBLISHED on an all copy-none row is UNDECIDED (the model cannot know nothing was
     published); and a decided verdict that rests ONLY on copy-none candidates (every index it names is one, or the row has nothing
-    else) is UNDECIDED, never EVIDENCED or CONTRADICTED (gate D3). `copy_none_idx` = {"proofs": {i...}, "counter": {i...}}."""
+    else) is UNDECIDED, never EVIDENCED or CONTRADICTED (gate D3). `copy_none_idx` = {"proofs": {i...}, "counter": {i...}}.
+    For a row with one `evidence` list (S-1, D4): `unreadable_idx` = the evidence indices whose pointer cannot be read here (not sent,
+    held by hash, not listed, malformed), `all_unreadable` = the list is non-empty and every pointer is one. A row all unreadable is
+    UNDECIDED whatever the model said; a decided verdict whose named pointers are all unreadable is UNDECIDED; EVIDENCED or
+    CONTRADICTED on an empty list is UNDECIDED (the auditor named no pointer); NO EVIDENCE PUBLISHED on an empty list passes through."""
     v = body["verdict"]
     idx = copy_none_idx or {"proofs": set(), "counter": set()}
     if row_all_copy_none and v in ("NO EVIDENCE PUBLISHED", "EVIDENCED", "CONTRADICTED"):
@@ -125,6 +143,15 @@ def apply_row_rules(body, row, row_all_copy_none, copy_none_idx=None):
         named = [i for i in (body.get("on") or {}).get(side, []) if isinstance(i, int)]
         if named and all(i in idx.get(side, set()) for i in named):
             return {"verdict": "UNDECIDED", "on": dict(UND), "note": f"the {side} candidate(s) the model named were fetched and not saved (copy: none), so the verdict rests on nothing a reader can see; the model said: " + body["note"]}
+    if _is_evidence_row(row):
+        if not row["evidence"] and side:
+            return {"verdict": "UNDECIDED", "on": dict(UND), "note": "the auditor named no pointer; the model said: " + body["note"]}
+        if all_unreadable:
+            return {"verdict": "UNDECIDED", "on": dict(UND), "note": "every pointer of this claim is unreadable here (not sent or held by hash); the model said: " + body["note"]}
+        if side:
+            named = [i for i in (body.get("on") or {}).get(side, []) if isinstance(i, int)]
+            if named and all(i in (unreadable_idx or set()) for i in named):
+                return {"verdict": "UNDECIDED", "on": dict(UND), "note": "the named pointer(s) cannot be read here (not sent or held by hash): " + body["note"]}
     return body
 
 

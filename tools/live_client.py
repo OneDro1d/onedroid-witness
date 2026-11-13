@@ -23,6 +23,14 @@ print("healthz", st, body.decode()[:300])
 st, _, body = get("/models")
 print("models", st, [m["id"] for m in json.loads(body)["models"]])
 parts = {n: (snap / n).read_bytes() for n in ("manifest.json", "audit.jsonl", "audit.jsonl.sig", "allowed_signers", "signatures.json", "page.txt")}
+# S-1 (D8): every file under sources/ and sessions/ of the snapshot goes along as a part named by its folder-relative path, so the evidence
+# pointers of an agent-work or test-run row resolve on the service; a snapshot without those folders sends the six fixed parts alone
+for sub in ("sources", "sessions"):
+    if (snap / sub).is_dir():
+        for p in sorted((snap / sub).rglob("*")):
+            if p.is_file():
+                parts[p.relative_to(snap).as_posix()] = p.read_bytes()
+print("parts", sorted(parts))
 boundary = "----live" + uuid.uuid4().hex
 buf = io.BytesIO()
 for k, v in {"models": models, "max_cost_usd": "0.5", "published_url": published}.items():

@@ -15,7 +15,11 @@ import socket
 import ssl
 import urllib.parse
 
+from .render import safe_relative
+
 MAX_CLAIMS = 1000
+CARRIED_PREFIXES = ("sources/", "sessions/")  # the folders of a snapshot a request may carry beside the fixed parts (S-1, D1)
+TEST_RUN_ROWS = ("C-001", "C-002", "C-003")  # SPEC 13: a test-run auditor part has exactly these three rows, in this order (S-2)
 FETCH_TIMEOUT_S = 10
 FETCH_MAX_BYTES = 8 * 1024 * 1024
 
@@ -35,14 +39,19 @@ PROFILES = ("cited-sources", "publisher-surfaces", "agent-work", "test-run")  # 
 # tell a restatement from an artefact (a terms page is own-surface AND the artefact). A configuration may widen this list; the default is here.
 # Third re-gate F1 (13 Nov 2026 02:1xZ): agent-work and test-run are out too. A request carries only the fixed parts, so a model deciding
 # one of their claims never sees the file line, the handed-in output, the artefact or run.json the claim points at (39 of 39 live answers
-# were NO EVIDENCE PUBLISHED, including claims whose evidence showed them and claims whose evidence showed the opposite). Served again when
-# the service carries and renders that evidence, indexes `on` against the row's `evidence` list (SPEC 4b) and a gate passes (service item S-1).
-PROFILES_SERVED = ("cited-sources",)
-_EVIDENCE_WHY = ("the evidence the profile decides on (the pointed file line, the handed-in output, each artefact, run.json) is not carried to the "
-                 "models yet, so every claim would be decided on its text alone; out of scope until the service carries and renders it (service item S-1) and a gate passes")
+# were NO EVIDENCE PUBLISHED, including claims whose evidence showed them and claims whose evidence showed the opposite). Served again since
+# service item S-1 (13 Nov 2026): a request carries the files the manifest lists under sources[].file and grading.sessions[].file, each
+# hash-checked (_check_carried), render.py resolves every pointer of an `evidence` row from them, a pointer that cannot be read is said so by
+# name and never carries a verdict (normalise.apply_row_rules), and `on` indexes the row's `evidence` list (SPEC 4b, check.py 872-890).
+PROFILES_SERVED = ("cited-sources", "agent-work", "test-run")
 PROFILES_NOT_SERVED_WHY = {"publisher-surfaces": "model witnesses do not apply the restatement rule reliably; out of scope until the auditor marks each candidate "
-                                                 "restatement or artefact (NEXT-REVISION 23) and a gate passes on it",
-                           "agent-work": _EVIDENCE_WHY, "test-run": _EVIDENCE_WHY}
+                                                 "restatement or artefact (NEXT-REVISION 23) and a gate passes on it"}
+
+
+def is_carried_part(name):
+    """A part name the request accepts beside the fixed parts: a normalised relative path (no leading /, no `..` component, no backslash,
+    no NUL) under sources/ or sessions/ with at least one more component (S-1, D1). Any other unknown name stays refused."""
+    return safe_relative(name) and name.startswith(CARRIED_PREFIXES) and "/" in name.rstrip("/") and not name.endswith("/")
 
 # check.py's K9 patterns (the format's own rule): a credential-shaped string in any part is refused before any model call (gate D10)
 SECRET_PATTERNS = [
@@ -153,13 +162,50 @@ class Request:
         if profiles_served is not None and self.profile not in profiles_served:
             why = PROFILES_NOT_SERVED_WHY.get(self.profile, "not in this service's configuration")
             raise Refused(f"the {self.profile} profile is not served by this service ({why}); profiles served: {', '.join(profiles_served)}")
+        if self.profile == "test-run" and tuple(ids) != TEST_RUN_ROWS:  # S-2, before any model call
+            raise Refused(f"a test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13); this one has {len(ids)}")
         self.page = self._text_optional("page.txt") or ""
         refuse_credentials("audit.jsonl", self.audit_bytes.decode("utf-8", "replace"))
         refuse_credentials("page.txt", self.page)
         refuse_credentials("manifest.json", json.dumps(self.manifest, ensure_ascii=False))
         self._check_manifest_hash()
         self._check_auditor_signature(verify_signature)
+        self.carried = {}  # manifest path -> bytes, the files this request carries for the evidence pointers (S-1)
+        self._check_carried()
         self.primary = next((w for w in (self.manifest.get("grading") or {}).get("witnesses", []) if w.get("primary")), None)
+
+    def _check_carried(self):
+        """S-1, D1: every file under sources/ or sessions/ of the folder is a carried part. One that no manifest entry (sources[].file,
+        grading.sessions[].file) names is refused by name; one whose sha256 differs from its entry's sha256 (a session's record_sha256) is
+        refused by name. The named files present are kept in self.carried. A manifest path outside those two folders, or one that could
+        leave the folder, is never read. check_published is untouched: it covers audit.jsonl."""
+        named = {}
+        for s in self.manifest.get("sources") or []:
+            if isinstance(s.get("file"), str):
+                named.setdefault(s["file"], s.get("sha256"))
+        for s in (self.manifest.get("grading") or {}).get("sessions") or []:
+            if isinstance(s, dict) and isinstance(s.get("file"), str):
+                named.setdefault(s["file"], s.get("record_sha256"))
+        for sub in ("sources", "sessions"):
+            d = self.root / sub
+            if not d.is_dir():
+                continue
+            for p in sorted(d.rglob("*")):
+                if p.is_file():
+                    rel = p.relative_to(self.root).as_posix()
+                    if rel not in named:
+                        raise Refused(f"part {rel} is named by no source of the manifest")
+        for rel, want in named.items():
+            if not is_carried_part(rel):
+                continue
+            p = self.root / rel
+            if not p.is_file():
+                continue
+            b = p.read_bytes()
+            if want and sha256_bytes(b) != want:
+                raise Refused(f"part {rel} sha256 differs from the manifest's")
+            refuse_credentials(rel, b.decode("utf-8", "replace"))
+            self.carried[rel] = b
 
     def _bytes(self, name):
         p = self.root / name

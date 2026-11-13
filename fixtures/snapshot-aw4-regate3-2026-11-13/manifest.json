@@ -1,0 +1,76 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Claims of a synthetic agent session (third re-gate)",
+  "url": null,
+  "publisher": "gate@example.org",
+  "session_id": "bbbbbbbb-0000-1111-2222-333333333333",
+  "turn_end": 1,
+  "parts": []
+ },
+ "taken_at": "2026-11-13T02:00:12Z",
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "path": "README.md",
+   "role": "file",
+   "file": "sources/files/README.md",
+   "sha256": "8775938beed2b5f0b46ab0c40a5818f1d6518fab387b74ffbc361a39702e726a",
+   "copy": "text",
+   "repo": {
+    "commit": "4be1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "path": "config.yaml",
+   "role": "file",
+   "file": "sources/files/config.yaml",
+   "sha256": "d7ad023eeeea507e4662f070e0e16b5a2b69da9c654011694662a7e833be3cfb",
+   "copy": "text",
+   "repo": {
+    "commit": "4be1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "path": null,
+   "role": "output",
+   "file": "sources/outputs/f9697ef0a2f8be3f6c539fc63b5915d93e9960dc7a7ac7172bb332bd47806338.txt",
+   "sha256": "f9697ef0a2f8be3f6c539fc63b5915d93e9960dc7a7ac7172bb332bd47806338",
+   "copy": "text"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "agent-work",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 third re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "3ba95930d60fd0df4f46da8d6b20ccff3ac428b85c63bb3c504aae5a330cae0a",
+   "signer": "onedroid-claims-verification-gate <SHA256:uJjig+jCZZPoujSBMjiasWWFUV21GEVZVdvzDrdENgM>"
+  }
+ },
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "7abbaa14d958b96c7e5c02f37cd23229f93afa88247703ff39f9b6753aef46e5",
+   "lines": 7,
+   "note": "the claims' text, one per line (synthetic)"
+  }
+ ],
+ "counts": {
+  "claims": 7,
+  "checkable": 7
+ }
+}

@@ -29,15 +29,19 @@ python3 -m onedroid_witness.cli serve --config config.json                      
 Configuration: `{"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
 "check_py", "openrouter_key_file" (or `OPENROUTER_API_KEY`), "private_mode", "host", "port", "profiles_served"}`. `vendor/check.py` is the
 public checker at the hash the service pins (`onedroid_witness/checkpin.py`); the service refuses to start on any other. `profiles_served`
-defaults to cited-sources alone: publisher-surfaces is refused by name until the format carries a candidate kind (restatement or artefact)
-from the auditor and a gate passes on it (NEXT-REVISION 23 of the format); agent-work and test-run are refused by name until the service
-carries the evidence their claims point at (the file line, the handed-in output, each artefact, run.json) to the models and renders it
-(service item S-1), because a model that sees only the claim text decides nothing. `GET /healthz` lists the profiles served and, for each
-not served, why.
+defaults to cited-sources, agent-work and test-run: publisher-surfaces is refused by name until the format carries a candidate kind
+(restatement or artefact) from the auditor and a gate passes on it (NEXT-REVISION 23 of the format). For an agent-work or test-run claim the
+request carries the files the manifest names under `sources/` and `sessions/` (each hash-checked against its manifest entry, a part no entry
+names refused by name); every pointer of the claim's `evidence` list is resolved from them the way `check.py` resolves it (the pointed file
+line with its neighbours, the handed-in output, each artefact by name and hash, the session record row) and rendered to the models, a pointer
+that cannot be read here (not sent, held by hash, not listed) is said so by name and never carries a verdict, and the models' `on` indexes
+the evidence list. A test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13). `GET /healthz` lists the profiles
+served and, for each not served, why.
 
 ## HTTP surface
 `POST /witness` (multipart or JSON: `manifest.json`, `audit.jsonl`, `audit.jsonl.sig`, `allowed_signers`, `signatures.json`, the audited
-text; fields `models`, `max_cost_usd`, `published_url`) answers `202 {job_id, estimate_usd}` or a refusal; `GET /witness/{job_id}` the status;
+text, and any file the manifest names under `sources/` or `sessions/` as a part named by that path; fields `models` (a comma-separated
+string or a list of ids), `max_cost_usd` (a finite number), `published_url`) answers `202 {job_id, estimate_usd}` or a refusal; `GET /witness/{job_id}` the status;
 `GET /witness/{job_id}/answer.tar` the answer with its sha256 in `X-Answer-SHA256`; `GET /models`, `GET /keys`, `GET /healthz`.
 
 ## Where it comes from

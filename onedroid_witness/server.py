@@ -13,6 +13,7 @@ No identity: abuse control is the daily cap, the size cap and a per-address rate
 import email.parser
 import email.policy
 import json
+import math
 import pathlib
 import threading
 import time
@@ -25,6 +26,7 @@ from .openrouter import RouterRefused, refuse_routers
 
 MAX_BODY = 64 * 1024 * 1024
 PARTS_ALLOWED = {"manifest.json", "audit.jsonl", "audit.jsonl.sig", "allowed_signers", "signatures.json", "page.txt", "run.json", "claims.jsonl"}
+# plus, since S-1, any part named `sources/<...>` or `sessions/<...>` (request.is_carried_part): the files the manifest lists, hash-checked
 RATE_PER_MINUTE = 30
 
 
@@ -162,7 +164,8 @@ def make_handler(cfg):
             """Everything between incoming() and the answer: the parts written, checked (Request, the published copy), rendered for the
             estimate, the budget applied, then the folder adopted as a job. Returns (status, body); sets kept["jid"] once the folder is a
             job, so the caller's finally knows what to discard."""
-            for name, data in parts.items():
+            for name, data in parts.items():  # a carried part's name is a checked relative path under sources/ or sessions/ (S-1, _parse)
+                (d / name).parent.mkdir(parents=True, exist_ok=True)
                 (d / name).write_bytes(data)
             try:
                 req = request_mod.Request(d, private_mode=cfg["private_mode"], profiles_served=cfg.get("profiles_served", request_mod.PROFILES_SERVED))
@@ -175,12 +178,16 @@ def make_handler(cfg):
             models_cfg = [known[m] for m in models]
             render_mod = __import__("onedroid_witness.render", fromlist=["render"])
             by_url = render_mod.source_index(req.manifest)
-            rendered_chars = sum(len(render_mod.render(r, req.page, by_url)) for r in req.audit)
+            evidence = render_mod.evidence_index(req.manifest, req.root)
+            rendered_chars = sum(len(render_mod.render(r, req.page, by_url, evidence)) for r in req.audit)
             per_model, total = answer_mod.estimate(models_cfg, cfg["prices"], rendered_chars, len(req.audit), len(prompts.chat_prompt(req.profile)))
             try:
                 max_cost = float(params["max_cost_usd"]) if params.get("max_cost_usd") not in (None, "") else None
-            except ValueError:
+            except (ValueError, TypeError):
                 return 400, {"error": "max_cost_usd must be a number"}
+            if max_cost is not None and not math.isfinite(max_cost):
+                # fourth re-gate note (13 Nov 2026): "nan" ran with no caller limit and NaN landed in the status
+                return 400, {"error": "max_cost_usd must be a finite number"}
             remaining = cfg["ledger"].remaining()
             budget = min(remaining, max_cost if max_cost is not None else float("inf"))
             # a partial run (3b.1, gate D5): the models that fit the bound in the order asked run, the rest are named as skipped with the
@@ -208,12 +215,16 @@ def make_handler(cfg):
     return Handler
 
 
+def _no_constant(name):
+    raise ValueError(f"{name} is not a JSON number")
+
+
 def _parse(ctype, raw, headers):
     """multipart/form-data (files by field name) or JSON {parts: {name: text}, models, max_cost_usd, published_url}."""
     parts, params = {}, {}
     if ctype.startswith("application/json"):
         try:
-            body = json.loads(raw.decode("utf-8"))
+            body = json.loads(raw.decode("utf-8"), parse_constant=_no_constant)
         except ValueError as e:
             raise ValueError(f"body is not JSON: {e}")
         if not isinstance(body, dict):
@@ -221,7 +232,7 @@ def _parse(ctype, raw, headers):
         if body.get("parts") is not None and not isinstance(body["parts"], dict):
             raise ValueError("parts is not an object of name to text")
         for name, text in (body.get("parts") or {}).items():
-            if name not in PARTS_ALLOWED:
+            if name not in PARTS_ALLOWED and not request_mod.is_carried_part(name):
                 raise ValueError(f"part {name} is not accepted")
             if isinstance(text, str):
                 parts[name] = text.encode("utf-8")
@@ -237,9 +248,12 @@ def _parse(ctype, raw, headers):
                 if not all(isinstance(x, str) for x in v):
                     raise ValueError(f"{k} is a list holding something that is not a string")
                 params[k] = ",".join(v)
-            elif isinstance(v, (str, int, float)) and not isinstance(v, bool):
+            elif isinstance(v, str):
+                params[k] = v
+            elif k == "max_cost_usd" and isinstance(v, (int, float)) and not isinstance(v, bool):
                 params[k] = v
             else:
+                # fourth re-gate G1 (13 Nov 2026): a number for models reached do_POST's split and closed the connection with no answer
                 raise ValueError(f"{k} is neither a string nor a list of strings")
         return parts, params
     if ctype.startswith("multipart/form-data"):
@@ -253,7 +267,9 @@ def _parse(ctype, raw, headers):
                 continue
             data = part.get_payload(decode=True) or b""
             if part.get_filename() is not None or name in PARTS_ALLOWED:
-                if name not in PARTS_ALLOWED:
+                # S-1, D1: beside the fixed parts, a file part named by a normalised relative path under sources/ or sessions/ is a carried
+                # file (checked against the manifest in Request); any other unknown name is refused as before
+                if name not in PARTS_ALLOWED and not request_mod.is_carried_part(name):
                     raise ValueError(f"part {name} is not accepted")
                 parts[name] = data
             else:

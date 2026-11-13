@@ -1,0 +1,28 @@
+{
+ "scenario": "NEG-SEQ",
+ "overall": "FAIL",
+ "duration_s": 12,
+ "checks": [
+  {
+   "name": "refuses-negative-sequence",
+   "verdict": "PASS"
+  },
+  {
+   "name": "answers-422",
+   "verdict": "PASS"
+  },
+  {
+   "name": "names-the-field",
+   "verdict": "PASS"
+  },
+  {
+   "name": "keeps-nothing",
+   "verdict": "FAIL",
+   "detail": "1 row left in staging"
+  },
+  {
+   "name": "logs-correlation-id",
+   "verdict": "PASS"
+  }
+ ]
+}

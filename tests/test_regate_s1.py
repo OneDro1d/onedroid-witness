@@ -112,11 +112,11 @@ class PublisherSurfacesScope(ServerRules):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
         c.request("GET", "/healthz")
         h = json.loads(c.getresponse().read())
-        # third re-gate F1: agent-work and test-run are out too, until the evidence they decide on is carried to the models
-        self.assertEqual(h["profiles_served"], ["cited-sources"])
-        for p in ("publisher-surfaces", "agent-work", "test-run"):
-            self.assertIn(p, h["profiles_not_served"])
-        self.assertIn("evidence", h["profiles_not_served"]["agent-work"])
+        # third re-gate F1 took agent-work and test-run out until the evidence they decide on is carried to the models; service item S-1
+        # (13 Nov 2026, tests/test_s1_evidence.py) carries and renders it, so the three profiles are served and publisher-surfaces alone is out
+        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
+        self.assertEqual(list(h["profiles_not_served"]), ["publisher-surfaces"])
+        self.assertIn("NEXT-REVISION 23", h["profiles_not_served"]["publisher-surfaces"])
 
     def test_n1_the_request_library_still_reads_every_profile_when_no_scope_is_given(self):
         # the one-shot private mode and the tests read the profile; the scope is the service's, passed in by the handler
@@ -134,25 +134,32 @@ class PublisherSurfacesScope(ServerRules):
         finally:
             shutil.rmtree(d, ignore_errors=True)
 
-    def test_f1_agent_work_and_test_run_are_refused_by_name_until_the_evidence_is_carried(self):
-        # third re-gate F1 (the claims session, 13 Nov 2026 02:1xZ): a request carries only the fixed parts, so a model deciding an
-        # agent-work or test-run claim never sees the file line, the handed-in output, the artefact or run.json the claim points at;
-        # 39 of 39 live answers were NO EVIDENCE PUBLISHED, including claims whose evidence showed them and claims whose evidence showed
-        # the opposite. Out of scope until the service carries and renders that evidence (service item S-1) and a gate passes.
-        for profile in ("agent-work", "test-run"):
-            parts = {n: (SNAP / n).read_bytes() for n in PARTS}
-            M = json.loads(parts["manifest.json"].decode("utf-8"))
-            M["grading"] = dict(M["grading"])
-            M["grading"]["profile"] = profile
-            parts["manifest.json"] = json.dumps(M, ensure_ascii=False).encode("utf-8")
-            before = self._jobs()
-            st, ans = self._post(*multipart(parts, {"models": "typesafe/jev-1.14"}))
-            self.assertEqual(st, 422, (profile, ans))
-            self.assertNotIn("job_id", ans)
-            self.assertIn(profile, ans["error"])
-            self.assertIn("evidence", ans["error"])
-            self.assertEqual(self._jobs(), before)
-            self.assertEqual(list((pathlib.Path(self.tmp) / "jobs" / ".incoming").iterdir()), [])
+    def test_f1_agent_work_and_test_run_are_served_only_when_the_configuration_withholds_them(self):
+        # third re-gate F1 (the claims session, 13 Nov 2026 02:1xZ): a request carried only the fixed parts, so a model deciding an
+        # agent-work or test-run claim never saw the file line, the handed-in output, the artefact or run.json the claim points at;
+        # 39 of 39 live answers were NO EVIDENCE PUBLISHED. Service item S-1 (tests/test_s1_evidence.py) carries and renders that evidence,
+        # so the two profiles are in PROFILES_SERVED again; the refusal by name stays for a configuration that withholds a profile.
+        from onedroid_witness import request as request_mod
+        import shutil
+        import tempfile
+        d = pathlib.Path(tempfile.mkdtemp(prefix="witness-f1-"))
+        try:
+            for profile in ("agent-work", "test-run"):
+                parts = {n: (SNAP / n).read_bytes() for n in PARTS}
+                M = json.loads(parts["manifest.json"].decode("utf-8"))
+                M["grading"] = dict(M["grading"])
+                M["grading"]["profile"] = profile
+                parts["manifest.json"] = json.dumps(M, ensure_ascii=False).encode("utf-8")
+                for n, data in parts.items():
+                    (d / n).write_bytes(data)
+                self.assertIn(profile, request_mod.PROFILES_SERVED)
+                self.assertNotIn(profile, request_mod.PROFILES_NOT_SERVED_WHY)
+                with self.assertRaises(request_mod.Refused) as cm:
+                    request_mod.Request(d, private_mode=True, profiles_served=("cited-sources",))
+                self.assertIn(profile, str(cm.exception))
+                self.assertIn("not served by this service", str(cm.exception))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
     def test_n1_note_a_utf8_bom_in_audit_jsonl_is_refused_naming_the_bom(self):
         # second re-gate note: a BOM was refused as "line 1 is not JSON"; the format's reader takes none, so the refusal stays, by name
