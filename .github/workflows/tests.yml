@@ -13,6 +13,6 @@ jobs:
           python-version: "3.12"
       - name: the pinned checker is the one the service refuses to run without
         run: |
-          echo "0495931bc60509143bf84a7c95216838382c1e9f81ba52b37e7bff1c495013bf  vendor/check.py" | sha256sum -c -
+          echo "f2edc3f4f99694461af57d3ed8ce4c456d8d42e917487f99196ddca7985bc653  vendor/check.py" | sha256sum -c -
       - name: tests (offline, recorded answers; ssh-keygen from the runner's OpenSSH)
         run: python3 -m unittest discover -s tests -v
