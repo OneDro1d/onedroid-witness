@@ -1,0 +1,32 @@
+# The public dev door of the witness service (Michal's D86 A, 13 Nov 2026): witness-dev.onedroid.ai -> svc/onedroid-witness:80 -> pod 8080.
+# Pattern: specta-dev/specta-web (App Gateway ingress, cert-manager letsencrypt-prod). The App Gateway probes the pod directly, so the probe
+# names the container port and the service's own health route. The service answers public material only and keeps its daily cap.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: onedroid-witness
+  namespace: witness-dev
+  annotations:
+    appgw.ingress.kubernetes.io/backend-protocol: http
+    appgw.ingress.kubernetes.io/health-probe-path: /healthz
+    appgw.ingress.kubernetes.io/health-probe-port: "8080"
+    appgw.ingress.kubernetes.io/health-probe-status-codes: 200-399
+    appgw.ingress.kubernetes.io/request-timeout: "30"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: azure-application-gateway
+  rules:
+  - host: witness-dev.onedroid.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: onedroid-witness
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - witness-dev.onedroid.ai
+    secretName: onedroid-witness-tls
