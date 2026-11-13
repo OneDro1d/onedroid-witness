@@ -8,7 +8,7 @@ import pathlib
 import subprocess
 import sys
 
-CHECK_PY_SHA256 = "559e54a934fcca2ec70ef4b7ac60c1d9366cd4b98e56049f8556991789411947"  # claims-snapshot 0.6, the carried cut of 13 Nov 2026 (K11 reads a witness header carried against the manifest pages, sources and session records, add_witness refuses a mismatch, K3 on a non-object on_request), the K2 cut was f2edc3f4…, erratum 1 0495931b…
+CHECK_PY_SHA256 = "af216591d73b1249453b35e35d35e8765286eec5ba50bb2b8c6fc22c02a9885c"  # claims-snapshot 0.6, the carried cut of 13 Nov 2026 (K11 reads a witness header carried against the manifest pages, sources and session records, add_witness refuses a mismatch, K3 on a non-object on_request), the K2 cut was f2edc3f4…, erratum 1 0495931b…
 
 
 def sha256(path):

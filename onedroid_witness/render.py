@@ -311,6 +311,35 @@ def resolve_pointer(p, idx, root=None):
     return out("malformed", "malformed", f"pointer {one_line(json.dumps(p, ensure_ascii=False), 200)} (malformed: not one of the four pointer shapes)")
 
 
+WITNESS_VOCABULARY = re.compile(r"\b(EVIDENCED|CONTRADICTED|UNDECIDED|NO EVIDENCE PUBLISHED)\b")  # case-sensitive, whole words
+
+
+def witness_vocabulary_hits(row, idx, by_url):
+    """0.1.8 (seventh re-gate H2, V1): the places where the evidence text a model would read holds a witness verdict token, one string per
+    hit in index order: for an evidence row each readable pointer whose resolved `text` matches ("[i] <label> holds <token>"), for a
+    candidate row each candidate (proofs then counter, indexed as _candidate_line indexes them) whose quote matches ("candidate [i] from
+    <url or file> holds <token>"). Only the four tokens, upper case, whole words: a test-run result.json's "verdict": "PASS" is no hit,
+    nor is the English word "evidenced". NOT scanned: the claim text, the page lines, consulted, searched, the run subject. A text that
+    names a verdict is not evidence of a claim: answer.run passes such a row through as UNDECIDED for every model with no call."""
+    out = []
+    if is_evidence_row(row):
+        for i, p in enumerate(row["evidence"]):
+            r = resolve_pointer(p, idx)
+            if r["status"] != "readable":
+                continue
+            m = WITNESS_VOCABULARY.search(r["text"])
+            if m:
+                out.append(f"[{i}] {r['label']} holds {m.group(1)}")
+        return out
+    for i, c in enumerate((row.get("proofs") or []) + (row.get("counter") or [])):
+        if not isinstance(c, dict) or c.get("quote") is None:
+            continue
+        m = WITNESS_VOCABULARY.search(str(c.get("quote")))
+        if m:
+            out.append(f"candidate [{i}] from {c.get('url') or c.get('file')} holds {m.group(1)}")
+    return out
+
+
 def unreadable_indices(row, idx, root=None):
     """The evidence indices whose pointer is not readable (unreadable, unlisted or malformed): a verdict resting only on those is
     UNDECIDED, never EVIDENCED or CONTRADICTED."""

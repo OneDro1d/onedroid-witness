@@ -191,7 +191,7 @@ class R1R3R11Public(_Server):
         self.fetcher.calls.clear()
         parts = self._parts(AW6)
         self.assertEqual(len(carried_parts(AW6)), 9)  # 8 under sources/, 1 under sessions/
-        st, ans = self._post(*multipart(parts, {"models": MODEL, "max_cost_usd": "0.5", "published_url": AUDIT_URL}))
+        st, ans = self._post(*multipart(parts, {"models": MODEL + ",typesafe/jev-1.14", "max_cost_usd": "0.5", "published_url": AUDIT_URL}))
         self.assertEqual(st, 202, ans)
         self.assertEqual(self.fetcher.calls, [AUDIT_URL, MANIFEST_URL])
         s = self._wait(ans["job_id"])
@@ -210,20 +210,20 @@ class R1R3R11Public(_Server):
                  ("grading.sessions", lambda M: M["grading"]["sessions"][0].__setitem__("record_sha256", "0" * 64), True))
         for section, mutate, drop in cases:
             parts = self._altered(mutate, drop_sessions=drop)
-            self._refused(parts, {"models": MODEL, "published_url": AUDIT_URL},
+            self._refused(parts, {"models": MODEL + ",typesafe/jev-1.14", "published_url": AUDIT_URL},
                           f"the manifest's {section} differs from the published snapshot's at {MANIFEST_URL}")
         # grading.witnesses and files are NOT bound: insertion changes them
         for label, mutate in (("grading.witnesses", lambda M: M["grading"]["witnesses"].append({"name": "someone", "kind": "human", "file": "witness/someone.jsonl", "primary": False})),
                               ("files", lambda M: M.__setitem__("files", [{"path": "x.txt", "sha256": "0" * 64}]))):
             parts = self._altered(mutate)
-            st, ans = self._post(*multipart(parts, {"models": MODEL, "max_cost_usd": "0.5", "published_url": AUDIT_URL}))
+            st, ans = self._post(*multipart(parts, {"models": MODEL + ",typesafe/jev-1.14", "max_cost_usd": "0.5", "published_url": AUDIT_URL}))
             self.assertEqual(st, 202, (label, ans))
             self._wait(ans["job_id"])
 
     def test_r11_healthz_names_the_version_the_profiles_and_the_unchanged_prompts(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.7-dev")  # 0.1.6-dev when written; the version pin follows the cut
-        self.assertEqual(h["version"], "0.1.7-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.8-dev")  # 0.1.6-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.8-dev")
         self.assertEqual(h["mode"], "public")
         self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)
@@ -238,7 +238,7 @@ class R2Forged(_Server):
         remaining = self.ledger.remaining()
         parts = self._parts(X01)
         self.assertEqual(sha256(parts["sources/files/server.conf"]), FORGED_CONF)
-        ans = self._refused(parts, {"models": MODEL, "published_url": AUDIT_URL}, "sources", "differs from the published snapshot's", MANIFEST_URL)
+        ans = self._refused(parts, {"models": MODEL + ",typesafe/jev-1.14", "published_url": AUDIT_URL}, "sources", "differs from the published snapshot's", MANIFEST_URL)
         self.assertEqual(self.fetcher.calls, [AUDIT_URL, MANIFEST_URL])
         self.assertEqual(self._jobs(), [])
         self.assertEqual(self.client.calls, [])  # no model call
@@ -254,21 +254,21 @@ class R4UrlShapeAndFetchFailures(_Server):
         self.fetcher.calls.clear()
 
     def test_r4_a_published_url_that_is_not_audit_jsonl_is_refused_before_any_fetch(self):
-        self._refused(self._parts(AW6), {"models": MODEL, "published_url": MANIFEST_URL}, "must name the snapshot's audit.jsonl")
+        self._refused(self._parts(AW6), {"models": MODEL + ",typesafe/jev-1.14", "published_url": MANIFEST_URL}, "must name the snapshot's audit.jsonl")
         self.assertEqual(self.fetcher.calls, [])
 
     def test_r4_a_404_for_manifest_json_is_refused(self):
         self.fetcher.served[MANIFEST_URL] = (404, b"")
-        self._refused(self._parts(AW6), {"models": MODEL, "published_url": AUDIT_URL}, "answered 404")
+        self._refused(self._parts(AW6), {"models": MODEL + ",typesafe/jev-1.14", "published_url": AUDIT_URL}, "answered 404")
         self.assertEqual(self.fetcher.calls, [AUDIT_URL, MANIFEST_URL])
 
     def test_r4_a_manifest_body_that_is_not_an_object_is_refused(self):
         self.fetcher.served[MANIFEST_URL] = (200, b"[1,2]")
-        self._refused(self._parts(AW6), {"models": MODEL, "published_url": AUDIT_URL}, "the published manifest.json is not a JSON object")
+        self._refused(self._parts(AW6), {"models": MODEL + ",typesafe/jev-1.14", "published_url": AUDIT_URL}, "the published manifest.json is not a JSON object")
 
     def test_r4_the_audit_bytes_mismatch_is_still_refused_as_before(self):
         self.fetcher.served[AUDIT_URL] = (200, (AW6 / "audit.jsonl").read_bytes() + b"\n")
-        self._refused(self._parts(AW6), {"models": MODEL, "published_url": AUDIT_URL}, "has sha256", "not the request's")
+        self._refused(self._parts(AW6), {"models": MODEL + ",typesafe/jev-1.14", "published_url": AUDIT_URL}, "has sha256", "not the request's")
         self.assertEqual(self.fetcher.calls, [AUDIT_URL])  # the manifest is never asked for when the audit part does not match
 
 
@@ -276,7 +276,7 @@ class R5R10Private(_Server):
     PRIVATE = True
 
     def test_r5_private_mode_with_a_published_url_runs_and_never_fetches(self):
-        st, ans = self._post(*multipart(self._parts(AW6), {"models": MODEL, "max_cost_usd": "0.5", "published_url": AUDIT_URL}))
+        st, ans = self._post(*multipart(self._parts(AW6), {"models": MODEL + ",typesafe/jev-1.14", "max_cost_usd": "0.5", "published_url": AUDIT_URL}))
         self.assertEqual(st, 202, ans)
         s = self._wait(ans["job_id"])
         self.assertEqual(s["state"], "done", s)
@@ -304,7 +304,7 @@ class R5R10Private(_Server):
             (snap / "audit.jsonl").write_text(rows + json.dumps(extra) + "\n", encoding="utf-8")
             resign(snap, key)
             parts = {**{n: (snap / n).read_bytes() for n in FIXED}, **carried_parts(snap)}
-            ans = self._refused(parts, {"models": MODEL}, "C-004", "4 row(s)", "C-001, C-002, C-003, C-004", "SPEC 13")
+            ans = self._refused(parts, {"models": MODEL + ",typesafe/jev-1.14"}, "C-004", "4 row(s)", "C-001, C-002, C-003, C-004", "SPEC 13")
             self.assertIn("this one has 4 row(s): C-001, C-002, C-003, C-004", ans["error"])
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

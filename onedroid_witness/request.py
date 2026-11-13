@@ -189,10 +189,19 @@ class Request:
         files); answer.run records page_sha256 under "page.txt" in `carried` beside them."""
         p = self.root / "page.txt"
         page_bytes = p.read_bytes() if p.is_file() else b""
+        pages = self.manifest.get("pages")
+        entry = next((e for e in pages if isinstance(e, dict) and e.get("file") == "page.txt"), None) if isinstance(pages, list) else None
         if not page_bytes:
+            if entry is not None:
+                if not p.is_file():  # 0.1.8 (seventh re-gate H2, J4): the manifest names the page the models would read and the request did not send it
+                    raise Refused("part page.txt is named by the manifest's pages and was not sent")
+                # 0.1.8 (J4, the owner's holdout v9a): an EMPTY page.txt sent under a pages entry is held to the entry's hash like any other
+                # bytes, so a caller cannot blank the page the models read by sending zero bytes
+                self.page_sha256 = sha256_bytes(page_bytes)
+                if entry.get("sha256") and entry["sha256"] != self.page_sha256:
+                    raise Refused("part page.txt sha256 differs from the manifest's")
             return
         self.page_sha256 = sha256_bytes(page_bytes)
-        entry = next((e for e in self.manifest.get("pages") or [] if isinstance(e, dict) and e.get("file") == "page.txt"), None)
         if entry is None:
             raise Refused("part page.txt is named by no page of the manifest")
         if entry.get("sha256") and entry["sha256"] != self.page_sha256:

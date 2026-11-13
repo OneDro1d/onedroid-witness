@@ -1,0 +1,57 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Example Mobile tariff (synthetic)",
+  "url": "https://example.org/",
+  "publisher": "Example Mobile (fictional)"
+ },
+ "taken_at": "2026-11-13T05:10:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "317b3beb9810f61cf7ba3a7a81b493e8293190472f3a0ea6a271cb42cb1f625b",
+   "lines": 4,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": "https://example.org/tariff",
+   "file": "sources/tariff.txt",
+   "copy": "text",
+   "fetched_at": "2026-11-13T05:10:09Z",
+   "status": 200,
+   "sha256": "f027b7cdafb1145112befbabfd25929efd2b5a587fb215782b8a174e6ee6a93c"
+  },
+  {
+   "n": 2,
+   "url": "https://example.org/annual-report",
+   "file": null,
+   "sha256": null,
+   "copy": "none",
+   "fetched_at": "2026-11-13T05:10:09Z",
+   "status": 403,
+   "note": "HTTP 403"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "cited-sources",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 seventh re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "2569995b69ae2e12d9739d7bde55f89a658479dbee98099918334983ff3760b6",
+   "signer": "onedroid-claims-verification-gate <SHA256:yLadmgNhToOMSWN+hteg2c6RkQZVH/OpFokwQVNKMB0>"
+  }
+ },
+ "counts": {
+  "claims": 3,
+  "checkable": 3
+ }
+}

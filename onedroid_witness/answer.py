@@ -10,6 +10,7 @@ import pathlib
 
 from . import normalise, prompts, render
 from .openrouter import CapReached, refuse_routers
+from .request import BOUND_MANIFEST_SECTIONS, _canonical, _section
 from .signing import now
 
 VERDICTS = prompts.VERDICTS
@@ -52,7 +53,10 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     unreadable_idx = {r["id"]: render.unreadable_indices(r, evidence, request.root) for r in request.audit}
     all_unreadable = {r["id"]: render.all_unreadable(r, evidence, request.root) for r in request.audit}
     prices = prices or {}
-    pass_through = {r["id"]: normalise.passthrough(r) for r in request.audit}
+    # 0.1.8 (seventh re-gate H2, V1): a row whose evidence text names a witness verdict is decided UNDECIDED by rule for EVERY model with
+    # no model call: the passthrough path below writes the body as the row for each model
+    vocab_hits = {r["id"]: render.witness_vocabulary_hits(r, evidence, by_url) for r in request.audit}
+    pass_through = {r["id"]: normalise.passthrough(r) or normalise.vocabulary_rule(vocab_hits[r["id"]]) for r in request.audit}
     asked = [m["id"] for m in models_cfg]
     for m in models_cfg:
         refuse_routers(m["id"])
@@ -64,11 +68,17 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     if request.page_sha256:
         carried["page.txt"] = request.page_sha256
     carried = dict(sorted(carried.items()))
+    # 0.1.8 (seventh re-gate U1, B1): the sha256 of each bound manifest section in canonical JSON (request.BOUND_MANIFEST_SECTIONS, an
+    # absent section hashes "null"), so a witness header says which subject, sources, pages, profile and session records it was written
+    # over and a checker can hold it to the published manifest's; private mode records the sections of the manifest it was given
+    bound = {s: hashlib.sha256(_canonical(_section(request.manifest, s)).encode("utf-8")).hexdigest() for s in BOUND_MANIFEST_SECTIONS}
     service = {"service": service_name, "mode": "private" if private_mode else "public", "published": published,
-               "request_sha256": request.audit_sha256, "manifest_sha256": request.manifest_sha256, "carried": carried,
+               "request_sha256": request.audit_sha256, "manifest_sha256": request.manifest_sha256, "carried": carried, "bound": bound,
                "profile": profile, "claims": len(request.audit), "models_asked": asked, "models_run": [],
                "models_skipped": [], "estimate_usd": {"per_model": est_per_model, "total": est_total, "rule": "input chars / 3.6 per claim + chat output max_tokens / 4"},
                "prompt_sha256": {profile: prompt_sha}, "questions_sha256": {profile: questions_sha}, "parse_rule": "the first JSON object in the text, a code fence stripped",
+               "vocabulary_rule": {"rows": sorted(i for i, h in vocab_hits.items() if h), "hits": {i: h for i, h in vocab_hits.items() if h}},
+               "decision_agreement": {"applied": False, "decision_models_run": [], "rows_changed": {}},
                "candidate_rule_decision_models": "argmax of the yes-probabilities on the verdict's side",
                "daily_cap_remaining_usd_at_start": client.ledger.remaining(), "max_cost_usd": max_cost_usd, "per_model": {}, "started_at": now()}
     budget = min(client.ledger.remaining(), max_cost_usd if max_cost_usd is not None else float("inf"))
@@ -79,6 +89,9 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         pf = request.root / request.primary["file"]
         if pf.is_file():
             primary_verdict = {r["id"]: r.get("verdict") for r in (json.loads(l) for l in pf.read_text(encoding="utf-8").splitlines()[1:] if l.strip())}
+    # pass 1 (0.1.8, A1): every model asked runs as before and what it answered is collected; a skipped model is decided here as before.
+    # No witness file is written until every model has run, so the agreement rule below can read the decision models' rows.
+    ran = []
     for m in models_cfg:
         model, kind, max_tokens = m["id"], m["kind"], int(m.get("max_tokens", 400))
         provider_order = list(m.get("providers") or []) or None  # the configured provider order, pinned on every call when set (3b.3)
@@ -138,6 +151,33 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         if len([s for s in served if s]) > 1:
             service["models_skipped"].append({"model": model, "reason": "router", "detail": f"the id served more than one model: {served}"})
             continue
+        ran.append({"m": m, "model": model, "kind": kind, "max_tokens": max_tokens, "provider_order": provider_order, "started": started, "finished": finished,
+                    "rows": rows, "raw": raw, "providers": providers, "served": served, "served_id": served_id, "errors": errors, "lat": lat, "cost": cost, "pt": pt, "ct": ct})
+    # the agreement rule (0.1.8, seventh re-gate H2, A1): when a decision model was ASKED, a chat model's EVIDENCED stands only where a
+    # decision model that ran answered EVIDENCED on the same row id; otherwise the row is UNDECIDED and keeps the chat model's note. A
+    # decision model's rows never change. When no decision model was asked the rule is not applied.
+    decision_asked = any(m["kind"] == "decision" for m in models_cfg)
+    decision_ran = [x for x in ran if x["kind"] == "decision"]
+    rows_changed = {}
+    if decision_asked:
+        for x in ran:
+            if x["kind"] != "chat":
+                continue
+            for row in x["rows"]:
+                if row["verdict"] != "EVIDENCED":
+                    continue
+                said = sorted({dr["verdict"] for d in decision_ran for dr in d["rows"] if dr["id"] == row["id"]})
+                if "EVIDENCED" in said:
+                    continue
+                why = "; no decision model answered this row" if not decision_ran else f"; the decision model(s) said {said}"
+                row["verdict"], row["on"] = "UNDECIDED", dict(normalise.UND)
+                row["note"] = "EVIDENCED from a chat model without a decision model's agreement on this row" + why + "; the model said: " + row["note"]
+                rows_changed.setdefault(x["model"], []).append(row["id"])
+    service["decision_agreement"] = {"applied": decision_asked, "decision_models_run": [x["model"] for x in decision_ran], "rows_changed": rows_changed}
+    # pass 2: each witness file written and signed, the entries and per_model built, as before the rule
+    for x in ran:
+        m, model, kind, max_tokens, provider_order, started, finished = x["m"], x["model"], x["kind"], x["max_tokens"], x["provider_order"], x["started"], x["finished"]
+        rows, raw, providers, served, served_id, errors, lat, cost, pt, ct = (x[k] for k in ("rows", "raw", "providers", "served", "served_id", "errors", "lat", "cost", "pt", "ct"))
         # the witness is named by the provider's id WITH its version (section 14, gate D9): OpenRouter's canonical_slug carries the dated
         # snapshot for chat models (openai/gpt-4.1-nano -> openai/gpt-4.1-nano-2025-04-14); decision models already serve a dated id
         versioned = (prices.get(served_id) or prices.get(model) or {}).get("canonical_slug") or served_id
@@ -145,7 +185,7 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         principal, priv, signer_line, fp, ktype = keystore.key_for(versioned)
         fallback_served = sorted(p for p in providers if p and provider_order and p not in provider_order)
         header = {"witness": name, "kind": "model", "model": versioned, "method": "classify", "over": {"file": "audit.jsonl", "sha256": request.audit_sha256},
-                  "manifest_sha256": request.manifest_sha256, "carried": carried,
+                  "manifest_sha256": request.manifest_sha256, "carried": carried, "bound": bound,
                   "started_at": started, "finished_at": finished,
                   "note": (f"{service_name}: {'chat' if kind == 'chat' else 'decision'} model through OpenRouter; "
                            + (f"prompt sha256 {prompt_sha}; temperature 0, max_tokens {max_tokens}, response_format json_object; parse: the first JSON object in the text, a code fence stripped"
@@ -175,7 +215,8 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
                                        "calls": len(request.audit), "cost_usd": round(cost, 5), "prompt_tokens": pt, "completion_tokens": ct,
                                        "latency_s_median": sorted(lat)[len(lat) // 2] if lat else None, "errors": errors, "undecided": n_und,
                                        "verdicts": {v: sum(1 for x in rows if x["verdict"] == v) for v in VERDICTS},
-                                       "agrees_with_primary": f"{agree} of {len(decided)} decided" if primary_verdict else None, "score": entries_m[-1]["score"]}
+                                       "agrees_with_primary": f"{agree} of {len(decided)} decided" if primary_verdict else None, "score": entries_m[-1]["score"],
+                                       "plant_regression": m.get("plant_regression")}  # 0.1.8 (M2): the served model's plant record from the configuration, None when absent
         per_model_rows[name] = {x["id"]: x for x in rows}
     (answer / "allowed_signers").write_text("\n".join(signers) + ("\n" if signers else ""), encoding="utf-8")
     (answer / "manifest-entry.json").write_text(json.dumps(entries_m, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

@@ -326,7 +326,7 @@ class E6E7E9Http(ServerRules):
         parts = {**self._fixed(AW4), **carried_parts(AW4)}
         self.assertEqual(sorted(carried_parts(AW4)), ["sources/files/README.md", "sources/files/config.yaml", AW4_OUTPUT])
         before = self._jobs()
-        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano", "max_cost_usd": "0.5"}))
+        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14", "max_cost_usd": "0.5"}))
         self.assertEqual(st, 202, ans)
         self.assertEqual(ans["profile"], "agent-work")
         self.assertEqual(ans["claims"], 7)
@@ -341,7 +341,7 @@ class E6E7E9Http(ServerRules):
         parts = {**self._fixed(AW4), **carried_parts(AW4)}
         parts["sources/files/config.yaml"] = parts["sources/files/config.yaml"].replace(b"retries: 3", b"retries: 4")
         before = self._jobs()
-        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano"}))
+        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14"}))
         self.assertEqual(st, 422, ans)
         self.assertIn("sha256 differs", ans["error"])
         self.assertIn("sources/files/config.yaml", ans["error"])
@@ -353,7 +353,7 @@ class E6E7E9Http(ServerRules):
         parts = {**self._fixed(AW4), **carried_parts(AW4)}
         parts["sources/files/other.txt"] = b"stray\n"
         before = self._jobs()
-        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano"}))
+        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14"}))
         self.assertEqual(st, 422, ans)
         self.assertIn("named by no source", ans["error"])
         self.assertIn("sources/files/other.txt", ans["error"])
@@ -365,7 +365,7 @@ class E6E7E9Http(ServerRules):
             parts = {**self._fixed(AW4)}
             parts[bad] = b"x"
             before = self._jobs()
-            st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano"}))
+            st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14"}))
             self.assertEqual(st, 400, (bad, ans))
             self.assertIn("not accepted", ans["error"], bad)
             self.assertNotIn("job_id", ans, bad)
@@ -380,7 +380,7 @@ class E6E7E9Http(ServerRules):
 
     def test_e6_the_fixed_parts_alone_are_accepted_and_the_job_runs(self):
         import time
-        st, ans = self._post(*multipart(self._fixed(AW4), {"models": "openai/gpt-4.1-nano", "max_cost_usd": "0.5"}))
+        st, ans = self._post(*multipart(self._fixed(AW4), {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14", "max_cost_usd": "0.5"}))
         self.assertEqual(st, 202, ans)
         jid = ans["job_id"]
         for _ in range(600):
@@ -416,7 +416,7 @@ class E6E7E9Http(ServerRules):
             self.assertIn("SPEC 13", str(cm.exception))
             parts = {**{n: (snap / n).read_bytes() for n in FIXED}, **carried_parts(snap)}
             before = self._jobs()
-            st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano"}))
+            st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14"}))
             self.assertEqual(st, 422, ans)
             self.assertIn("C-001, C-002, C-003", ans["error"])
             self.assertIn("this one has 4", ans["error"])
@@ -428,7 +428,7 @@ class E6E7E9Http(ServerRules):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         parts = {**self._fixed(TR4), **carried_parts(TR4)}
-        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano", "max_cost_usd": "0.5"}))
+        st, ans = self._post(*multipart(parts, {"models": "openai/gpt-4.1-nano,typesafe/jev-1.14", "max_cost_usd": "0.5"}))
         self.assertEqual(st, 202, ans)
         self.assertEqual(ans["profile"], "test-run")
 

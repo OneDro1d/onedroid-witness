@@ -63,7 +63,7 @@ class RunFixture(unittest.TestCase):
         nano = svc["per_model"]["openai/gpt-4.1-nano"]
         # the probe measured 69 of 70: its one disagreement was NO EVIDENCE PUBLISHED on an all copy-none row, which the service turns
         # UNDECIDED by the rule of 3d.3, so the service decides 69 and agrees on 69
-        self.assertEqual(nano["agrees_with_primary"], "69 of 69 decided")
+        self.assertEqual(nano["agrees_with_primary"], "66 of 66 decided")  # 0.1.8 (A1): three nano EVIDENCED rows with no decision model EVIDENCED on them are UNDECIDED now
         self.assertEqual(nano["max_tokens"], 400)
         jev = svc["per_model"]["typesafe/jev-1.14"]
         self.assertTrue(jev["agrees_with_primary"].startswith("57 of "), jev["agrees_with_primary"])  # the argmax rule of 3e.4, as measured

@@ -17,11 +17,17 @@ class FakeClient:
         self.served_override = served_override or {}
         self.fail_models = set(fail_models)
         self.calls = []
+        self.seen = {}  # 0.1.8 (test_regate7): model id -> the claim ids this fake was asked about, in call order (a read-only log)
 
     @staticmethod
     def slug(model):
         import re
         return re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")
+
+    def _note(self, model, text):
+        import re
+        m = re.search(r"claim id: (\S+)\n", text or "")
+        self.seen.setdefault(model, []).append(m.group(1) if m else None)
 
     def _row(self, model, state_or_text):
         s = self.slug(model)
@@ -32,6 +38,7 @@ class FakeClient:
 
     def chat(self, model, system_prompt, user_text, max_tokens, providers=None):
         self.calls.append(("chat", model, max_tokens, providers))
+        self._note(model, user_text)
         if model in self.fail_models:
             return {"error": "HTTP_502", "detail": "fake provider error", "latency_s": 0.1}
         row = self._row(model, user_text)
@@ -44,6 +51,7 @@ class FakeClient:
 
     def decide(self, model, state, questions, providers=None):
         self.calls.append(("decide", model, len(questions), providers))
+        self._note(model, state)
         if model in self.fail_models:
             return {"error": "HTTP_404", "detail": "fake: not served", "latency_s": 0.1}
         row = self._row(model, state)

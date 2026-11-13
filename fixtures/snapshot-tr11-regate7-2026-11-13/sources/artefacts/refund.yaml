@@ -1,0 +1,4 @@
+id: REFUND-ISSUE
+steps:
+  - POST /v1/refunds
+  - expect 201

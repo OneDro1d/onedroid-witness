@@ -1,0 +1,156 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Claims of a synthetic agent session (seventh re-gate)",
+  "url": null,
+  "publisher": "gate@example.org",
+  "session_id": "ffffffff-9999-aaaa-bbbb-cccccccccccc",
+  "turn_end": 4,
+  "parts": []
+ },
+ "taken_at": "2026-11-13T05:10:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "ab843215bded078453872d6b8702aafbcfbef0f840ecbddf749575aa57102bcd",
+   "lines": 9,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "path": "server.conf",
+   "role": "file",
+   "file": "sources/files/server.conf",
+   "sha256": "ee8c73fee84d7f5bee178be5332f8a95585ffca173d06c97d44d454e1ed2813d",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "path": "VERSION",
+   "role": "file",
+   "file": "sources/files/VERSION",
+   "sha256": "c0eacacd7e27bbf341d21e7e0e2997a363840a210d8e358d4babaebd765b5bfd",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "path": "dev/config.yaml",
+   "role": "file",
+   "file": "sources/files/dev/config.yaml",
+   "sha256": "aff71add770a62c4f520b36e5ea846cd39aa679142b6948b2956688f651188a6",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "path": "prod/config.yaml",
+   "role": "file",
+   "file": "sources/files/prod/config.yaml",
+   "sha256": "1a8396f0bd6d7391c9ff226197f12846d6c2acd44659507be588cbaaebbf74f2",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "path": "notes/q10.md",
+   "role": "file",
+   "file": "sources/files/notes/q10.md",
+   "sha256": "8c6b6ada8377ba41a7d2b47aa618985e3a158a435b1a699adacb04ea71ba578a",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 6,
+   "url": null,
+   "path": "notes/q11.md",
+   "role": "file",
+   "file": "sources/files/notes/q11.md",
+   "sha256": "62e0e82a7dfd3a9280334a65f004a6d1341db1a41656dc4466e01083e703bee2",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 7,
+   "url": null,
+   "path": "notes/q12.md",
+   "role": "file",
+   "file": "sources/files/notes/q12.md",
+   "sha256": "3f23b231c4a645bae7cc25e0eef16ff99357c6ba9291380bde358977605f7da3",
+   "copy": "text",
+   "repo": {
+    "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 20,
+   "url": null,
+   "path": null,
+   "role": "output",
+   "file": null,
+   "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+   "copy": "hash-only",
+   "note": "not handed in"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "agent-work",
+  "gates": [],
+  "rounds": [],
+  "sessions": [
+   {
+    "available": "published",
+    "complete": true,
+    "gaps": 0,
+    "held_by": "gate@example.org",
+    "machine_id": "m-0000000000000000000000000000000a",
+    "record_sha256": "33093d1a598afac039184e5f51fb71f4c6deb723693ebe06aac6d9b272e8d3c6",
+    "record_upto_sequence": 4,
+    "recorder": "synthetic",
+    "role": "auditor",
+    "session_id": "ffffffff-9999-aaaa-bbbb-cccccccccccc",
+    "file": "sessions/ffffffff-9999-aaaa-bbbb-cccccccccccc.jsonl"
+   }
+  ],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 seventh re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "b30017f4332a6c42f60def167afc7033d3d60a74deb66771dc61997ccd140e2a",
+   "signer": "onedroid-claims-verification-gate <SHA256:yLadmgNhToOMSWN+hteg2c6RkQZVH/OpFokwQVNKMB0>"
+  }
+ },
+ "counts": {
+  "claims": 9,
+  "checkable": 9
+ }
+}

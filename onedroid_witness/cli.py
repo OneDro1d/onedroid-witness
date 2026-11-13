@@ -42,6 +42,9 @@ def load_cfg(path):
         m.setdefault("kind", "chat")
         if m["kind"] == "chat":
             m.setdefault("max_tokens", 400)
+        pr = m.get("plant_regression")  # 0.1.8 (M2): the served model's plant-regression record, shown on /models and in service.json; absent is fine
+        if pr is not None and not (isinstance(pr, dict) and sorted(pr) == ["date", "fixture", "result"] and all(isinstance(pr[k], str) for k in pr)):
+            sys.exit("plant_regression must be an object with fixture, date and result strings")
     not_served = cfg.get("models_not_served")
     if not_served is None:
         not_served = {}

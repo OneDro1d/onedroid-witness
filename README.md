@@ -41,11 +41,21 @@ request is refused by name when its `subject`, `sources`, `pages`, `grading.prof
 carried file can only be one the published record lists at that hash. The audited page is a carried file too (0.1.7): `page.txt` is
 hash-checked against the manifest's `pages` entry and refused by name when it differs or when no entry names it. Every answer records what
 the models read: `service.json` and every witness header carry `manifest_sha256` and `carried` (each carried file's path and sha256,
-`page.txt` included), and the public checker at the pinned hash (the carried cut, 559e54a9…) fails a witness whose `carried` differs
-from the snapshot's manifest, as `add_witness.py` refuses it before writing. Inside any text a model sees, a run of eight or more
+`page.txt` included) and, since 0.1.8, `bound` (the sha256 of each bound manifest section in canonical JSON, because `carried` binds bytes
+and not which source entry a pointer resolved through: the claims session's seventh re-gate re-aimed a `prod/config.yaml` entry at the
+genuine `dev/config.yaml` file and every carried hash stayed genuine); the public checker at the pinned hash (the bound cut, af216591…)
+fails a witness whose `carried` or `bound` differs from the snapshot's manifest and a decision that rests on a file the witness did not
+carry, as `add_witness.py` refuses a mismatch before writing. Inside any text a model sees, a run of eight or more
 fence-like characters is broken with a visible mark, so a planted "fence" inside a carried line is never one; a planted instruction needs
 no fence, though, so a model that follows one (gpt-4.1-nano answered EVIDENCED on 21 of 21 planted rows in the claims session's sixth
-re-gate, 13 Nov 2026) is named in the configuration's `models_not_served` with the reason and refused by name. A `published_url` on a
+re-gate, 13 Nov 2026) is named in the configuration's `models_not_served` with the reason and refused by name. Since 0.1.8 two rules stand above
+any model's answer (the seventh re-gate's fresh plants swayed served models: a plain-English and a German note, a planted JSON verdict
+object): evidence text that names a verdict addresses the witness, so a row whose readable pointer text or candidate quote holds
+EVIDENCED, CONTRADICTED, UNDECIDED or NO EVIDENCE PUBLISHED (upper case, whole words; the claim text and the page context are not
+scanned) is UNDECIDED by rule for every model with no model call, the note naming the pointer and the word; and a chat model's EVIDENCED
+stands only where a decision model that ran in the same job answered EVIDENCED on the row, so a request must name a decision model
+(400 otherwise). Each served model's configuration carries its `plant_regression` record (fixture, date, result), shown on `/models` and
+in `service.json`. A `published_url` on a
 gist needs the gist's revision URL (`raw/<revision>/audit.jsonl`): a raw gist URL names one blob under any file name, and the refusal
 says so. `GET /healthz` lists the profiles served and, for each not served, why, and the models not served with the reason.
 

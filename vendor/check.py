@@ -234,6 +234,27 @@ def carried_inventory(M):
     return inv
 
 
+BOUND_SECTIONS = ("subject", "sources", "pages", "grading.profile", "grading.sessions")
+
+
+def _section(manifest, dotted):
+    """The value at a dotted path of a manifest, None when absent (so a section absent on both sides is equal)."""
+    cur = manifest
+    for k in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(k)
+    return cur
+
+
+def bound_sections(M):
+    """The sha256 of each bound manifest section in canonical JSON (the bound cut, 13 Nov 2026, the seventh re-gate's U1): reproduces the
+    witness service's `_canonical` (onedroid_witness/request.py: json.dumps sort_keys, separators (",", ":"), ensure_ascii False, UTF-8; an
+    absent section hashes as null) over its BOUND_MANIFEST_SECTIONS. The five sections are the ones add_witness.py never touches, so they are
+    the same before and after any insertion. One helper for K11 and add_witness.py, like carried_inventory, so the two rules cannot drift."""
+    return {s: hashlib.sha256(json.dumps(_section(M, s), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest() for s in BOUND_SECTIONS}
+
+
 def merge_rows(audit, wrows, witness_name):
     """claims.jsonl from the auditor's rows and one witness's decisions (SPEC.md 4b). MISSING CLAIM rows are not merged.
     A claim the witness did not decide gets verdict None, which K3 then rejects."""
@@ -864,6 +885,27 @@ def main(argv):
             elif ek == "model" and (profile in ("agent-work", "test-run") or any(isinstance(a_.get("evidence"), list) for a_ in audit)):
                 # evidence-shaped auditor part (SPEC 12 and 13): the decisive input is the carried files, so a model witness must say what it read
                 k11_warn.append(f"witness {name!r}: a model witness over an evidence-shaped auditor part records no `carried`: what the models read is not on record (0.1.6 of the witness service writes it)")
+            # the bound cut (13 Nov 2026, the seventh re-gate's U1): `carried` binds bytes, not which source entry a pointer resolved through, so
+            # the header's `bound` {section: sha256} names the five bound manifest sections with the sha256 of each in canonical JSON; K11
+            # recomputes them from THIS record's manifest (bound_sections) and fails a mismatch by name. A matching section prints no line.
+            if "bound" in header:
+                bound_ = header["bound"]
+                if not isinstance(bound_, dict):
+                    bad.append(f"witness {name!r}: header bound is not an object of section to sha256")
+                else:
+                    if set(bound_) != set(BOUND_SECTIONS):
+                        bad.append(f"witness {name!r}: header bound names {sorted(bound_)!r}, not the five bound sections {list(BOUND_SECTIONS)!r}")
+                    want_ = bound_sections(M)
+                    for sec_ in BOUND_SECTIONS:
+                        if sec_ not in bound_:
+                            continue
+                        bv_ = bound_[sec_]
+                        if not (isinstance(bv_, str) and HEX64.match(bv_)):
+                            bad.append(f"witness {name!r}: bound {sec_!r}: sha256 {bv_!r} is not 64 hex characters")
+                        elif bv_ != want_[sec_]:
+                            bad.append(f"witness {name!r}: bound {sec_!r} sha256 {bv_[:12]}… differs from this record's {want_[sec_][:12]}…: the witness read a manifest whose {sec_} is not this record's")
+            elif "carried" in header and ek == "model" and (profile in ("agent-work", "test-run") or any(isinstance(a_.get("evidence"), list) for a_ in audit)):
+                k11_warn.append(f"witness {name!r}: a model witness records `carried` but no `bound`: which manifest its pointers resolved through is not on record (0.1.8 of the witness service writes it)")
             if "manifest_sha256" in header and not (isinstance(header["manifest_sha256"], str) and HEX64.match(header["manifest_sha256"])):
                 bad.append(f"witness {name!r}: header manifest_sha256 {header['manifest_sha256']!r} is not 64 hex characters")
             w_hdr[name], w_kind[name], w_kind_file[wf] = header, ek, ek
@@ -936,6 +978,20 @@ def main(argv):
                     bad.append(f"witness {name!r} {rid}: CONTRADICTED names no counter candidate")
                 if v == "CONTRADICTED" and r.get("confidence") not in ("high", "low"):
                     bad.append(f"witness {name!r} {rid}: CONTRADICTED without confidence")
+                # the bound cut (13 Nov 2026, the seventh re-gate's U1): a decision rests on a carried file. For a witness with `carried`, a
+                # file pointer the decision names resolves by `path` through THIS manifest's sources (as test_pointer does); a source whose
+                # `file` the witness did not carry is a file the models never read under that name. Other pointer shapes, a hash-only source
+                # and an unresolved path: nothing (K11's other rules and the service's own UNDECIDED-by-rule cover them).
+                if isinstance(header.get("carried"), dict) and v in ("EVIDENCED", "CONTRADICTED") and isinstance(a.get("evidence"), list):
+                    for i in on.get("proofs" if v == "EVIDENCED" else "counter", []) or []:
+                        if not (isinstance(i, int) and 0 <= i < len(a["evidence"])):
+                            continue
+                        p_ = a["evidence"][i]
+                        if not (isinstance(p_, dict) and "file" in p_ and "line" in p_):
+                            continue
+                        src_ = by_path.get(p_["file"])
+                        if src_ and src_.get("file") and src_["file"] not in header["carried"]:
+                            bad.append(f"witness {name!r} {rid}: decided {v} on pointer [{i}] file {p_['file']!r}, which this record holds at {src_['file']!r}, a file the witness did not carry")
                 if r.get("graded_by", "grader") not in GRADED_BY:
                     bad.append(f"witness {name!r} {rid}: graded_by {r.get('graded_by')!r}")
                 if not r.get("graded_at"):

@@ -149,6 +149,10 @@ def make_handler(cfg):
                         return self._json(400, {"error": f"{m} is not one of the service's models (GET /models)"})
             except RouterRefused as e:
                 return self._json(400, {"error": str(e)})
+            if not any(known[m].get("kind") == "decision" for m in models):
+                # 0.1.8 (seventh re-gate H2, A1): a chat model's EVIDENCED stands only with a decision model's agreement on the row, so a
+                # request names at least one decision model; refused before any job, nothing is kept
+                return self._json(400, {"error": "name at least one decision model (kind decision on GET /models): since 0.1.8 a chat model's EVIDENCED stands only with a decision model's agreement on the row"})
             # the parts are checked in an incoming folder; a refused request is discarded with its bytes and gets no job id (gate D11).
             # Second re-gate P1 (the claims session, 13 Nov 2026): EVERYTHING after incoming() runs inside one try, and the finally
             # discards the folder unless the request became a job, so no path, whatever raises and wherever, can answer nothing and

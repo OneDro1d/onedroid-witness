@@ -119,11 +119,12 @@ class S1PageBoundOffline(unittest.TestCase):
 
     def test_s1_a_request_without_a_page_is_what_it_was_before_and_no_new_refusal(self):
         # recorded for the owner: today (0.1.6) a missing page.txt is accepted with an empty page (request.py `_text_optional(...) or ""`)
+        # 0.1.8 (J4): since the manifest's pages names page.txt, the deleted page is now refused by name (test_regate7 t7 has the accepted case)
         d = self._copy("no-page")
         (d / "page.txt").unlink()
-        req = self._request(d)
-        self.assertEqual(req.page, "")
-        self.assertIsNone(req.page_sha256)
+        with self.assertRaises(request.Refused) as cm:
+            self._request(d)
+        self.assertEqual(str(cm.exception), "part page.txt is named by the manifest's pages and was not sent")
 
 
 class S2S4Public(_Server):
@@ -141,7 +142,7 @@ class S2S4Public(_Server):
     def test_s2_the_genuine_cs10_with_its_published_url_runs_to_done(self):
         parts = self._parts(CS10)
         self.assertEqual(sorted(parts), sorted(list(FIXED) + ["sources/fees.txt"]))
-        st, ans = self._post(*multipart(parts, {"models": MODEL, "max_cost_usd": "0.5", "published_url": CS10_AUDIT_URL}))
+        st, ans = self._post(*multipart(parts, {"models": MODEL + ",typesafe/jev-1.14", "max_cost_usd": "0.5", "published_url": CS10_AUDIT_URL}))
         self.assertEqual(st, 202, ans)
         self.assertEqual(self.fetcher.calls, [CS10_AUDIT_URL, CS10_MANIFEST_URL])
         s = self._wait(ans["job_id"])
@@ -155,7 +156,7 @@ class S2S4Public(_Server):
         remaining = self.ledger.remaining()
         parts = self._parts(FORGED)
         self.assertEqual(sha256(parts["page.txt"]), page_sha(FORGED))
-        ans = self._refused(parts, {"models": MODEL, "published_url": CS10_AUDIT_URL}, "pages", "differs from the published snapshot's", CS10_MANIFEST_URL)
+        ans = self._refused(parts, {"models": MODEL + ",typesafe/jev-1.14", "published_url": CS10_AUDIT_URL}, "pages", "differs from the published snapshot's", CS10_MANIFEST_URL)
         self.assertEqual(ans["error"], f"the manifest's pages differs from the published snapshot's at {CS10_MANIFEST_URL}")
         self.assertEqual(self.fetcher.calls, [CS10_AUDIT_URL, CS10_MANIFEST_URL])
         self.assertEqual(len(self.client.calls), calls_before)  # no model call
@@ -164,14 +165,14 @@ class S2S4Public(_Server):
     def test_s4_a_manifest_url_that_serves_the_audit_bytes_is_refused_naming_the_gist_blob(self):
         self.fetcher.served[CS10_MANIFEST_URL] = (200, (CS10 / "audit.jsonl").read_bytes())
         n = len((CS10 / "audit.jsonl").read_bytes())
-        ans = self._refused(self._parts(CS10), {"models": MODEL, "published_url": CS10_AUDIT_URL},
+        ans = self._refused(self._parts(CS10), {"models": MODEL + ",typesafe/jev-1.14", "published_url": CS10_AUDIT_URL},
                             "is not a JSON object", f"({n} bytes, sha256 {sha256((CS10 / 'audit.jsonl').read_bytes())[:16]}...",
                             "is byte-equal to the published audit.jsonl", "revision URL", "raw/<revision>/manifest.json")
         self.assertIn(CS10_MANIFEST_URL, ans["error"])
 
     def test_s4_a_manifest_body_that_is_not_an_object_names_its_bytes_and_not_the_gist(self):
         self.fetcher.served[CS10_MANIFEST_URL] = (200, b"[1,2]")
-        ans = self._refused(self._parts(CS10), {"models": MODEL, "published_url": CS10_AUDIT_URL},
+        ans = self._refused(self._parts(CS10), {"models": MODEL + ",typesafe/jev-1.14", "published_url": CS10_AUDIT_URL},
                             "is not a JSON object (5 bytes, sha256 " + sha256(b"[1,2]")[:16] + "...")
         self.assertNotIn("byte-equal", ans["error"])
         self.assertIn("the published manifest.json", ans["error"])
@@ -291,8 +292,8 @@ class S6Healthz(_Server):
 
     def test_s6_healthz_names_the_version_the_profiles_the_unchanged_prompts_and_an_empty_not_served_by_default(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.7-dev")
-        self.assertEqual(h["version"], "0.1.7-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.8-dev")
+        self.assertEqual(h["version"], "0.1.8-dev")
         self.assertEqual(h["mode"], "public")
         self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)

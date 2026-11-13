@@ -1,0 +1,114 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "kind": "test-run",
+  "title": "Test run of REFUND-ISSUE at 9a8b7c6d5e4f (synthetic)",
+  "url": null,
+  "publisher": "gate-example-runner",
+  "scenario": {
+   "id": "REFUND-ISSUE",
+   "sha256": "de264f8b86b340ef061b37a7315086688fa844007704b83fa2f83b46ee81c31f"
+  },
+  "environment": {
+   "name": "uat",
+   "sha256": "76d856ccbc88c58d59b55951f46e8cbcb5001373c4bfb92e23c642af1a9d97cb"
+  },
+  "system_under_test": {
+   "repository": "github.com/example/billing",
+   "commit": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3",
+   "image_digest": null
+  },
+  "runner": {
+   "id": "gate-example",
+   "machine_id": "m-0000000000000000000000000000000b"
+  },
+  "started_at": "2026-11-13T05:10:00Z",
+  "finished_at": "2026-11-13T05:10:09Z"
+ },
+ "taken_at": "2026-11-13T05:10:09Z",
+ "evidence_locator": {
+  "held_by": "folder",
+  "where": null,
+  "expires_at": null,
+  "note": "every artefact is in this folder"
+ },
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "587dd5a7c070a38f451de130daff38ed3ce1ec37791a7a7afd73c8c33cbff066",
+   "lines": 3,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "name": "refund.yaml",
+   "role": "artefact",
+   "artefact_role": "scenario",
+   "sha256": "de264f8b86b340ef061b37a7315086688fa844007704b83fa2f83b46ee81c31f",
+   "file": "sources/artefacts/refund.yaml",
+   "copy": "text"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "name": "sut.json",
+   "role": "artefact",
+   "artefact_role": "sut",
+   "sha256": "3977eec920c616b214e84591892fa9ddc689a1525ca87b07a7183feab4945070",
+   "file": "sources/artefacts/sut.json",
+   "copy": "text"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "name": "uat.json",
+   "role": "artefact",
+   "artefact_role": "environment",
+   "sha256": "76d856ccbc88c58d59b55951f46e8cbcb5001373c4bfb92e23c642af1a9d97cb",
+   "file": "sources/artefacts/uat.json",
+   "copy": "text"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "name": "result.json",
+   "role": "artefact",
+   "artefact_role": "result",
+   "sha256": "56bb1a8e0e902ed6c74bdb108ce0503d7b0dcfc610dbc5dc4be0895feb1bf703",
+   "file": "sources/artefacts/result.json",
+   "copy": "text"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "name": "corr-refund.log",
+   "role": "artefact",
+   "artefact_role": "log",
+   "sha256": "deba07b2d810c2f9f617380bb7a7e4c7e127a8524219dd172927e5073d33c4bb",
+   "file": "sources/artefacts/corr-refund.log",
+   "copy": "text"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "test-run",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 seventh re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "8d501b9a5b35e87c5111a8bc707bdeeec6e1f58fce27f6ad4942bf0826177bf7",
+   "signer": "onedroid-claims-verification-gate <SHA256:yLadmgNhToOMSWN+hteg2c6RkQZVH/OpFokwQVNKMB0>"
+  }
+ },
+ "counts": {
+  "claims": 3,
+  "checkable": 3
+ }
+}

@@ -22,7 +22,9 @@ hash: NEXT-REVISION 22), recomputes the sha256 of every file it added, re-signs 
 its SUMMARY line and exits with check.py's exit code. A pre-witness folder (no claims.jsonl) is taken as it is (13 Nov 2026).
 It never touches audit.jsonl, claims.jsonl, an existing witness file, the pages, the sources or the primary witness's score
 (it hashes them before and after, and says so). A witness header's `carried` (13 Nov 2026, NEXT-REVISION 25c) must name only pages, sources and
-session records this snapshot's manifest lists, each with the manifest's sha256, else the whole answer is refused before anything is written."""
+session records this snapshot's manifest lists, each with the manifest's sha256, else the whole answer is refused before anything is written.
+A witness header's `bound` (the bound cut, 13 Nov 2026), when present, must name exactly the five bound manifest sections with the sha256 of each
+section of THIS snapshot's manifest in canonical JSON (check.bound_sections), else the whole answer is refused before anything is written."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -164,6 +166,25 @@ def main(argv):
                             problems.append(f"entry {n!r}: carried {cpath!r} is not a page, source or session record this snapshot's manifest lists")
                         elif ch != inv[cpath]:
                             problems.append(f"entry {n!r}: carried {cpath!r} sha256 {str(ch)[:12]}… differs from the manifest's {inv[cpath][:12]}…: the witness read other bytes than this snapshot holds")
+            # the bound cut (13 Nov 2026, the seventh re-gate's U1): the header's `bound` must hold the sha256 of each of the five bound sections of
+            # THIS snapshot's manifest in canonical JSON (check.bound_sections, K11's: the sections insertion never touches), else the witness read a
+            # manifest that is not this snapshot's and the whole answer is refused before anything is written. A header without `bound` is accepted
+            # (K11 warns later where it applies). The decision-on-a-carried-file rule stays K11's, after insertion: add_witness is a header check.
+            if hdr is not None and "bound" in hdr:
+                if not isinstance(hdr["bound"], dict):
+                    problems.append(f"entry {n!r}: bound is not an object of section to sha256")
+                else:
+                    if set(hdr["bound"]) != set(check.BOUND_SECTIONS):
+                        problems.append(f"entry {n!r}: bound names {sorted(hdr['bound'])!r}, not the five bound sections {list(check.BOUND_SECTIONS)!r}")
+                    want = check.bound_sections(M)
+                    for section in check.BOUND_SECTIONS:
+                        if section not in hdr["bound"]:
+                            continue
+                        bv = hdr["bound"][section]
+                        if not (isinstance(bv, str) and check.HEX64.match(bv)):
+                            problems.append(f"entry {n!r}: bound {section!r}: sha256 {bv!r} is not 64 hex characters")
+                        elif bv != want[section]:
+                            problems.append(f"entry {n!r}: bound {section!r} sha256 {bv[:12]}… differs from this snapshot's {want[section][:12]}…: the witness read a manifest whose {section} is not this snapshot's")
         if e.get("kind") not in (None, "human", "agent", "model"):
             problems.append(f"entry {n!r}: kind {e.get('kind')!r}")
     files_new = {e.get("file") for e in entries}

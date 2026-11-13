@@ -155,6 +155,15 @@ def apply_row_rules(body, row, row_all_copy_none, copy_none_idx=None, unreadable
     return body
 
 
+def vocabulary_rule(hits):
+    """0.1.8 (seventh re-gate H2, V1): the body of a row whose evidence text names a witness verdict (render.witness_vocabulary_hits), decided
+    UNDECIDED by rule for every model with no model call; None when there is no hit."""
+    if not hits:
+        return None
+    return {"verdict": "UNDECIDED", "on": dict(UND),
+            "note": "the evidence addresses the witness: " + "; ".join(hits) + " (a text that names a verdict is not evidence of a claim; a reader decides this row)"}
+
+
 def passthrough(row):
     """Rows the models never see (3.5): an auditor row marked on request is passed through as EVIDENCE AVAILABLE ON REQUEST; a withdrawn
     row as WITHDRAWN; a promise is not checkable. Returns a body or None."""

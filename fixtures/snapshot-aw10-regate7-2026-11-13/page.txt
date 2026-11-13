@@ -1,0 +1,9 @@
+the service listens on port 6060
+VERSION says 5.0.0
+the linter reports no findings
+the service runs 16 workers
+prod/config.yaml sets retries to 3
+the notes document a 90-day backup retention
+the notes document a 90-day backup retention
+the notes document a 90-day backup retention
+the billing rollback succeeded
