@@ -294,6 +294,43 @@ def allowed_keys(path):
     return keys
 
 
+JSON_KIND = {dict: "object", list: "array", str: "string", bool: "boolean", int: "number", float: "number", type(None): "null"}
+SIGNER_FIELDS = ("name", "key_id", "kind")
+
+
+def json_kind(v):
+    return JSON_KIND.get(type(v), type(v).__name__)
+
+
+def entry_shape_fault(e):
+    """V2b and V2c (the twelfth cut, 13 Nov 2026, NEXT-REVISION 33; the twelfth re-gate's Q06 and the thirteenth's R05): the first wrong-shaped
+    field of an OBJECT signature entry, as (field, JSON kind, what it should be), else None. role, file, sha256, line and signature are strings;
+    signer is an object whose name, key_id and kind are strings. An absent field is not a fault here (the rules say what a missing field
+    means); a present field of the wrong JSON kind is, null included. sign.py and add_witness.py refuse a file by this same rule."""
+    for k in ("role", "file", "sha256", "line", "signature"):
+        if k in e and not isinstance(e[k], str):
+            return k, json_kind(e[k]), "a string"
+    if "signer" in e and not isinstance(e["signer"], dict):
+        return "signer", json_kind(e["signer"]), "an object"
+    if isinstance(e.get("signer"), dict):
+        for k in SIGNER_FIELDS:
+            if k in e["signer"] and not isinstance(e["signer"][k], str):
+                return "signer." + k, json_kind(e["signer"][k]), "a string"
+    return None
+
+
+def shape_fault_line(i, fault):
+    """The K13 line for entry_shape_fault's answer, at the entry's index in the file."""
+    k, kind, want = fault
+    why = "(a signer's name, key_id and kind are strings)" if k.startswith("signer.") else "(role, file, sha256, line and signature are strings, signer an object)"
+    return f"signatures[{i}]: field {k} is a JSON {kind}, not {want} {why}: the entry is not checked"
+
+
+def entry_not_object_line(i, e):
+    """The K13 line for an entry that is not an object (V2), at its index in the file."""
+    return f"signatures[{i}]: entry {e!r} is not an object (role, file, sha256, signer, signature)"
+
+
 def sshsig_public_key(path):
     """The signer's public key inside an SSH signature file, as `<type> <base64>` (the form allowed_keys and key_of use), else None.
     An SSHSIG blob carries it: magic SSHSIG, uint32 version, string publickey (its first string the key type), string namespace, string
@@ -1206,23 +1243,21 @@ def main(argv):
             # document that is not a list FAILs by its JSON kind and nothing is verified; an entry that is not an object FAILs by index and
             # value (the loop below) and the object entries are still checked; every later rule reads the object entries alone (sigs_d).
             if not isinstance(sigs, list):
-                kind_ = {dict: "object", str: "string", bool: "boolean", int: "number", float: "number"}.get(type(sigs), "null" if sigs is None else type(sigs).__name__)
-                bad.append(f"signatures.json: a JSON {kind_} is not a list of signature entries")
+                bad.append(f"signatures.json: a JSON {json_kind(sigs)} is not a list of signature entries")
                 sigs = []
             # V2b (the twelfth re-gate's sealed Q06, 13 Nov 2026 10:3xZ): an object entry whose role, file, sha256, line or signature is not a
             # string, or whose signer is not an object, FAILs by field and JSON kind and is not checked further (5573fee2 crashed on a string
             # signer and on a list signature). sigs_d holds the object entries of the right shape; every later rule reads it alone.
-            JSON_KIND = {dict: "object", list: "array", str: "string", bool: "boolean", int: "number", float: "number", type(None): "null"}
+            # V2c (the thirteenth re-gate's sealed R05, 13 Nov 2026 10:4xZ): a signer that IS an object whose name, key_id or kind is not a
+            # string FAILs the same way (2966678b crashed at the key-list lookup and at the ssh-keygen spawn on a numeric or list name). The
+            # rule is entry_shape_fault, shared with sign.py and add_witness.py, which refuse such a file by name before writing anything.
             sigs_d, shape_bad_ = [], set()
             for i_, e_ in enumerate(sigs):
                 if not isinstance(e_, dict):
                     continue
-                wrong_ = [(k_, "a string") for k_ in ("role", "file", "sha256", "line", "signature") if k_ in e_ and not isinstance(e_[k_], str)]
-                if "signer" in e_ and not isinstance(e_["signer"], dict):
-                    wrong_.append(("signer", "an object"))
-                if wrong_:
-                    k_, want_ = wrong_[0]
-                    bad.append(f"signatures[{i_}]: field {k_} is a JSON {JSON_KIND.get(type(e_[k_]), type(e_[k_]).__name__)}, not {want_} (role, file, sha256, line and signature are strings, signer an object): the entry is not checked")
+                fault_ = entry_shape_fault(e_)
+                if fault_:
+                    bad.append(shape_fault_line(i_, fault_))
                     shape_bad_.add(i_)
                 else:
                     sigs_d.append(e_)
@@ -1242,7 +1277,7 @@ def main(argv):
                         bad.append(f"signatures.json: {len(ents_)} {role_} entries ({', '.join(str((e_.get('signer') or {}).get('name')) for e_ in ents_)}): one {role_} signature in a record; {why_}")
             for i, e in enumerate(sigs):
                 if not isinstance(e, dict):
-                    bad.append(f"signatures[{i}]: entry {e!r} is not an object (role, file, sha256, signer, signature)")
+                    bad.append(entry_not_object_line(i, e))
                     continue
                 if i in shape_bad_:
                     continue  # V2b: its FAIL line is already written

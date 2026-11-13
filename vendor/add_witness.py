@@ -90,7 +90,7 @@ def sources_signed(snap, M):
     digest = check.bound_digest(M)
     line = check.signed_line("sources", "manifest.json", digest)
     for e in sigs if isinstance(sigs, list) else []:
-        if not (isinstance(e, dict) and e.get("role") == "sources" and e.get("file") == "manifest.json" and e.get("sha256") == digest and e.get("line") == line):
+        if not (isinstance(e, dict) and check.entry_shape_fault(e) is None and e.get("role") == "sources" and e.get("file") == "manifest.json" and e.get("sha256") == digest and e.get("line") == line):
             continue
         name, sf = (e.get("signer") or {}).get("name"), snap / (e.get("signature") or "")
         if tool and allowed.exists() and name and e.get("signature") and sf.is_file():
@@ -251,11 +251,26 @@ def main(argv):
     # the one-auditor cut (13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): one entry per fixed role in the parent (auditor, sources,
     # manifest), and the auditor's signature file is audit.jsonl.sig; a parent carrying a second auditor entry (its own key, its own file)
     # or an auditor entry under another file name is refused before anything is written. The fragment's own check (witness entries only) is above.
+    # V2c (13 Nov 2026; the thirteenth re-gate's residual 2): a parent whose signatures.json is unreadable or wrong-shaped is refused by name,
+    # never a traceback, by the rule check.py judges the folder by (check.entry_shape_fault).
     try:
         snap_sigs = json.loads((snap / "signatures.json").read_text(encoding="utf-8")) if (snap / "signatures.json").exists() else []
-    except Exception:
+    except Exception as ex_:
+        problems.append(f"the snapshot's signatures.json is unreadable: {ex_}")
         snap_sigs = []
-    snap_sigs = [e_ for e_ in snap_sigs if isinstance(e_, dict)] if isinstance(snap_sigs, list) else []
+    if not isinstance(snap_sigs, list):
+        problems.append(f"the snapshot's signatures.json is a JSON {check.json_kind(snap_sigs)}, not a list of signature entries")
+        snap_sigs = []
+    well_ = []
+    for i_, e_ in enumerate(snap_sigs):
+        fault_ = check.entry_shape_fault(e_) if isinstance(e_, dict) else None
+        if not isinstance(e_, dict):
+            problems.append("the snapshot's " + check.entry_not_object_line(i_, e_))
+        elif fault_:
+            problems.append("the snapshot's " + check.shape_fault_line(i_, fault_))
+        else:
+            well_.append(e_)
+    snap_sigs = well_
     for role_ in ("auditor", "sources", "manifest"):
         n_ = sum(1 for e_ in snap_sigs if e_.get("role") == role_)
         if n_ > 1:

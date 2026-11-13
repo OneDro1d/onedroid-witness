@@ -55,6 +55,19 @@ def main(argv):
     key_type, key_b64 = pub.split()[0], pub.split()[1]
     sigs_p = snap / "signatures.json"
     sigs = json.loads(sigs_p.read_text(encoding="utf-8")) if sigs_p.exists() else []
+    # V2c (the twelfth cut, 13 Nov 2026; the thirteenth re-gate's residual 2): a signatures.json this tool cannot read by shape is refused by
+    # name before anything is written, never a traceback, by the rule check.py judges the folder by (check.entry_shape_fault).
+    if not isinstance(sigs, list):
+        print(f"signatures.json: a JSON {check.json_kind(sigs)} is not a list of signature entries: fix the file before signing, nothing written", file=sys.stderr)
+        return 1
+    for i_, s_ in enumerate(sigs):
+        if not isinstance(s_, dict):
+            print(check.entry_not_object_line(i_, s_) + ": fix signatures.json before signing, nothing written", file=sys.stderr)
+            return 1
+        fault_ = check.entry_shape_fault(s_)
+        if fault_:
+            print(check.shape_fault_line(i_, fault_) + ": fix signatures.json before signing, nothing written", file=sys.stderr)
+            return 1
     M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
     allowed = snap / "allowed_signers"
     given = f"{key_type} {key_b64}"
