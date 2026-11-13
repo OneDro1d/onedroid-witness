@@ -33,9 +33,16 @@ PROFILES = ("cited-sources", "publisher-surfaces", "agent-work", "test-run")  # 
 # candidate kind (restatement | artefact) from the auditor and a gate passes on it (NEXT-REVISION 23). With the publisher relation rendered
 # and named in the prompt, chat models still answered EVIDENCED on 3 of 6 restatements on the publisher's own surface, and no row rule can
 # tell a restatement from an artefact (a terms page is own-surface AND the artefact). A configuration may widen this list; the default is here.
-PROFILES_SERVED = ("cited-sources", "agent-work", "test-run")
+# Third re-gate F1 (13 Nov 2026 02:1xZ): agent-work and test-run are out too. A request carries only the fixed parts, so a model deciding
+# one of their claims never sees the file line, the handed-in output, the artefact or run.json the claim points at (39 of 39 live answers
+# were NO EVIDENCE PUBLISHED, including claims whose evidence showed them and claims whose evidence showed the opposite). Served again when
+# the service carries and renders that evidence, indexes `on` against the row's `evidence` list (SPEC 4b) and a gate passes (service item S-1).
+PROFILES_SERVED = ("cited-sources",)
+_EVIDENCE_WHY = ("the evidence the profile decides on (the pointed file line, the handed-in output, each artefact, run.json) is not carried to the "
+                 "models yet, so every claim would be decided on its text alone; out of scope until the service carries and renders it (service item S-1) and a gate passes")
 PROFILES_NOT_SERVED_WHY = {"publisher-surfaces": "model witnesses do not apply the restatement rule reliably; out of scope until the auditor marks each candidate "
-                                                 "restatement or artefact (NEXT-REVISION 23) and a gate passes on it"}
+                                                 "restatement or artefact (NEXT-REVISION 23) and a gate passes on it",
+                           "agent-work": _EVIDENCE_WHY, "test-run": _EVIDENCE_WHY}
 
 # check.py's K9 patterns (the format's own rule): a credential-shaped string in any part is refused before any model call (gate D10)
 SECRET_PATTERNS = [

@@ -107,7 +107,13 @@ def make_handler(cfg):
                 return self._json(429, {"error": "rate limit"})
             if self.path.split("?")[0] != "/witness":
                 return self._json(404, {"error": "not found"})
-            length = int(self.headers.get("Content-Length") or 0)
+            # third re-gate F3 (13 Nov 2026): the length read and the body parse answer 400 by name whatever they raise; before, a
+            # Content-Length "abc", a JSON array body, a list for parts, an object for a part or a list of numbers for models closed the
+            # connection with no answer (nothing was kept: no folder exists yet)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return self._json(400, {"error": "Content-Length is not a number"})
             if length <= 0 or length > MAX_BODY:
                 return self._json(413, {"error": f"body must be 1 to {MAX_BODY} bytes"})
             ctype = self.headers.get("Content-Type", "")
@@ -116,6 +122,8 @@ def make_handler(cfg):
                 parts, params = _parse(ctype, raw, self.headers)
             except ValueError as e:
                 return self._json(400, {"error": str(e)})
+            except Exception as e:
+                return self._json(400, {"error": f"the body does not parse ({type(e).__name__}); nothing was kept"})
             missing = [n for n in ("manifest.json", "audit.jsonl", "audit.jsonl.sig", "allowed_signers") if n not in parts]
             if missing:
                 return self._json(400, {"error": f"missing parts: {', '.join(missing)}"})
@@ -208,13 +216,31 @@ def _parse(ctype, raw, headers):
             body = json.loads(raw.decode("utf-8"))
         except ValueError as e:
             raise ValueError(f"body is not JSON: {e}")
+        if not isinstance(body, dict):
+            raise ValueError("the JSON body is not an object")
+        if body.get("parts") is not None and not isinstance(body["parts"], dict):
+            raise ValueError("parts is not an object of name to text")
         for name, text in (body.get("parts") or {}).items():
             if name not in PARTS_ALLOWED:
                 raise ValueError(f"part {name} is not accepted")
-            parts[name] = text.encode("utf-8") if isinstance(text, str) else bytes(text)
+            if isinstance(text, str):
+                parts[name] = text.encode("utf-8")
+            elif isinstance(text, list) and all(isinstance(b, int) and 0 <= b < 256 for b in text):
+                parts[name] = bytes(text)
+            else:
+                raise ValueError(f"part {name} is neither a string nor a list of bytes")
         for k in ("models", "max_cost_usd", "published_url"):
-            if body.get(k) is not None:
-                params[k] = body[k] if not isinstance(body[k], list) else ",".join(body[k])
+            v = body.get(k)
+            if v is None:
+                continue
+            if isinstance(v, list):
+                if not all(isinstance(x, str) for x in v):
+                    raise ValueError(f"{k} is a list holding something that is not a string")
+                params[k] = ",".join(v)
+            elif isinstance(v, (str, int, float)) and not isinstance(v, bool):
+                params[k] = v
+            else:
+                raise ValueError(f"{k} is neither a string nor a list of strings")
         return parts, params
     if ctype.startswith("multipart/form-data"):
         # the cgi module is gone from Python 3.13; the email parser reads multipart bodies with a constructed header

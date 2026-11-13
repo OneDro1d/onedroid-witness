@@ -112,8 +112,11 @@ class PublisherSurfacesScope(ServerRules):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
         c.request("GET", "/healthz")
         h = json.loads(c.getresponse().read())
-        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
-        self.assertIn("publisher-surfaces", h["profiles_not_served"])
+        # third re-gate F1: agent-work and test-run are out too, until the evidence they decide on is carried to the models
+        self.assertEqual(h["profiles_served"], ["cited-sources"])
+        for p in ("publisher-surfaces", "agent-work", "test-run"):
+            self.assertIn(p, h["profiles_not_served"])
+        self.assertIn("evidence", h["profiles_not_served"]["agent-work"])
 
     def test_n1_the_request_library_still_reads_every_profile_when_no_scope_is_given(self):
         # the one-shot private mode and the tests read the profile; the scope is the service's, passed in by the handler
@@ -130,6 +133,26 @@ class PublisherSurfacesScope(ServerRules):
             self.assertIn("publisher-surfaces", str(cm.exception))
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+    def test_f1_agent_work_and_test_run_are_refused_by_name_until_the_evidence_is_carried(self):
+        # third re-gate F1 (the claims session, 13 Nov 2026 02:1xZ): a request carries only the fixed parts, so a model deciding an
+        # agent-work or test-run claim never sees the file line, the handed-in output, the artefact or run.json the claim points at;
+        # 39 of 39 live answers were NO EVIDENCE PUBLISHED, including claims whose evidence showed them and claims whose evidence showed
+        # the opposite. Out of scope until the service carries and renders that evidence (service item S-1) and a gate passes.
+        for profile in ("agent-work", "test-run"):
+            parts = {n: (SNAP / n).read_bytes() for n in PARTS}
+            M = json.loads(parts["manifest.json"].decode("utf-8"))
+            M["grading"] = dict(M["grading"])
+            M["grading"]["profile"] = profile
+            parts["manifest.json"] = json.dumps(M, ensure_ascii=False).encode("utf-8")
+            before = self._jobs()
+            st, ans = self._post(*multipart(parts, {"models": "typesafe/jev-1.14"}))
+            self.assertEqual(st, 422, (profile, ans))
+            self.assertNotIn("job_id", ans)
+            self.assertIn(profile, ans["error"])
+            self.assertIn("evidence", ans["error"])
+            self.assertEqual(self._jobs(), before)
+            self.assertEqual(list((pathlib.Path(self.tmp) / "jobs" / ".incoming").iterdir()), [])
 
     def test_n1_note_a_utf8_bom_in_audit_jsonl_is_refused_naming_the_bom(self):
         # second re-gate note: a BOM was refused as "line 1 is not JSON"; the format's reader takes none, so the refusal stays, by name
@@ -279,6 +302,93 @@ class RenderPathCrash(ServerRules):
         with mock.patch.object(answer_mod, "estimate", side_effect=ZeroDivisionError("planted")):
             err = self._answered(parts, "estimate raises", status=500)
         self.assertIn("ZeroDivisionError", err)
+
+
+class Regate3SignedLine(unittest.TestCase):
+    """Third re-gate F2 (the claims session, 13 Nov 2026 02:1xZ): answer.py built the witness signed line as f"{manifest.format} witness …",
+    which gives "claims-snapshot/0.6 witness …" on a 0.6 folder, while SPEC.md 3a and check.py's signed_line keep "claims-snapshot/0.4" in
+    every format revision. So every witness the service signed over a 0.5 or 0.6 snapshot failed K13 ("line differs from the prescribed
+    one") in add_witness.py, and the smoke and the second re-gate passed only because their fixture was 0.4. The line is the vendored
+    checker's signed_line now, never a re-spelt one. The fixture is the claims session's synthetic 0.6 pre-witness cited-sources folder."""
+
+    def test_f2_a_witness_over_a_0_6_folder_inserts_and_passes_k13(self):
+        import shutil
+        import subprocess
+        import tempfile
+        from onedroid_witness import answer, checkpin, request as request_mod
+        from onedroid_witness.openrouter import Ledger
+        from onedroid_witness.signing import KeyStore
+        from fake_openrouter import FakeClient
+        ROOT = pathlib.Path(__file__).resolve().parent.parent
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="witness-f2-"))
+        try:
+            snap = tmp / "snap"
+            shutil.copytree(ROOT / "fixtures" / "snapshot-cs4-regate3-2026-11-13", snap)
+            (snap / "README.md").unlink(missing_ok=True)
+            self.assertEqual(json.loads((snap / "manifest.json").read_text(encoding="utf-8"))["format"], "claims-snapshot/0.6")
+            check = checkpin.load_check(ROOT / "vendor" / "check.py")
+            req = request_mod.Request(snap, private_mode=True)
+            client = FakeClient(ROOT / "fixtures" / "recordings", Ledger(str(tmp / "ledger.json"), 100.0))  # no recorded answer: every row UNDECIDED
+            ks = KeyStore(tmp / "keys")
+            ans = tmp / "answer"
+            models = [{"id": "openai/gpt-4.1-nano", "kind": "chat", "max_tokens": 400}]
+            prices = {"openai/gpt-4.1-nano": {"prompt": 1e-7, "completion": 4e-7}}
+            answer.run(req, models, client, ks, check, ans, prices=prices, private_mode=True)
+            entries = json.loads((ans / "signatures-entry.json").read_text(encoding="utf-8")) if (ans / "signatures-entry.json").exists() else []
+            for e in entries:
+                self.assertTrue(e["line"].startswith("claims-snapshot/0.4 witness "), e["line"])
+                self.assertEqual(e["line"], check.signed_line("witness", e["file"], e["sha256"], over=req.audit_sha256))
+            adder = tmp / "adder"
+            subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(adder)], check=True)
+            r = subprocess.run([sys.executable, "-I", str(ROOT / "vendor" / "add_witness.py"), str(snap), str(ans), "--key", str(adder), "--identity", "witness-service-test-adder"],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("0 failed", r.stdout)  # add_witness.py prints the checker's SUMMARY line; K13 is one of its 15 checks
+            self.assertIn("PASS", r.stdout)
+            self.assertNotIn("line differs from the prescribed one", r.stdout + r.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+class Regate3BodyShapes(ServerRules):
+    """Third re-gate F3: five request shapes got no HTTP answer, because int(Content-Length) and _parse ran before incoming() and outside
+    every catch (a JSON body that is an array; `parts` a list; a part an object; `models` a list of numbers; Content-Length "abc"). No bytes
+    were kept (no folder exists yet), so this is an answer without a body kept, never a disk risk. Every one answers 400 by name now."""
+
+    def _post_raw(self, body, ctype, length=None):
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        try:
+            c.putrequest("POST", "/witness")
+            c.putheader("Content-Type", ctype)
+            c.putheader("Content-Length", str(len(body)) if length is None else length)
+            c.endheaders()
+            c.send(body)
+            r = c.getresponse()
+            return r.status, json.loads(r.read())
+        except Exception as e:  # pragma: no cover - the defect itself
+            self.fail(f"no HTTP answer ({type(e).__name__}: {e})")
+
+    def test_f3_malformed_bodies_get_an_answer_by_name(self):
+        parts = {n: (SNAP / n).read_bytes().decode("utf-8", "replace") for n in ("manifest.json", "audit.jsonl", "allowed_signers", "signatures.json", "page.txt")}
+        parts["audit.jsonl.sig"] = (SNAP / "audit.jsonl.sig").read_text(encoding="utf-8")
+        cases = [
+            ("a JSON body that is an array", b"[1, 2, 3]", "application/json"),
+            ("parts is a list", json.dumps({"parts": ["a", "b"], "models": "typesafe/jev-1.14"}).encode(), "application/json"),
+            ("a part is an object", json.dumps({"parts": {**parts, "page.txt": {"a": 1}}, "models": "typesafe/jev-1.14"}).encode(), "application/json"),
+            ("models is a list of numbers", json.dumps({"parts": parts, "models": [1, 2]}).encode(), "application/json"),
+        ]
+        for label, body, ctype in cases:
+            st, ans = self._post_raw(body, ctype)
+            self.assertEqual(st, 400, (label, ans))
+            self.assertIn("error", ans, label)
+            self.assertNotIn("job_id", ans, label)
+        self.assertEqual(list((pathlib.Path(self.tmp) / "jobs" / ".incoming").iterdir()), [])
+
+    def test_f3_a_content_length_that_is_not_a_number_gets_an_answer(self):
+        st, ans = self._post_raw(b"{}", "application/json", length="abc")
+        self.assertEqual(st, 400, ans)
+        self.assertIn("Content-Length", ans["error"])
 
 
 if __name__ == "__main__":

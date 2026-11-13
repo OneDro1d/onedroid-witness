@@ -3,7 +3,8 @@ folder out, the same code the service runs); `keys` lists or retires the service
 
 Configuration (JSON): {"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
 "check_py", "openrouter_key_file" (or the environment variable OPENROUTER_API_KEY), "private_mode", "host", "port", "profiles_served"
-(default request.PROFILES_SERVED: cited-sources, agent-work, test-run; publisher-surfaces is out until NEXT-REVISION 23)}. The key file is
+(default request.PROFILES_SERVED: cited-sources; publisher-surfaces is out until NEXT-REVISION 23, agent-work and test-run until the service
+carries their evidence, item S-1)}. The key file is
 read once and never logged.
 """
 import argparse

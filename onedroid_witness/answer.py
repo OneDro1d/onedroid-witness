@@ -143,8 +143,10 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         wfile.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in [header] + rows) + "\n", encoding="utf-8")
         (answer / f"raw-{_slug(model)}.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in raw), encoding="utf-8")
         wsha = hashlib.sha256(wfile.read_bytes()).hexdigest()
-        fmt = request.manifest.get("format", "claims-snapshot/0.4")
-        line = f"{fmt} witness witness/{name}.jsonl sha256:{wsha} over audit.jsonl sha256:{request.audit_sha256}"
+        # third re-gate F2 (13 Nov 2026): the signed line is the format's prescribed line from the vendored checker (SPEC.md 3a keeps the
+        # "claims-snapshot/0.4" prefix in every revision), never one re-spelt from the manifest's format, which failed K13 on every 0.5
+        # and 0.6 folder
+        line = check.signed_line("witness", f"witness/{name}.jsonl", wsha, over=request.audit_sha256)
         keystore.sign(priv, line, wfile.with_suffix(".jsonl.sig"))
         if signer_line not in signers:
             signers.append(signer_line)

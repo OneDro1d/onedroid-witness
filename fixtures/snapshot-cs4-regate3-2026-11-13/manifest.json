@@ -1,0 +1,47 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Example Ferries fares (synthetic)",
+  "url": "https://example.org/",
+  "publisher": "Example Ferries (fictional)"
+ },
+ "taken_at": "2026-11-13T02:00:12Z",
+ "sources": [
+  {
+   "n": 1,
+   "url": "https://example.org/fares",
+   "file": "sources/rates.txt",
+   "sha256": "f818b26ec19c11df35fc1c64113d4b68bfa19fc7014846d7ec4f245c980ae084",
+   "copy": "text",
+   "fetched_at": "2026-11-13T02:00:12Z",
+   "status": 200
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "cited-sources",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 third re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "8a9f2d2e4f577f54e2c5f65955727903552c8dfb035d4a2e4dc06bda59daa344",
+   "signer": "onedroid-claims-verification-gate <SHA256:uJjig+jCZZPoujSBMjiasWWFUV21GEVZVdvzDrdENgM>"
+  }
+ },
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "3e9cbe5adde01948dcfd8a5d642b582563d1d67ea36a519a3dd9a90fd8e54296",
+   "lines": 2,
+   "note": "the claims' text, one per line (synthetic)"
+  }
+ ],
+ "counts": {
+  "claims": 2,
+  "checkable": 2
+ }
+}

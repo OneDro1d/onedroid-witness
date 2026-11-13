@@ -1,0 +1,3 @@
+Example Ferries fares 2026
+Lisbon-Porto: 35 EUR
+Porto-Faro: 42 EUR
