@@ -999,15 +999,19 @@ def main(argv):
                 # the manifest's `files` lists it (the first string found wins); `^(\d+)\.(\d+)\.(\d+)` at its start, anything after
                 # (`-dev` included) ignored. No version anywhere: the WARN alone (the 0.1.6 and 0.1.7 example folders keep their line);
                 # a string that is not a version: a WARN beside the existing one.
-                sv_ = next((v_ for v_ in (header.get("service_version"), w.get("service_version")) if isinstance(v_, str)), None)
-                if sv_ is None:
-                    sv_ = service_json_version(snap, M)
-                m_ = re.match(r"(\d+)\.(\d+)\.(\d+)", sv_) if sv_ is not None else None
-                if m_ is not None and tuple(int(x_) for x_ in m_.groups()) >= (0, 1, 8):
+                # V1 (the twelfth cut, 13 Nov 2026, NEXT-REVISION 33; the eleventh re-gate's O14): every record is read, not the first string
+                # found. A header saying 0.1.7-dev beside a service.json saying 0.1.10-dev got the WARN alone; the promise was "any recorded
+                # version of 0.1.8 or later FAILs". The first such version in record order is the one named; every string that is not a
+                # version WARNs, FAIL or not.
+                recs_ = [v_ for v_ in (header.get("service_version"), w.get("service_version"), service_json_version(snap, M)) if isinstance(v_, str)]
+                parsed_ = [(v_, re.match(r"(\d+)\.(\d+)\.(\d+)", v_)) for v_ in recs_]
+                sv_ = next((v_ for v_, m_ in parsed_ if m_ is not None and tuple(int(x_) for x_ in m_.groups()) >= (0, 1, 8)), None)
+                for v_, m_ in parsed_:
+                    if m_ is None:
+                        k11_warn.append(f"witness {name!r}: service_version '{v_}' is not a version (major.minor.patch)")
+                if sv_ is not None:
                     bad.append(f"witness {name!r}: a model witness of service version {sv_} records `carried` but no `bound`: 0.1.8 and later of the witness service write it; this header was not written by that service")
                 else:
-                    if sv_ is not None and m_ is None:
-                        k11_warn.append(f"witness {name!r}: service_version '{sv_}' is not a version (major.minor.patch)")
                     k11_warn.append(f"witness {name!r}: a model witness records `carried` but no `bound`: which manifest its pointers resolved through is not on record (0.1.8 of the witness service writes it)")
             if "manifest_sha256" in header and not (isinstance(header["manifest_sha256"], str) and HEX64.match(header["manifest_sha256"])):
                 bad.append(f"witness {name!r}: header manifest_sha256 {header['manifest_sha256']!r} is not 64 hex characters")
@@ -1198,6 +1202,14 @@ def main(argv):
                 sigs = json.loads(sig_p.read_text(encoding="utf-8"))
             except Exception as e:
                 sigs, bad = [], bad + [f"signatures.json unreadable: {e}"]
+            # V2 (the twelfth cut, 13 Nov 2026, NEXT-REVISION 33; the eleventh re-gate's O20): a reader gets a verdict, never a traceback. A
+            # document that is not a list FAILs by its JSON kind and nothing is verified; an entry that is not an object FAILs by index and
+            # value (the loop below) and the object entries are still checked; every later rule reads the object entries alone (sigs_d).
+            if not isinstance(sigs, list):
+                kind_ = {dict: "object", str: "string", bool: "boolean", int: "number", float: "number"}.get(type(sigs), "null" if sigs is None else type(sigs).__name__)
+                bad.append(f"signatures.json: a JSON {kind_} is not a list of signature entries")
+                sigs = []
+            sigs_d = [e_ for e_ in sigs if isinstance(e_, dict)]
             tool = shutil.which("ssh-keygen")
             listed_keys = allowed_keys(allowed) if allowed.exists() else {}
             # O1 (the one-auditor cut, 13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): one entry per fixed role. A second `auditor`
@@ -1212,7 +1224,10 @@ def main(argv):
                                 "sources": "the auditor signs the sources list once",
                                 "manifest": "the manifest is signed once, by whoever last changed the folder"}[role_]
                         bad.append(f"signatures.json: {len(ents_)} {role_} entries ({', '.join(str((e_.get('signer') or {}).get('name')) for e_ in ents_)}): one {role_} signature in a record; {why_}")
-            for i, e in enumerate(sigs if isinstance(sigs, list) else []):
+            for i, e in enumerate(sigs):
+                if not isinstance(e, dict):
+                    bad.append(f"signatures[{i}]: entry {e!r} is not an object (role, file, sha256, signer, signature)")
+                    continue
                 role, f = e.get("role"), e.get("file")
                 # the sources cut (13 Nov 2026, NEXT-REVISION 25b): manifest.json takes two roles, `manifest` (over its bytes, by whoever last
                 # changed the folder) and `sources` (the AUDITOR's, over the bound digest of the five bound sections; R1 to R6 of the cut)
@@ -1259,7 +1274,7 @@ def main(argv):
                 if role == "sources":
                     # R4: the sources role is the auditor's. The signer's key (by type and base64 from allowed_signers, a trailing comment
                     # ignored, as the auditor-key rule below reads keys) is one of the keys of the `auditor` entries; no auditor entry, no match.
-                    a_names = [(e_.get("signer") or {}).get("name") for e_ in sigs if e_.get("role") == "auditor"]
+                    a_names = [(e_.get("signer") or {}).get("name") for e_ in sigs_d if e_.get("role") == "auditor"]
                     if not a_names:
                         bad.append("manifest.json: a sources signature with no auditor signature to match")
                         continue
@@ -1315,7 +1330,7 @@ def main(argv):
             # list) and no `sources` signature: the sources list rests on the published copy and the service's key alone. Nothing is printed
             # otherwise, so every 0.2 to 0.5 folder and every pre-witness folder without a model witness stays byte-identical.
             if (any(k_ == "model" for k_ in w_kind.values()) and (profile in ("agent-work", "test-run") or any(isinstance(a_.get("evidence"), list) for a_ in audit))
-                    and not any(e.get("role") == "sources" for e in (sigs if isinstance(sigs, list) else []))):
+                    and not any(e.get("role") == "sources" for e in sigs_d)):
                 warn.append("manifest.json: no sources signature: the sources list rests on the published copy and the witness service's key alone (sign.py --role sources, the auditor's key)")
             # 0.5, agent-work: the witness is never the auditor (OneDroid Indie VR-I11). The agent signs with the key its
             # machine enrolled; a witness signed by the same key, under any name, is the agent judging itself.
@@ -1333,9 +1348,9 @@ def main(argv):
                 # A4 (the auditor-key cut): the key sets hold the listed keys AND the key embedded in each entry's signature file, so a
                 # witness file signed with the auditor's key is caught by the key itself, whatever allowed_signers lists under the name
                 emb_of = lambda e_: sshsig_public_key(snap / e_["signature"]) if e_.get("signature") else None  # noqa: E731
-                a_keys = set().union(*[keys.get((e.get("signer") or {}).get("name"), set()) for e in sigs if e.get("role") == "auditor"] or [set()])
-                a_keys |= {k_ for k_ in (emb_of(e) for e in sigs if e.get("role") == "auditor") if k_}
-                for e in sigs:
+                a_keys = set().union(*[keys.get((e.get("signer") or {}).get("name"), set()) for e in sigs_d if e.get("role") == "auditor"] or [set()])
+                a_keys |= {k_ for k_ in (emb_of(e) for e in sigs_d if e.get("role") == "auditor") if k_}
+                for e in sigs_d:
                     w_keys = keys.get((e.get("signer") or {}).get("name"), set()) | ({emb_of(e)} if e.get("role") == "witness" and emb_of(e) else set())
                     if e.get("role") == "witness" and w_keys & a_keys:
                         if profile in ("agent-work", "test-run"):

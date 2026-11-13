@@ -292,8 +292,8 @@ class S6Healthz(_Server):
 
     def test_s6_healthz_names_the_version_the_profiles_the_unchanged_prompts_and_an_empty_not_served_by_default(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.11-dev")  # 0.1.7-dev when written; the version pin follows the cut
-        self.assertEqual(h["version"], "0.1.11-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.12-dev")  # 0.1.7-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.12-dev")
         self.assertEqual(h["mode"], "public")
         self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)

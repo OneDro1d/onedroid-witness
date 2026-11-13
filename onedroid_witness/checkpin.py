@@ -8,7 +8,7 @@ import pathlib
 import subprocess
 import sys
 
-CHECK_PY_SHA256 = "96c6dbb214b2171171ffdd6b0d9c5ede446d16501247b8df2420589c1033aa26"  # claims-snapshot 0.6, the one-auditor cut of 13 Nov 2026 (one entry per role for auditor, sources and manifest; the sources key is the key inside audit.jsonl.sig alone; grading.auditor.signer names that key; a model witness of service version 0.1.8 or later with carried and no bound fails K11); the auditor-key cut was 7a20c25a…, the sources cut 5ec50d48…, the bound cut af216591…, the carried cut 559e54a9… (K11 reads a witness header carried against the manifest pages, sources and session records, add_witness refuses a mismatch, K3 on a non-object on_request), the K2 cut was f2edc3f4…, erratum 1 0495931b…
+CHECK_PY_SHA256 = "5573fee232c453d52bc109aed5c734b150d233f6975f2d1f6c36f171df590d4c"  # claims-snapshot 0.6, the twelfth cut of 13 Nov 2026 (K11 reads every version record, the header's, the manifest entry's and service.json's, any at 0.1.8 or later with carried and no bound fails; a signatures.json that is not a list, or an entry that is not an object, fails K13 by name with the object entries still verified, never a traceback); the one-auditor cut was 96c6dbb2…, the auditor-key cut 7a20c25a…, the sources cut 5ec50d48…, the bound cut af216591…, the carried cut 559e54a9… (K11 reads a witness header carried against the manifest pages, sources and session records, add_witness refuses a mismatch, K3 on a non-object on_request), the K2 cut was f2edc3f4…, erratum 1 0495931b…
 
 
 def sha256(path):
