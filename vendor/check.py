@@ -255,6 +255,30 @@ def bound_sections(M):
     return {s: hashlib.sha256(json.dumps(_section(M, s), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest() for s in BOUND_SECTIONS}
 
 
+def bound_digest(M):
+    """One sha256 over bound_sections(M) in canonical JSON (the sources cut, 13 Nov 2026, NEXT-REVISION 25b): what the auditor's `sources`
+    signature covers (`claims-snapshot/0.4 sources manifest.json sha256:<this>`). The five sections never change under an allowed change, so
+    the signature holds through every witness insertion where a `manifest` signature cannot. One helper for K13, sign.py and add_witness.py."""
+    return hashlib.sha256(json.dumps(bound_sections(M), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def allowed_keys(path):
+    """principal -> {"<type> <base64>", ...} from an allowed_signers file: the key is the key-type field and the one after it, wherever options
+    put them; a trailing comment is not part of the key (ssh-keygen ignores it, so must every comparison). K13's auditor-key rule and the
+    sources rule read keys through this, as does sign.py --role sources."""
+    keys = {}
+    for l in pathlib.Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
+        f_ = l.split()
+        if len(f_) >= 3 and not l.lstrip().startswith("#"):
+            kt = [i for i, x in enumerate(f_[1:], 1) if x.startswith(("ssh-", "ecdsa-", "sk-"))]
+            if not kt or kt[0] + 1 >= len(f_):
+                continue
+            key_ = f_[kt[0]] + " " + f_[kt[0] + 1]
+            for p_ in f_[0].split(","):
+                keys.setdefault(p_, set()).add(key_)
+    return keys
+
+
 def merge_rows(audit, wrows, witness_name):
     """claims.jsonl from the auditor's rows and one witness's decisions (SPEC.md 4b). MISSING CLAIM rows are not merged.
     A claim the witness did not decide gets verdict None, which K3 then rejects."""
@@ -1090,14 +1114,24 @@ def main(argv):
             allowed = snap / "allowed_signers"
             for i, e in enumerate(sigs if isinstance(sigs, list) else []):
                 role, f = e.get("role"), e.get("file")
-                if f not in parts or parts[f] != role:
+                # the sources cut (13 Nov 2026, NEXT-REVISION 25b): manifest.json takes two roles, `manifest` (over its bytes, by whoever last
+                # changed the folder) and `sources` (the AUDITOR's, over the bound digest of the five bound sections; R1 to R6 of the cut)
+                if f not in parts or role not in (("manifest", "sources") if f == "manifest.json" else (parts[f],)):
                     bad.append(f"signatures[{i}]: {role!r} over {f!r} is not a part of this snapshot")
                     continue
                 fp = snap / f
-                h = sha256(fp) if fp.exists() else None
-                if e.get("sha256") != h:
-                    bad.append(f"signatures[{i}]: sha256 {str(e.get('sha256'))[:12]}… is not {f}'s {str(h)[:12]}…")
-                    continue
+                if role == "sources":
+                    # R2: the entry's sha256 is the bound digest of THIS record's manifest, never the manifest's own hash: the five sections
+                    # never change under an allowed change, so the auditor's word holds through every witness insertion
+                    h = bound_digest(M)
+                    if e.get("sha256") != h:
+                        bad.append(f"manifest.json: the sources signature is over bound sections sha256 {str(e.get('sha256'))[:12]}… and this record's are {h[:12]}…: subject, sources, pages, profile or sessions changed under the auditor")
+                        continue
+                else:
+                    h = sha256(fp) if fp.exists() else None
+                    if e.get("sha256") != h:
+                        bad.append(f"signatures[{i}]: sha256 {str(e.get('sha256'))[:12]}… is not {f}'s {str(h)[:12]}…")
+                        continue
                 line = signed_line(role, f, h, audit_h)
                 if e.get("line") != line:
                     bad.append(f"signatures[{i}]: line differs from the prescribed one: {e.get('line')!r}")
@@ -1108,11 +1142,23 @@ def main(argv):
                     continue
                 name = (e.get("signer") or {}).get("name")
                 covered.add(f)
+                if role == "sources":
+                    # R4: the sources role is the auditor's. The signer's key (by type and base64 from allowed_signers, a trailing comment
+                    # ignored, as the auditor-key rule below reads keys) is one of the keys of the `auditor` entries; no auditor entry, no match.
+                    a_names = [(e_.get("signer") or {}).get("name") for e_ in sigs if e_.get("role") == "auditor"]
+                    if not a_names:
+                        bad.append("manifest.json: a sources signature with no auditor signature to match")
+                        continue
+                    if allowed.exists():
+                        keys_ = allowed_keys(allowed)
+                        if not (keys_.get(name, set()) & set().union(*[keys_.get(n_, set()) for n_ in a_names])):
+                            bad.append(f"manifest.json: the sources signature by {name!r} is not the auditor's key: the sources list is bound to the auditor alone")
+                            continue
                 if tool and allowed.exists() and name:
                     r = subprocess.run([tool, "-Y", "verify", "-f", str(allowed), "-I", name, "-n", SIGN_NAMESPACE, "-s", str(sf)],
                                        input=line.encode(), capture_output=True)
                     if r.returncode == 0:
-                        ok.append(f"{f}: signed by {name}, verified")
+                        ok.append(f"{f}: sources bound by {name}, verified" if role == "sources" else f"{f}: signed by {name}, verified")
                     else:
                         bad.append(f"{f}: signature by {name!r} does NOT verify: {r.stderr.decode(errors='replace').strip()[:120]}")
                 else:
@@ -1124,6 +1170,12 @@ def main(argv):
                     if profile == "test-run" and f == "audit.jsonl":
                         continue  # judged below: FAIL for this profile
                     warn.append(f"{f}: unsigned")
+            # R5 (the sources cut): a model witness over an evidence-shaped auditor part (SPEC 12 and 13, or any audit row with an `evidence`
+            # list) and no `sources` signature: the sources list rests on the published copy and the service's key alone. Nothing is printed
+            # otherwise, so every 0.2 to 0.5 folder and every pre-witness folder without a model witness stays byte-identical.
+            if (any(k_ == "model" for k_ in w_kind.values()) and (profile in ("agent-work", "test-run") or any(isinstance(a_.get("evidence"), list) for a_ in audit))
+                    and not any(e.get("role") == "sources" for e in (sigs if isinstance(sigs, list) else []))):
+                warn.append("manifest.json: no sources signature: the sources list rests on the published copy and the witness service's key alone (sign.py --role sources, the auditor's key)")
             # 0.5, agent-work: the witness is never the auditor (OneDroid Indie VR-I11). The agent signs with the key its
             # machine enrolled; a witness signed by the same key, under any name, is the agent judging itself.
             # 0.6: the same rule for a witness of kind agent or model in every profile (a human self-audit keeps one signer).
@@ -1136,18 +1188,7 @@ def main(argv):
             gates_ = g.get("gates")
             declared_self_audit = g.get("kind") == "self-audit" and isinstance(gates_, list) and len(gates_) > 0
             if (profile in ("agent-work", "test-run") or ma_files) and allowed.exists() and isinstance(sigs, list):
-                keys = {}
-                for l in allowed.read_text(encoding="utf-8", errors="replace").splitlines():
-                    f_ = l.split()
-                    if len(f_) >= 3 and not l.lstrip().startswith("#"):
-                        # the key is the key-type field and the one after it, wherever options put them; a trailing
-                        # comment is not part of the key (ssh-keygen ignores it, so must this comparison)
-                        kt = [i for i, x in enumerate(f_[1:], 1) if x.startswith(("ssh-", "ecdsa-", "sk-"))]
-                        if not kt or kt[0] + 1 >= len(f_):
-                            continue
-                        key_ = f_[kt[0]] + " " + f_[kt[0] + 1]
-                        for p_ in f_[0].split(","):
-                            keys.setdefault(p_, set()).add(key_)
+                keys = allowed_keys(allowed)  # the key by type and base64; a trailing comment is not part of it (ssh-keygen ignores it, so must this comparison)
                 a_keys = set().union(*[keys.get((e.get("signer") or {}).get("name"), set()) for e in sigs if e.get("role") == "auditor"] or [set()])
                 for e in sigs:
                     if e.get("role") == "witness" and keys.get((e.get("signer") or {}).get("name"), set()) & a_keys:

@@ -10,6 +10,7 @@ import hashlib
 import json
 import pathlib
 import re
+import unicodedata
 import urllib.parse
 
 
@@ -311,7 +312,68 @@ def resolve_pointer(p, idx, root=None):
     return out("malformed", "malformed", f"pointer {one_line(json.dumps(p, ensure_ascii=False), 200)} (malformed: not one of the four pointer shapes)")
 
 
-WITNESS_VOCABULARY = re.compile(r"\b(EVIDENCED|CONTRADICTED|UNDECIDED|NO EVIDENCE PUBLISHED)\b")  # case-sensitive, whole words
+WITNESS_TOKENS = ("EVIDENCED", "CONTRADICTED", "UNDECIDED", "NO EVIDENCE PUBLISHED")
+WITNESS_VOCABULARY = re.compile(r"\b(" + "|".join(WITNESS_TOKENS) + r")\b")  # case-sensitive, whole words; unchanged since 0.1.8
+# 0.1.9 (V2, the eighth re-gate's measurement): the same four tokens with any whitespace allowed between every pair of letters (and where
+# a token has a space), so `E V I D E N C E D`, `NOEVIDENCEPUBLISHED` and `N O  E V I D E N C E  P U B L I S H E D` match. The look-arounds
+# refuse a Latin capital touching either end instead of \b: a spaced token's letters are separate words, so \b would let `UNEVIDENCED`'s
+# tail through. The look-arounds are narrower than \b in one way (a digit or an underscore touching the token is not refused), so a
+# text like `EVIDENCED_1` that \b never matched is matched here, with kind "whitespace" (matched by this regex alone).
+WITNESS_VOCABULARY_SPACED = re.compile(r"(?<![A-Z])(" + "|".join(r"\s*".join(t.replace(" ", "")) for t in WITNESS_TOKENS) + r")(?![A-Z])")
+_TOKEN_BY_LETTERS = {t.replace(" ", ""): t for t in WITNESS_TOKENS}
+VOCABULARY_RULE_TEXT = ("upper-case whole words after format characters are stripped, a closed table of look-alike capitals is folded to Latin and "
+                        "whitespace inside a token is collapsed; case is not folded")
+# 0.1.9 (V2): a CLOSED, LISTED table of look-alike capitals folded to the Latin capitals that occur in the four tokens, for matching only.
+# It is NOT derived from Unicode's confusables.txt: exactly these characters fold, nothing else, so a reader sees what folds. Nothing
+# lower-case is in it (case is not folded, by decision). Left out on purpose: Greek Υ (U+03A5, not a look-alike of U), Cherokee Ꭰ (U+13A0).
+VOCABULARY_CONFUSABLES = {
+    # Cyrillic capitals
+    "А": "A", "В": "B", "С": "C", "Е": "E", "Н": "H", "І": "I", "О": "O", "Р": "P", "Ѕ": "S", "Т": "T",
+    # Greek capitals
+    "Α": "A", "Β": "B", "Ε": "E", "Η": "H", "Ι": "I", "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T",
+    # full-width Latin capitals Ａ..Ｚ (U+FF21..U+FF3A)
+    **{chr(0xFF21 + i): chr(ord("A") + i) for i in range(26)},
+}
+
+
+def vocabulary_fold(text):
+    """0.1.9 (V2): a copy of `text` for MATCHING only (never for the rendering): every Unicode format character (category Cf: zero-width
+    space, joiner and non-joiner, word joiner, soft hyphen, byte-order mark, the bidi marks) removed, then every character mapped through
+    VOCABULARY_CONFUSABLES. Returns (folded, kinds), kinds the list of folds that CHANGED something, in the order ("format characters",
+    "confusables"). Whitespace is left alone here (the spaced regex in witness_vocabulary_hits handles it) and case is never folded."""
+    kinds = []
+    stripped = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    if stripped != text:
+        kinds.append("format characters")
+    folded = "".join(VOCABULARY_CONFUSABLES.get(ch, ch) for ch in stripped)
+    if folded != stripped:
+        kinds.append("confusables")
+    return folded, kinds
+
+
+def _vocabulary_match(text):
+    """(token, kinds) for the first witness token in `text`, or None. The plain regex on the text as it is first (an unchanged 0.1.8 hit,
+    kinds []); when that finds nothing, the plain regex on the folded copy, then the spaced regex (kind "whitespace" when only it
+    matches). The token reported is always one of the four exact tokens."""
+    m = WITNESS_VOCABULARY.search(text)
+    if m:
+        return m.group(1), []
+    folded, kinds = vocabulary_fold(text)
+    m = WITNESS_VOCABULARY.search(folded)
+    if m:
+        token = m.group(1)
+    else:
+        m = WITNESS_VOCABULARY_SPACED.search(folded)
+        if not m:
+            return None
+        token = _TOKEN_BY_LETTERS[re.sub(r"\s+", "", m.group(1))]
+        kinds = kinds + ["whitespace"]
+    assert kinds, "a text that matches only after folding names at least one fold"  # else the plain regex would have matched above
+    return token, kinds
+
+
+def _holds(token, kinds):
+    return f"holds {token}" + (f" (folded: {', '.join(kinds)})" if kinds else "")
 
 
 def witness_vocabulary_hits(row, idx, by_url):
@@ -320,23 +382,27 @@ def witness_vocabulary_hits(row, idx, by_url):
     candidate row each candidate (proofs then counter, indexed as _candidate_line indexes them) whose quote matches ("candidate [i] from
     <url or file> holds <token>"). Only the four tokens, upper case, whole words: a test-run result.json's "verdict": "PASS" is no hit,
     nor is the English word "evidenced". NOT scanned: the claim text, the page lines, consulted, searched, the run subject. A text that
-    names a verdict is not evidence of a claim: answer.run passes such a row through as UNDECIDED for every model with no call."""
+    names a verdict is not evidence of a claim: answer.run passes such a row through as UNDECIDED for every model with no call.
+    0.1.9 (V2, the eighth re-gate's measurement: flash-lite followed a spaced and a homoglyph plant): a text the plain regex does not match
+    is tried again on a folded copy (vocabulary_fold: format characters stripped, the closed confusables table applied) with the plain
+    regex and then WITNESS_VOCABULARY_SPACED; such a hit names the canonical token and the folds, "... holds <TOKEN> (folded: <kinds>)".
+    A text the plain regex matched is reported byte-identically to 0.1.8. Case is not folded: lower and title case are no hit."""
     out = []
     if is_evidence_row(row):
         for i, p in enumerate(row["evidence"]):
             r = resolve_pointer(p, idx)
             if r["status"] != "readable":
                 continue
-            m = WITNESS_VOCABULARY.search(r["text"])
-            if m:
-                out.append(f"[{i}] {r['label']} holds {m.group(1)}")
+            hit = _vocabulary_match(r["text"])
+            if hit:
+                out.append(f"[{i}] {r['label']} {_holds(*hit)}")
         return out
     for i, c in enumerate((row.get("proofs") or []) + (row.get("counter") or [])):
         if not isinstance(c, dict) or c.get("quote") is None:
             continue
-        m = WITNESS_VOCABULARY.search(str(c.get("quote")))
-        if m:
-            out.append(f"candidate [{i}] from {c.get('url') or c.get('file')} holds {m.group(1)}")
+        hit = _vocabulary_match(str(c.get("quote")))
+        if hit:
+            out.append(f"candidate [{i}] from {c.get('url') or c.get('file')} {_holds(*hit)}")
     return out
 
 

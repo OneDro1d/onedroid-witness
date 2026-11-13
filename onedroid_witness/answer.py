@@ -77,7 +77,8 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
                "profile": profile, "claims": len(request.audit), "models_asked": asked, "models_run": [],
                "models_skipped": [], "estimate_usd": {"per_model": est_per_model, "total": est_total, "rule": "input chars / 3.6 per claim + chat output max_tokens / 4"},
                "prompt_sha256": {profile: prompt_sha}, "questions_sha256": {profile: questions_sha}, "parse_rule": "the first JSON object in the text, a code fence stripped",
-               "vocabulary_rule": {"rows": sorted(i for i, h in vocab_hits.items() if h), "hits": {i: h for i, h in vocab_hits.items() if h}},
+               "vocabulary_rule": {"rows": sorted(i for i, h in vocab_hits.items() if h), "hits": {i: h for i, h in vocab_hits.items() if h},
+                                   "rule": render.VOCABULARY_RULE_TEXT},  # 0.1.9 (V2): the matching rule in words, the same text as /healthz shows
                "decision_agreement": {"applied": False, "decision_models_run": [], "rows_changed": {}},
                "candidate_rule_decision_models": "argmax of the yes-probabilities on the verdict's side",
                "daily_cap_remaining_usd_at_start": client.ledger.remaining(), "max_cost_usd": max_cost_usd, "per_model": {}, "started_at": now()}

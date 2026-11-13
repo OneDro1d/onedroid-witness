@@ -24,7 +24,9 @@ It never touches audit.jsonl, claims.jsonl, an existing witness file, the pages,
 (it hashes them before and after, and says so). A witness header's `carried` (13 Nov 2026, NEXT-REVISION 25c) must name only pages, sources and
 session records this snapshot's manifest lists, each with the manifest's sha256, else the whole answer is refused before anything is written.
 A witness header's `bound` (the bound cut, 13 Nov 2026), when present, must name exactly the five bound manifest sections with the sha256 of each
-section of THIS snapshot's manifest in canonical JSON (check.bound_sections), else the whole answer is refused before anything is written."""
+section of THIS snapshot's manifest in canonical JSON (check.bound_sections), else the whole answer is refused before anything is written; when
+the snapshot carries the auditor's verified `sources` signature (sign.py --role sources, the sources cut of 13 Nov 2026) the refusal says so.
+A `sources` entry is a non-manifest entry: kept in order, its manifest.sources.sig untouched (nothing here writes it)."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -69,6 +71,29 @@ def list_files(M, snap, extra):
     elif entries or files is not None:
         M["files"] = entries
     return dropped
+
+
+def sources_signed(snap, M):
+    """True when signatures.json holds a `sources` entry over THIS snapshot's bound digest whose signature verifies against allowed_signers
+    (the sources cut, 13 Nov 2026): a `bound` mismatch is then a mismatch with what the AUDITOR signed, and the refusal says so. K13 judges
+    the signature itself (the auditor's key, the line); this is a yes or no for one sentence."""
+    tool = shutil.which("ssh-keygen")
+    allowed = snap / "allowed_signers"
+    try:
+        sigs = json.loads((snap / "signatures.json").read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    digest = check.bound_digest(M)
+    line = check.signed_line("sources", "manifest.json", digest)
+    for e in sigs if isinstance(sigs, list) else []:
+        if not (isinstance(e, dict) and e.get("role") == "sources" and e.get("file") == "manifest.json" and e.get("sha256") == digest and e.get("line") == line):
+            continue
+        name, sf = (e.get("signer") or {}).get("name"), snap / (e.get("signature") or "")
+        if tool and allowed.exists() and name and e.get("signature") and sf.is_file():
+            r = subprocess.run([tool, "-Y", "verify", "-f", str(allowed), "-I", name, "-n", check.SIGN_NAMESPACE, "-s", str(sf)], input=line.encode(), capture_output=True)
+            if r.returncode == 0:
+                return True
+    return False
 
 
 def main(argv):
@@ -121,6 +146,7 @@ def main(argv):
 
     names = {w.get("name") for w in g["witnesses"]}
     files_have = {w.get("file") for w in g["witnesses"]}
+    auditor_signed = sources_signed(snap, M)  # the sources cut: a bound mismatch against sections the auditor signed says so
     adds = []  # (source path, target path relative to the snapshot)
     new_names = set()
     for e in entries:
@@ -184,7 +210,8 @@ def main(argv):
                         if not (isinstance(bv, str) and check.HEX64.match(bv)):
                             problems.append(f"entry {n!r}: bound {section!r}: sha256 {bv!r} is not 64 hex characters")
                         elif bv != want[section]:
-                            problems.append(f"entry {n!r}: bound {section!r} sha256 {bv[:12]}… differs from this snapshot's {want[section][:12]}…: the witness read a manifest whose {section} is not this snapshot's")
+                            problems.append(f"entry {n!r}: bound {section!r} sha256 {bv[:12]}… differs from this snapshot's {want[section][:12]}…: the witness read a manifest whose {section} is not this snapshot's"
+                                            + ("; the auditor signed these sections" if auditor_signed else ""))
         if e.get("kind") not in (None, "human", "agent", "model"):
             problems.append(f"entry {n!r}: kind {e.get('kind')!r}")
     files_new = {e.get("file") for e in entries}

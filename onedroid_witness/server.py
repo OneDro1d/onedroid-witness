@@ -23,7 +23,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import answer as answer_mod
-from . import prompts, request as request_mod
+from . import prompts, render, request as request_mod
 from .checkpin import CHECK_PY_SHA256
 from .openrouter import RouterRefused, refuse_routers
 
@@ -78,6 +78,7 @@ def make_handler(cfg):
                                         "profiles_served": served,
                                         "profiles_not_served": {p: request_mod.PROFILES_NOT_SERVED_WHY.get(p, "not in this service's configuration") for p in request_mod.PROFILES if p not in served},
                                         "models_not_served": dict(cfg.get("models_not_served") or {}),
+                                        "vocabulary_rule": render.VOCABULARY_RULE_TEXT,  # 0.1.9 (V2)
                                         "prompt_sha256": {p: prompts.chat_prompt_sha256(p) for p in prompts.PROFILES},
                                         "questions_sha256": {p: prompts.decision_questions_sha256(p) for p in prompts.PROFILES}})
             if path == "/models":
