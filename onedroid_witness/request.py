@@ -74,6 +74,27 @@ def profile_of(manifest):
     return p
 
 
+_VENDORED_CHECK = []
+
+
+def vendored_check():
+    """The vendored check.py beside the package (vendor/check.py, /app/vendor/check.py in the image), loaded once through checkpin, so its
+    sha256 must equal the pin; the service's shape rule is the checker's, never a copy (0.1.18)."""
+    if not _VENDORED_CHECK:
+        from . import checkpin
+        _VENDORED_CHECK.append(checkpin.load_check(pathlib.Path(__file__).resolve().parent.parent / "vendor" / "check.py"))
+    return _VENDORED_CHECK[0]
+
+
+def checker_shape_refusal(manifest, label):
+    """0.1.18 (the seventeenth re-gate's finding F, 13 Nov 2026): the checker's own shape rule, check.manifest_shape_faults, on a manifest
+    the service reads; the first fault is said by name (and how many more), before anything runs on it."""
+    faults = vendored_check().manifest_shape_faults(manifest)
+    if faults:
+        more = f" (and {len(faults) - 1} more)" if len(faults) > 1 else ""
+        raise Refused(f"{label}: {faults[0]}{more}: the format's checker refuses this shape (K1)")
+
+
 def check_manifest_shape(manifest):
     """Second re-gate P1 (the claims session, 13 Nov 2026): the parts of the manifest the service reads after the request checks
     (source_index, render, the estimate, the worker's add_witness and check.py) have the shapes SPEC.md gives them, or the request is
@@ -102,6 +123,7 @@ def check_manifest_shape(manifest):
             list_of_objects("grading.witnesses", g["witnesses"])
         if "auditor" in g and not isinstance(g["auditor"], dict):
             raise Refused("manifest grading.auditor is not an object")
+    checker_shape_refusal(manifest, "the request's manifest")
 
 
 def refuse_credentials(name, text):
@@ -449,6 +471,7 @@ def check_published(request, published_url=None, catalogue_lookup=None, fetch=fe
         raise Refused(f"the published manifest.json is not a JSON object ({len(mdata)} bytes, sha256 {sha256_bytes(mdata)[:16]}..., at {manifest_url})"
                       + (" and is byte-equal to the published audit.jsonl: a raw gist URL names one blob under any file name, use the gist's revision URL "
                          "(raw/<revision>/manifest.json)" if same else ""))
+    checker_shape_refusal(published_manifest, f"the published manifest.json at {manifest_url}")
     for section in BOUND_MANIFEST_SECTIONS:
         if _canonical(_section(published_manifest, section)) != _canonical(_section(request.manifest, section)):
             raise Refused(f"the manifest's {section} differs from the published snapshot's at {manifest_url}")

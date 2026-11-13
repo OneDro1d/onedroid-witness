@@ -20,6 +20,7 @@ undecided rows, split lines across model witnesses, the key list, the manifest s
 0.6 (12 Nov 2026) also names the pre-witness stage: grading.kind "pre-witness" is the auditor's part published alone (no claims.jsonl,
 no score, no claims_sha256, no grader or model; witnesses may be listed, none primary); K1 reads the declaration, K5 tests the
 auditor's pointers and candidate quotes without a verdict, K8 and K12 WARN that no score exists yet, K11 asks for no primary."""
+import traceback
 import base64, datetime, hashlib, html, json, pathlib, re, shutil, subprocess, sys, urllib.error, urllib.request
 
 FORMATS = {"claims-snapshot/0.2", "claims-snapshot/0.3", "claims-snapshot/0.4", "claims-snapshot/0.5", "claims-snapshot/0.6"}
@@ -305,7 +306,10 @@ def json_kind(v):
 def manifest_shape_faults(M):
     """V2f (the twelfth cut, 13 Nov 2026, NEXT-REVISION 33; the sixteenth re-gate's checker finding): every part of manifest.json that a
     reader uses as an object, a list, a path or a hash, checked by JSON kind, as lines "manifest.json: <path> is a JSON <kind>, not <want>",
-    every fault in document order (none dropped). The document is an object; grading an object (null included); grading.auditor an object
+    every fault (none dropped), in the order listed here, which is not the order of the keys in the file. V2g (the seventeenth re-gate's
+    finding B): format, taken_at and grading.profile are strings; counts and score objects; grading.sessions and grading.gates lists of
+    objects (null reads as absent), a session's file and record_sha256 strings; a source's path a string or null; a witness entry's score
+    an object (null reads as absent). The document is an object; grading an object (null included); grading.auditor an object
     and its file, sha256 and name strings; grading.witnesses a list of objects whose name, file and sha256 are strings; pages and sources
     lists of objects whose file and sha256 are strings (a source's may be null: a hash-only or no-copy source). An ABSENT field is not a fault here (K1 and the later checks say what a missing field
     means); grading.auditor and grading.witnesses null read as absent (sign.py's rule since V2e). check.py fails K1 on any line; sign.py and
@@ -313,6 +317,9 @@ def manifest_shape_faults(M):
     if not isinstance(M, dict):
         return [f"manifest.json: a JSON {json_kind(M)} is not an object"]
     out = []
+    for k_, want_ in (("format", str), ("taken_at", str), ("counts", dict), ("score", dict)):
+        if k_ in M and not isinstance(M[k_], want_):
+            out.append(f"manifest.json: {k_} is a JSON {json_kind(M[k_])}, not {'a string' if want_ is str else 'an object'}")
 
     def fault(path, v, want):
         out.append(f"manifest.json: {path} is a JSON {json_kind(v)}, not {want}")
@@ -333,7 +340,7 @@ def manifest_shape_faults(M):
                 fault(f"{path}[{i}]", e, "an object")
     for k in ("pages", "sources"):
         if k in M:
-            object_list(k, M[k], ("file", "sha256"), nullable=(k == "sources"))
+            object_list(k, M[k], ("file", "sha256", "path") if k == "sources" else ("file", "sha256"), nullable=(k == "sources"))
     if "grading" in M:
         g = M["grading"]
         if not isinstance(g, dict):
@@ -347,6 +354,15 @@ def manifest_shape_faults(M):
                     fault("grading.auditor", au, "an object")
             if g.get("witnesses") is not None:
                 object_list("grading.witnesses", g["witnesses"], ("name", "file", "sha256"))
+                for i, w in enumerate(g["witnesses"] if isinstance(g["witnesses"], list) else []):
+                    if isinstance(w, dict) and w.get("score") is not None and not isinstance(w["score"], dict):
+                        fault(f"grading.witnesses[{i}].score", w["score"], "an object")
+            if "profile" in g and not isinstance(g["profile"], str):
+                fault("grading.profile", g["profile"], "a string")
+            if g.get("sessions") is not None:
+                object_list("grading.sessions", g["sessions"], ("file", "record_sha256"))
+            if g.get("gates") is not None:
+                object_list("grading.gates", g["gates"], ())
     return out
 
 
@@ -472,6 +488,22 @@ def copy_text(snap, copies, src):
 
 
 def main(argv):
+    """V2g (the seventeenth re-gate's finding B, 13 Nov 2026): the checker never ends in a traceback. A part of the folder that no rule
+    names and that still stops a check is a K0 FAIL, with the exception's type and the checker line, and the SUMMARY line the reader
+    keys on; the folder is not checked further and is never a PASS. A named rule (K1's shape lines, K13's entry lines) is the fix for
+    each such part; this line is the net under the ones not named yet."""
+    R = Report()
+    try:
+        return _main(argv, R)
+    except Exception as e:
+        where = next((f"check.py:{fr.lineno}" for fr in reversed(traceback.extract_tb(e.__traceback__)) if fr.filename == __file__), "check.py")
+        R.add("K0", "FAIL", f"the checker stopped on a part of the folder it does not read ({type(e).__name__} at {where}: {str(e)[:160]}): "
+                            "the folder is not checked further and is not a PASS")
+        print(R.text())
+        return 1
+
+
+def _main(argv, R):
     if len(argv) < 2:
         print(__doc__)
         return 2
@@ -481,7 +513,6 @@ def main(argv):
     strict = "--strict" in argv
     want_json = "--json" in argv
     keys_arg = pathlib.Path(argv[argv.index("--keys") + 1]) if "--keys" in argv and argv.index("--keys") + 1 < len(argv) else None
-    R = Report()
 
     # K1 manifest
     try:
