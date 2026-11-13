@@ -46,14 +46,19 @@ print("POST /witness", r.status, json.dumps(ans)[:400])
 if r.status != 202:
     sys.exit(1)
 jid = ans["job_id"]
+s = {}
 for _ in range(900):
     st, _, body = get(f"/witness/{jid}")
     s = json.loads(body)
+    if "state" not in s:  # 0.1.7: the per-address rate limit answers 429 {"error": "rate limit"}; wait it out instead of crashing
+        print("poll", st, json.dumps(s)[:120], "(waiting 15 s)")
+        time.sleep(15)
+        continue
     if s["state"] in ("done", "refused", "failed"):
         break
-    time.sleep(1)
+    time.sleep(3)
 print("status", json.dumps({k: s.get(k) for k in ("state", "models_run", "models_skipped", "total_cost_usd", "estimate_usd", "split_claims", "answer_sha256", "reason")}))
-if s["state"] != "done":
+if s.get("state") != "done":
     sys.exit(1)
 st, headers, tar_bytes = get(f"/witness/{jid}/answer.tar")
 sha = hashlib.sha256(tar_bytes).hexdigest()

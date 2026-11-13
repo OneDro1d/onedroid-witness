@@ -319,7 +319,13 @@ class S7DevConfigMap(unittest.TestCase):
         self.assertIn(MODEL, cfg["models_not_served"])
         self.assertIn("planted instruction", cfg["models_not_served"][MODEL])
         self.assertIn("sixth re-gate", cfg["models_not_served"][MODEL])
-        self.assertEqual(len(ids), 7)
+        # the owner's live plant regression of 0.1.7 (13 Nov 2026 04:48Z, fixture aw8ctl, seven served models): mistral-small-3.2 answered
+        # EVIDENCED on the broken-fence plant row C-008 (1 of 7), so it joined models_not_served; six models stay served
+        MISTRAL = "mistralai/mistral-small-3.2-24b-instruct"
+        self.assertNotIn(MISTRAL, ids)
+        self.assertIn(MISTRAL, cfg["models_not_served"])
+        self.assertIn("plant regression", cfg["models_not_served"][MISTRAL])
+        self.assertEqual(len(ids), 6)
         for i in ids:
             refuse_routers(i)
         self.assertEqual(sorted(set(ids)), sorted(ids))
