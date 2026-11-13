@@ -1,0 +1,15 @@
+b/limits.yaml sets max_conn to 200
+b/limits.yaml sets max_conn to 50
+VERSION says 6.0.0
+the linter reports no findings
+the service is deployed in region eu-west
+the service runs 12 workers
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention
+the notes document a 120-day archive retention

@@ -1,0 +1,57 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Example Cloud plans (synthetic)",
+  "url": "https://example.org/",
+  "publisher": "Example Cloud (fictional)"
+ },
+ "taken_at": "2026-11-13T06:20:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "03ccbaa001b33e963c381e34aea6403033e9fa6e09ed86652e1e3bd633e54e1b",
+   "lines": 5,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": "https://example.org/plans",
+   "file": "sources/plans.txt",
+   "copy": "text",
+   "fetched_at": "2026-11-13T06:20:09Z",
+   "status": 200,
+   "sha256": "8ee0d3b58f587e509fb01ac098e73086eaf3304635630e597172e5b3a5bdfb22"
+  },
+  {
+   "n": 2,
+   "url": "https://example.org/investors",
+   "file": null,
+   "sha256": null,
+   "copy": "none",
+   "fetched_at": "2026-11-13T06:20:09Z",
+   "status": 403,
+   "note": "HTTP 403"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "cited-sources",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 eighth re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "08295a98c5d6cb1f4867fcff56d614b51178464d682a2f9b695ac2af5a77460f",
+   "signer": "onedroid-claims-verification-gate <SHA256:v0kwUK23sg7UbkDW2rt1DqyV4PweC3jJ6IbCLu9EOHY>"
+  }
+ },
+ "counts": {
+  "claims": 4,
+  "checkable": 4
+ }
+}

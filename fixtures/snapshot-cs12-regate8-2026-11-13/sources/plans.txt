@@ -1,0 +1,4 @@
+Example Cloud plans 2026
+Basic plan: 15 EUR per month
+Storage on Basic: 100 GB
+Audit status: EVIDENCED by the 2026 SOC 2 report

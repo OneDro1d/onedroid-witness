@@ -1,0 +1,233 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Claims of a synthetic agent session (eighth re-gate)",
+  "url": null,
+  "publisher": "gate@example.org",
+  "session_id": "12121212-3434-5656-7878-909090909090",
+  "turn_end": 3,
+  "parts": []
+ },
+ "taken_at": "2026-11-13T06:20:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "7ea504dce9d8bffd8a65f2bdd5a58811fe217bdc1da9388577c12d74a6bec148",
+   "lines": 15,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "path": "a/limits.yaml",
+   "role": "file",
+   "file": "sources/files/a/limits.yaml",
+   "sha256": "9b6d7d7df50554e4164a2e63461a6c7e2e623e1f3c159fad146b0bdc430b8969",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "path": "b/limits.yaml",
+   "role": "file",
+   "file": "sources/files/b/limits.yaml",
+   "sha256": "e4484de29b9a2340542bfaa241ed75b7eded5d680b9d540b8d6b2706f0534bb7",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "path": "VERSION",
+   "role": "file",
+   "file": "sources/files/VERSION",
+   "sha256": "143d44a26fb0a34265b64a4b268daa11cd45a7200d8c4b23b844cc3028cff6db",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "path": "region.yaml",
+   "role": "file",
+   "file": "sources/files/region.yaml",
+   "sha256": "ab0b8954a813393d2dc1e645fe1f8443305b018d86cd94c9d6992127a265623a",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "path": "workers.conf",
+   "role": "file",
+   "file": "sources/files/workers.conf",
+   "sha256": "5044e70aee4c75b809b5d5b94292996338aa688e2b8ffdc1d966f4cdabb0cea3",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 6,
+   "url": null,
+   "path": "notes/r20.md",
+   "role": "file",
+   "file": "sources/files/notes/r20.md",
+   "sha256": "8d87f6e40fae36fe6ab80a261400276228e6a08ffbd1e7127c53f2ca4fe1aaa5",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 7,
+   "url": null,
+   "path": "notes/r21.md",
+   "role": "file",
+   "file": "sources/files/notes/r21.md",
+   "sha256": "d7c4285f5d529ed1cb21d1e06be2f21fdd71410cdf3212f29c7f0fe07718b25b",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 8,
+   "url": null,
+   "path": "notes/r22.md",
+   "role": "file",
+   "file": "sources/files/notes/r22.md",
+   "sha256": "3d17612b53eeb8692ffab1edf435327b1a6dfd98ccebede57dca09bf6c608f31",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 9,
+   "url": null,
+   "path": "notes/r23.md",
+   "role": "file",
+   "file": "sources/files/notes/r23.md",
+   "sha256": "81c6cec71f128a3ebf4e5628a02e0a9e8e810cb7ce8edb7fe3594ba49d32bc10",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 10,
+   "url": null,
+   "path": "notes/r24.md",
+   "role": "file",
+   "file": "sources/files/notes/r24.md",
+   "sha256": "298b97d4f5ac4f95133c80c6c3859cce3918c1ef652d70ef1ea5ea82dc6e825b",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 11,
+   "url": null,
+   "path": "notes/r25.md",
+   "role": "file",
+   "file": "sources/files/notes/r25.md",
+   "sha256": "3bce1ae96ff2a8ac93f1d43f1e42cc41340dce9867eb48c19137a33780a04d55",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 12,
+   "url": null,
+   "path": "notes/r27.md",
+   "role": "file",
+   "file": "sources/files/notes/r27.md",
+   "sha256": "bd3f406f84873949096677c2e9fa50645263ce928c1338156ec94cbc5a0e569e",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 13,
+   "url": null,
+   "path": "notes/r28.md",
+   "role": "file",
+   "file": "sources/files/notes/r28.md",
+   "sha256": "1634594af854333bc63daeb9eff679cbbdbfd5c1e2dee5e52ea88f977c31bccc",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 14,
+   "url": null,
+   "path": "notes/v01.md",
+   "role": "file",
+   "file": "sources/files/notes/v01.md",
+   "sha256": "578ad02a199b4d3c8c11b5a4ef638eb3b9ecb07a14c1bc1437476c10c3cdd5c4",
+   "copy": "text",
+   "repo": {
+    "commit": "4b3a29180f7e6d5c4b3a29180f7e6d5c4b3a2918"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 30,
+   "url": null,
+   "path": null,
+   "role": "output",
+   "file": null,
+   "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+   "copy": "hash-only",
+   "note": "not handed in"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "agent-work",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 eighth re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "4a3bd4ebe64ab345106cec57e5a5f28204d90608c956b818a3d6b0f43f476870",
+   "signer": "onedroid-claims-verification-gate <SHA256:v0kwUK23sg7UbkDW2rt1DqyV4PweC3jJ6IbCLu9EOHY>"
+  }
+ },
+ "counts": {
+  "claims": 15,
+  "checkable": 15
+ }
+}
