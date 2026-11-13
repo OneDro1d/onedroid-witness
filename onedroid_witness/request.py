@@ -99,7 +99,10 @@ def check_manifest_shape(manifest):
     """Second re-gate P1 (the claims session, 13 Nov 2026): the parts of the manifest the service reads after the request checks
     (source_index, render, the estimate, the worker's add_witness and check.py) have the shapes SPEC.md gives them, or the request is
     refused here, by name, before anything runs on them. Absent keys stay allowed where the renderer tolerates their absence; a key that
-    is present has to have its shape (null is not absent: `sources: null` would be iterated)."""
+    is present has to have its shape (null is not absent: `sources: null` would be iterated). 0.1.19: the format's own rule runs first, so a
+    shape the checker names is refused by the checker's line; the checks below are for what it does not name (subject, a source's url)."""
+    checker_shape_refusal(manifest, "the request's manifest")
+
     def list_of_objects(key, value):
         if not isinstance(value, list):
             raise Refused(f"manifest {key} is not a list")
@@ -123,7 +126,6 @@ def check_manifest_shape(manifest):
             list_of_objects("grading.witnesses", g["witnesses"])
         if "auditor" in g and not isinstance(g["auditor"], dict):
             raise Refused("manifest grading.auditor is not an object")
-    checker_shape_refusal(manifest, "the request's manifest")
 
 
 def refuse_credentials(name, text):

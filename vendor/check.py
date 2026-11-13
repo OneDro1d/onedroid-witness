@@ -169,6 +169,7 @@ class Report:
         return any(s == "FAIL" for _, s, _, _ in self.rows)
 
     def text(self):
+        self.printed = True  # V2h: main's net never prints a second report after this one
         out = []
         for k, s, m, d in self.rows:
             out.append(f"{k} {s}: {m}")
@@ -496,8 +497,16 @@ def main(argv):
     try:
         return _main(argv, R)
     except Exception as e:
-        where = next((f"check.py:{fr.lineno}" for fr in reversed(traceback.extract_tb(e.__traceback__)) if fr.filename == __file__), "check.py")
-        R.add("K0", "FAIL", f"the checker stopped on a part of the folder it does not read ({type(e).__name__} at {where}: {str(e)[:160]}): "
+        where = next((fr.lineno for fr in reversed(traceback.extract_tb(e.__traceback__)) if fr.filename == __file__), None)
+        msg = str(e)
+        if len(argv) > 1 and argv[1]:
+            # V2h: the folder is named <folder>, never by its absolute path (a report is published; the path is the machine's)
+            for form in sorted({str(pathlib.Path(argv[1]).resolve()), str(pathlib.Path(argv[1]).absolute()), argv[1]}, key=len, reverse=True):
+                msg = msg.replace(form, "<folder>")
+        if getattr(R, "printed", False):
+            print(f"check.py: stopped after the report was printed ({type(e).__name__} at check.py:{where}); exit 1", file=sys.stderr)
+            return 1
+        R.add("K0", "FAIL", f"the checker stopped on a part of the folder it does not read ({type(e).__name__} at check.py:{where}: {msg[:160]}): "
                             "the folder is not checked further and is not a PASS")
         print(R.text())
         return 1
@@ -1732,11 +1741,19 @@ def _main(argv, R):
               f"{len(drift)} bodies changed, {len(gone)} quotes gone, {len(status_bad)} statuses differ, {len(page_gone)} claims or pages gone from the live pages, {len(unchecked)} unchecked, {len(errs)} fetch errors",
               gone + status_bad + page_gone + unchecked + drift + errs)
 
-    print(R.text())
+    # V2h (the eighteenth re-gate's X): CHECK.json is written BEFORE the one print, so a failed write is a FAIL line inside the report,
+    # never a PASS SUMMARY followed by a second one
+    written = None
     if want_json:
         flags = [a for a in argv[2:] if a.startswith("--") and a != "--json"]
-        (snap / "CHECK.json").write_text(json.dumps(R.as_json(snap, M.get("format"), flags), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-        print(f"CHECK.json written ({R.result()})")
+        try:
+            (snap / "CHECK.json").write_text(json.dumps(R.as_json(snap, M.get("format"), flags), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+            written = R.result()
+        except OSError as e:
+            R.add("K0", "FAIL", f"CHECK.json could not be written ({type(e).__name__}): the checks ran, their record did not land; not a PASS")
+    print(R.text())
+    if written:
+        print(f"CHECK.json written ({written})")
     return 1 if R.failed() else 0
 
 

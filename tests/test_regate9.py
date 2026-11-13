@@ -36,7 +36,7 @@ from test_server import multipart  # noqa: E402
 FX = ROOT / "fixtures"
 AW14 = FX / "snapshot-aw14-regate9-2026-11-13"
 REC_AW14 = FX / "recordings" / "aw14-regate9"
-VERSION = "0.1.18-dev"  # 0.1.10-dev when written; the version pin follows the cut
+VERSION = "0.1.19-dev"  # 0.1.10-dev when written; the version pin follows the cut
 # the brief's one constant string (render.VOCABULARY_RULE_TEXT), spelt here so a drift in the code is seen
 RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped (an invisible letter is "
              "also tried as a space), a closed table of look-alike capitals is folded to Latin before and after compatibility forms are normalised "
