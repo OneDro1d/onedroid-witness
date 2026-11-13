@@ -1,0 +1,2 @@
+service: ingest
+retries: 5

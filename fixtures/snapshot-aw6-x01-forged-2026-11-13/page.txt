@@ -1,0 +1,12 @@
+the README states the licence is MIT
+the service listens on port 8080
+the backup tests pass
+the linter reports no findings
+the deploy call returned 200
+the rollback call returned 200
+migration 0042 was applied
+the changelog has an entry for version 2.0
+the README documents the backup schedule
+no secret is committed
+prod/config.yaml sets retries to 5
+the Makefile defines a test target

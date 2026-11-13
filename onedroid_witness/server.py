@@ -170,7 +170,9 @@ def make_handler(cfg):
             try:
                 req = request_mod.Request(d, private_mode=cfg["private_mode"], profiles_served=cfg.get("profiles_served", request_mod.PROFILES_SERVED))
                 if not cfg["private_mode"]:
-                    request_mod.check_published(req, params.get("published_url"), cfg.get("catalogue_lookup"))
+                    # 0.1.6 (H1): the manifest is bound to the published snapshot here too; `fetch` is injectable for tests only (the
+                    # production configuration has no `fetch` key). The worker re-runs the same check before the models run.
+                    request_mod.check_published(req, params.get("published_url"), cfg.get("catalogue_lookup"), fetch=cfg.get("fetch", request_mod.fetch_published))
             except request_mod.Refused as e:
                 return 422, {"error": str(e)}
             except Exception as e:  # re-gate N3: a part that does not read answers 422 and leaves no bytes, whatever raised

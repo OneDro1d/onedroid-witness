@@ -119,7 +119,11 @@ class Request:
         list); None reads every profile the format has, for the library's own readers."""
         self.root = pathlib.Path(root)
         self.private_mode = private_mode
-        self.manifest = self._json("manifest.json")
+        # 0.1.6 (fifth re-gate H1): the manifest's bytes as received and their sha256 are kept, so every answer can record which manifest
+        # the models' evidence was resolved from (answer.run) and public mode can bind it to the published snapshot (check_published)
+        self.manifest_bytes = self._bytes("manifest.json")
+        self.manifest_sha256 = sha256_bytes(self.manifest_bytes)
+        self.manifest = self._json("manifest.json", self.manifest_bytes)
         self.audit_bytes = self._bytes("audit.jsonl")
         self.audit_sha256 = sha256_bytes(self.audit_bytes)
         # re-gate N3: a part that does not read is a refusal with an answer, never an exception past the handler; rows are split on \n
@@ -162,8 +166,9 @@ class Request:
         if profiles_served is not None and self.profile not in profiles_served:
             why = PROFILES_NOT_SERVED_WHY.get(self.profile, "not in this service's configuration")
             raise Refused(f"the {self.profile} profile is not served by this service ({why}); profiles served: {', '.join(profiles_served)}")
-        if self.profile == "test-run" and tuple(ids) != TEST_RUN_ROWS:  # S-2, before any model call
-            raise Refused(f"a test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13); this one has {len(ids)}")
+        if self.profile == "test-run" and tuple(ids) != TEST_RUN_ROWS:  # S-2, before any model call; the ids named (0.1.6, the first ten)
+            raise Refused(f"a test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13); this one has {len(ids)} row(s): "
+                          + ", ".join(str(i) for i in ids[:10]))
         self.page = self._text_optional("page.txt") or ""
         refuse_credentials("audit.jsonl", self.audit_bytes.decode("utf-8", "replace"))
         refuse_credentials("page.txt", self.page)
@@ -213,9 +218,9 @@ class Request:
             raise Refused(f"{name} is missing from the request")
         return p.read_bytes()
 
-    def _json(self, name):
+    def _json(self, name, data=None):
         try:
-            return json.loads(self._bytes(name).decode("utf-8"))
+            return json.loads((self._bytes(name) if data is None else data).decode("utf-8"))
         except UnicodeDecodeError as e:
             raise Refused(f"{name} is not UTF-8 (byte {e.start})")
         except ValueError as e:
@@ -354,18 +359,62 @@ def fetch_published(url, opener_factory=None, resolve=None, connect=None):
     return data
 
 
+# The parts of the manifest public mode binds to the published snapshot (0.1.6, fifth re-gate H1): what the carried evidence is checked
+# against (sources[].file + sha256, grading.sessions[].record_sha256), the profile the prompt is chosen by, and the subject. grading.witnesses,
+# files and signatures are NOT compared: inserting a witness changes them.
+BOUND_MANIFEST_SECTIONS = ("subject", "sources", "grading.profile", "grading.sessions")
+
+
+def _canonical(x):
+    return json.dumps(x, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _section(manifest, dotted):
+    """The value at a dotted path of a manifest, None when absent (so a section absent on both sides is equal)."""
+    cur = manifest
+    for k in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(k)
+    return cur
+
+
 def check_published(request, published_url=None, catalogue_lookup=None, fetch=fetch_published):
     """Public mode: the auditor part must be published, as a catalogue record (preferred) or at a public URL whose audit.jsonl matches
-    byte for byte. Private mode skips this: the caller's own estate, the caller's own key."""
+    byte for byte; and since 0.1.6 (fifth re-gate H1) the request's manifest is bound to the published snapshot's: a catalogue record
+    must carry the request manifest's sha256; by URL, the published manifest.json is fetched beside the published audit.jsonl (the same
+    `fetch`, so the same SSRF rules) and its subject, sources, grading.profile and grading.sessions must equal the request's, section by
+    section in canonical JSON. Without this, the carried files a model reads are hash-checked against the caller's own, unpublished manifest
+    only (the X01 case: a forged carried file with a matching manifest hash, witnessed over the genuine audit part). Private mode skips all
+    of it, with no fetch at all: the caller's own estate, the caller's own key."""
     if request.private_mode:
         return {"mode": "private", "published": None}
     if catalogue_lookup is not None:
         rec = catalogue_lookup(request.audit_sha256)
         if rec:
+            want = rec.get("manifest_sha256") if isinstance(rec, dict) else None
+            if not want:
+                raise Refused("the catalogue record carries no manifest hash")
+            if want != request.manifest_sha256:
+                raise Refused("the catalogue record's manifest sha256 differs from the request's")
             return {"mode": "public", "published": {"catalogue": rec}}
     if not published_url:
         raise Refused("the public service takes published parts only: name the catalogue record or the public URL of audit.jsonl")
+    if not published_url.endswith("/audit.jsonl"):
+        raise Refused("the published URL must name the snapshot's audit.jsonl")
     data = fetch(published_url)
     if sha256_bytes(data) != request.audit_sha256:
         raise Refused(f"the published copy at {published_url} has sha256 {sha256_bytes(data)}, not the request's {request.audit_sha256}")
-    return {"mode": "public", "published": {"url": published_url, "sha256": request.audit_sha256}}
+    manifest_url = published_url[:-len("audit.jsonl")] + "manifest.json"
+    mdata = fetch(manifest_url)
+    try:
+        published_manifest = json.loads(mdata.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        published_manifest = None
+    if not isinstance(published_manifest, dict):
+        raise Refused("the published manifest.json is not a JSON object")
+    for section in BOUND_MANIFEST_SECTIONS:
+        if _canonical(_section(published_manifest, section)) != _canonical(_section(request.manifest, section)):
+            raise Refused(f"the manifest's {section} differs from the published snapshot's at {manifest_url}")
+    return {"mode": "public", "published": {"url": published_url, "sha256": request.audit_sha256,
+                                            "manifest": {"url": manifest_url, "sha256": sha256_bytes(mdata)}}}

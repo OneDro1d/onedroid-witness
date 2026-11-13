@@ -1,0 +1,12 @@
+{"id": "C-001", "text": "the README states the licence is MIT", "kind": "process", "evidence": [{"file": "README.md", "line": 3}]}
+{"id": "C-002", "text": "the service listens on port 8080", "kind": "process", "evidence": [{"file": "server.conf", "line": 1}]}
+{"id": "C-003", "text": "the backup tests pass", "kind": "process", "evidence": [{"test": "go test ./backup", "output_sha256": "20add3cfd801ad7cb9472b10e95404dbbaaf52af599c004acdfdd28d10b3cbb0"}]}
+{"id": "C-004", "text": "the linter reports no findings", "kind": "process", "evidence": [{"command": "golangci-lint run", "output_sha256": "6666666666666666666666666666666666666666666666666666666666666666"}]}
+{"id": "C-005", "text": "the deploy call returned 200", "kind": "process", "evidence": [{"record": "dddddddd#3"}]}
+{"id": "C-006", "text": "the rollback call returned 200", "kind": "process", "evidence": [{"record": "dddddddd#9"}]}
+{"id": "C-007", "text": "migration 0042 was applied", "kind": "process", "evidence": [{"command": "make migrate", "output_sha256": "9999999999999999999999999999999999999999999999999999999999999999"}, {"file": "logs/migrate.txt", "line": 2}]}
+{"id": "C-008", "text": "the changelog has an entry for version 2.0", "kind": "process", "evidence": [{"file": "CHANGELOG.md", "line": 50}]}
+{"id": "C-009", "text": "the README documents the backup schedule", "kind": "process", "evidence": [{"file": "README.md", "line": 1}]}
+{"id": "C-010", "text": "no secret is committed", "kind": "process", "evidence": []}
+{"id": "C-011", "text": "prod/config.yaml sets retries to 5", "kind": "process", "evidence": [{"file": "prod/config.yaml", "line": 2}]}
+{"id": "C-012", "text": "the Makefile defines a test target", "kind": "process", "evidence": [{"file": "makefile", "line": 1}]}

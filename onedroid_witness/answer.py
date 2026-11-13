@@ -57,8 +57,12 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     for m in models_cfg:
         refuse_routers(m["id"])
     est_per_model, est_total = estimate(models_cfg, prices or {}, sum(len(t) for t in rendered.values()), len(request.audit), len(system_prompt))
+    # 0.1.6 (fifth re-gate H1): what the models read, recorded in service.json and in every witness header (so the witness signature covers
+    # it): the request manifest's sha256 and the sha256 of every carried file, by manifest path, keys sorted ({} when nothing was carried)
+    carried = {p: hashlib.sha256(b).hexdigest() for p, b in sorted(request.carried.items())}
     service = {"service": service_name, "mode": "private" if private_mode else "public", "published": published,
-               "request_sha256": request.audit_sha256, "profile": profile, "claims": len(request.audit), "models_asked": asked, "models_run": [],
+               "request_sha256": request.audit_sha256, "manifest_sha256": request.manifest_sha256, "carried": carried,
+               "profile": profile, "claims": len(request.audit), "models_asked": asked, "models_run": [],
                "models_skipped": [], "estimate_usd": {"per_model": est_per_model, "total": est_total, "rule": "input chars / 3.6 per claim + chat output max_tokens / 4"},
                "prompt_sha256": {profile: prompt_sha}, "questions_sha256": {profile: questions_sha}, "parse_rule": "the first JSON object in the text, a code fence stripped",
                "candidate_rule_decision_models": "argmax of the yes-probabilities on the verdict's side",
@@ -137,6 +141,7 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         principal, priv, signer_line, fp, ktype = keystore.key_for(versioned)
         fallback_served = sorted(p for p in providers if p and provider_order and p not in provider_order)
         header = {"witness": name, "kind": "model", "model": versioned, "method": "classify", "over": {"file": "audit.jsonl", "sha256": request.audit_sha256},
+                  "manifest_sha256": request.manifest_sha256, "carried": carried,
                   "started_at": started, "finished_at": finished,
                   "note": (f"{service_name}: {'chat' if kind == 'chat' else 'decision'} model through OpenRouter; "
                            + (f"prompt sha256 {prompt_sha}; temperature 0, max_tokens {max_tokens}, response_format json_object; parse: the first JSON object in the text, a code fence stripped"

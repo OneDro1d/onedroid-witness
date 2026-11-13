@@ -1,0 +1,5 @@
+=== RUN   TestBackup
+--- FAIL: TestBackup (0.02s)
+    backup_test.go:31: snapshot missing
+FAIL
+FAIL	example/backup	0.020s

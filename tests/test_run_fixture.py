@@ -216,15 +216,18 @@ class Refusals(unittest.TestCase):
     def test_published_copy_must_match_byte_for_byte(self):
         snap = fresh_snapshot(self.tmp)
         req = request.Request(snap, private_mode=False)
-        out = request.check_published(req, "https://example.com/audit.jsonl", fetch=lambda u: req.audit_bytes)
+        # 0.1.6 (H1): the published manifest.json is fetched beside audit.jsonl, so the fake serves both; the assertions are unchanged
+        serve = lambda u: req.audit_bytes if u.endswith("/audit.jsonl") else req.manifest_bytes  # noqa: E731
+        out = request.check_published(req, "https://example.com/audit.jsonl", fetch=serve)
         self.assertEqual(out["published"]["sha256"], req.audit_sha256)
         with self.assertRaises(request.Refused):
-            request.check_published(req, "https://example.com/audit.jsonl", fetch=lambda u: req.audit_bytes + b"\n")
+            request.check_published(req, "https://example.com/audit.jsonl", fetch=lambda u: req.audit_bytes + b"\n" if u.endswith("/audit.jsonl") else req.manifest_bytes)
 
     def test_catalogue_record_is_enough(self):
         snap = fresh_snapshot(self.tmp)
         req = request.Request(snap, private_mode=False)
-        out = request.check_published(req, catalogue_lookup=lambda h: {"id": "rec-1", "sha256": h})
+        # 0.1.6 (H1): a catalogue record is enough when it carries the request manifest's sha256 too (tests/test_regate5.py r6 has the refusals)
+        out = request.check_published(req, catalogue_lookup=lambda h: {"id": "rec-1", "sha256": h, "manifest_sha256": req.manifest_sha256})
         self.assertEqual(out["published"]["catalogue"]["id"], "rec-1")
 
     def test_check_py_pin(self):

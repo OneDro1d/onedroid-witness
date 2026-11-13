@@ -64,10 +64,24 @@ FENCE_CHARS = set("=-_~*#")
 LINE_SEPARATORS = re.compile("\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
 
 
+# 0.1.6 (fifth re-gate H2): a run of 8 or more fence-like characters INSIDE a line (72 '=' around a planted instruction in a carried
+# README line) read as a fence to one chat model; every maximal run gets a visible mark after every 4th character, so no run of 8 survives
+FENCE_RUN = re.compile(r"[=\-_~*#]{8,}")
+FENCE_MARK = "·"  # U+00B7
+
+
+def _break_run(m):
+    s = m.group(0)
+    return FENCE_MARK.join(s[i:i + 4] for i in range(0, len(s), 4))
+
+
 def one_line(s, width=None):
     """Caller text as ONE line: a line separator inside a quote, a note or a claim text would otherwise end the item's line and could
-    close the data fence the prompt names (gate D4). Every separator str.splitlines() knows becomes a visible mark, nothing is removed."""
+    close the data fence the prompt names (gate D4). Every separator str.splitlines() knows becomes a visible mark, nothing is removed.
+    Then every maximal run of 8 or more fence-like characters is broken by a visible mark after every 4th character (H2); every
+    character stays, runs of 7 or fewer are untouched. The width cap applies after the marks are inserted."""
     t = LINE_SEPARATORS.sub(" ⏎ ", str(s))
+    t = FENCE_RUN.sub(_break_run, t)
     return t[:width] if width else t
 
 
@@ -103,7 +117,7 @@ def _candidate_line(i, c, by_url):
     if c.get("quote") is not None:
         body = f'quote "{one_line(c["quote"])}"'
     elif c.get("expect_status") is not None:
-        body = f"status proof: the URL answered {c.get('expect_status')}, no quote"
+        body = f"status proof: the URL answered {one_line(str(c.get('expect_status')), 40)}, no quote"
     elif c.get("file") and c.get("url") is None:
         body = "existence proof: the named file exists at the pinned commit, no quote"
     else:
@@ -118,7 +132,7 @@ def page_context(row, page_lines, around=1, width=600):
         n = loc.get("line")
         if isinstance(n, int) and 1 <= n <= len(page_lines):
             for i in range(max(1, n - around), min(len(page_lines), n + around) + 1):
-                out.append(f"page.txt line {i}: {page_lines[i - 1][:width]}")
+                out.append(f"page.txt line {i}: {one_line(page_lines[i - 1], width)}")  # 0.1.6: a page line passes one_line too (H2)
     return out
 
 
@@ -196,7 +210,7 @@ def evidence_index(manifest, root):
 
 
 def _short(h):
-    return f"{h[:12]}..." if isinstance(h, str) and h else "?"
+    return f"{one_line(h[:12])}..." if isinstance(h, str) and h else "?"  # 0.1.6: a caller's hash value passes one_line too (H2)
 
 
 def _text_lines(b):
@@ -325,14 +339,16 @@ def _run_subject(idx):
 
 
 def _evidence_section(row, idx):
-    out = _run_subject(idx) if idx.get("profile") == "test-run" else []
+    # 0.1.6 (H2): every run-subject line and every pointer label passes one_line whole, so the manifest values a label carries without
+    # their own one_line (a source's `n`, a hash shortened by _short) cannot hold a fence run either; one_line is idempotent on its output
+    out = [one_line(l) for l in _run_subject(idx)] if idx.get("profile") == "test-run" else []
     ev = row.get("evidence") or []
     if not ev:
         return out + ["", "evidence (0): (none; the auditor named no pointer)"]
     out += ["", f"evidence ({len(ev)}), the auditor's pointers, indexed from 0:"]
     for i, p in enumerate(ev):
         r = resolve_pointer(p, idx)
-        out.append(f"[{i}] {r['label']}")
+        out.append(f"[{i}] {one_line(r['label'])}")
         if r["text"]:
             out += ["  " + l for l in r["text"].splitlines()]
     return out

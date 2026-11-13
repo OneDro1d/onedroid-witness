@@ -1,0 +1,4 @@
+{"session_id": "dddddddd-1111-2222-3333-444444444444", "sequence": 1, "kind": "prompt", "text": "deploy the service"}
+{"session_id": "dddddddd-1111-2222-3333-444444444444", "sequence": 2, "kind": "tool_call", "tool": "Bash", "input": "curl -s -o /dev/null -w '%{http_code}' -X POST https://deploy.example.org/v1/deploy"}
+{"session_id": "dddddddd-1111-2222-3333-444444444444", "sequence": 3, "kind": "tool_result", "tool": "Bash", "output": "200"}
+{"session_id": "dddddddd-1111-2222-3333-444444444444", "sequence": 4, "kind": "stop"}

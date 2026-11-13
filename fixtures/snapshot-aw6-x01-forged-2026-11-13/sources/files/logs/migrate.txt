@@ -1,0 +1,3 @@
+connecting to db
+migration 0042 applied
+done

@@ -35,7 +35,12 @@ request carries the files the manifest names under `sources/` and `sessions/` (e
 names refused by name); every pointer of the claim's `evidence` list is resolved from them the way `check.py` resolves it (the pointed file
 line with its neighbours, the handed-in output, each artefact by name and hash, the session record row) and rendered to the models, a pointer
 that cannot be read here (not sent, held by hash, not listed) is said so by name and never carries a verdict, and the models' `on` indexes
-the evidence list. A test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13). `GET /healthz` lists the profiles
+the evidence list. A test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13). In public mode the request's manifest is
+bound to the published snapshot: `manifest.json` is fetched beside the published `audit.jsonl` (the same rules as the audit fetch) and the
+request is refused by name when its `subject`, `sources`, `grading.profile` or `grading.sessions` differ from the published ones, so a carried
+file can only be one the published record lists at that hash. Every answer records what the models read: `service.json` and every witness
+header carry `manifest_sha256` and `carried` (each carried file's path and sha256). Inside any text a model sees, a run of eight or more
+fence-like characters is broken with a visible mark, so a planted "fence" inside a carried line is never one. `GET /healthz` lists the profiles
 served and, for each not served, why.
 
 ## HTTP surface
