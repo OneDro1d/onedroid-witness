@@ -147,6 +147,12 @@ def main(argv):
     if not entries or not all(isinstance(e, dict) for e in entries) or not all(isinstance(e, dict) for e in sig_entries):
         print("refused: manifest-entry.json and signatures-entry.json must hold witness entries (objects)", file=sys.stderr)
         return 1
+    # V2d (the fourteenth re-gate's T05, 13 Nov 2026): the answer's own signature entries are shape-checked BEFORE the first write, by the rule
+    # check.py judges the folder by; a malformed answer used to leave the owner's folder half-written and unsigned.
+    for i_, se_ in enumerate(sig_entries):
+        fault_ = check.entry_shape_fault(se_)
+        if fault_:
+            problems.append("the answer's " + check.shape_fault_line(i_, fault_))
 
     names = {w.get("name") for w in g["witnesses"]}
     files_have = {w.get("file") for w in g["witnesses"]}

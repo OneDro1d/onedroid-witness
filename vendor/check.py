@@ -1232,6 +1232,10 @@ def main(argv):
             for p_, ks_ in allowed_keys(allowed).items():
                 if len(ks_) > 1:
                     bad.append(f"allowed_signers: principal '{p_}' holds {len(ks_)} keys: one principal, one key in a record (a second line under a name is a second key, not a second signer)")
+                # V2d (the fourteenth re-gate's C09, 13 Nov 2026): ssh-keygen -Y verify reads a principal as a PATTERN, so a line `* <key>` makes
+                # any name verify with that key; the checker reads principals as plain names (A3 caught the forgery) and now says so by name.
+                if any(ch_ in p_ for ch_ in "*?!"):
+                    bad.append(f"allowed_signers: principal '{p_}' is a pattern (ssh-keygen reads *, ? and ! in a principal as a pattern; a record names its principals plainly)")
         if not sig_p.exists():
             warn.append("no signatures.json: the parts are unsigned")
         else:
@@ -1352,7 +1356,8 @@ def main(argv):
                             continue
                 # A3 (the auditor-key cut): every signature's embedded key is its principal's listed key. ssh-keygen refuses such a file too
                 # (its line follows); the checker says it by name, and says it without ssh-keygen.
-                if emb is not None and allowed.exists() and name and emb not in listed_keys.get(name, set()):
+                a3_bad_ = emb is not None and allowed.exists() and bool(name) and emb not in listed_keys.get(name, set())
+                if a3_bad_:
                     bad.append(f"{f}: the signature's key {sshsig_fingerprint(emb)} is not the key allowed_signers lists for '{name}'")
                 # O4 (the one-auditor cut, NEXT-REVISION 32): the manifest names the auditor who signed. `grading.auditor.signer` is exactly
                 # "<principal> <SHA256:fp>" of the key inside audit.jsonl.sig (what sign.py writes); another name or fingerprint, or no field,
@@ -1366,7 +1371,9 @@ def main(argv):
                 if tool and allowed.exists() and name:
                     r = subprocess.run([tool, "-Y", "verify", "-f", str(allowed), "-I", name, "-n", SIGN_NAMESPACE, "-s", str(sf)],
                                        input=line.encode(), capture_output=True)
-                    if r.returncode == 0:
+                    if r.returncode == 0 and a3_bad_:
+                        pass  # V2d (C09): ssh-keygen accepted the key under a pattern principal; the A3 line above stands alone, the entry is neither verified nor counted
+                    elif r.returncode == 0:
                         ok.append(f"{f}: sources bound by {name}, verified" if role == "sources" else f"{f}: signed by {name}, verified")
                     else:
                         bad.append(f"{f}: signature by {name!r} does NOT verify: {r.stderr.decode(errors='replace').strip()[:120]}")

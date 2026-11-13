@@ -54,11 +54,16 @@ def main(argv):
     pub = pathlib.Path(str(key) + ".pub").read_text(encoding="utf-8").strip()
     key_type, key_b64 = pub.split()[0], pub.split()[1]
     sigs_p = snap / "signatures.json"
-    sigs = json.loads(sigs_p.read_text(encoding="utf-8")) if sigs_p.exists() else []
+    # V2d (the fourteenth re-gate's T02, 13 Nov 2026): a file this tool cannot read at all is refused by name, never a traceback.
+    try:
+        sigs = json.loads(sigs_p.read_text(encoding="utf-8")) if sigs_p.exists() else []
+    except Exception as ex_:
+        print(f"signatures.json is unreadable: {ex_}: fix signatures.json before signing, nothing written", file=sys.stderr)
+        return 1
     # V2c (the twelfth cut, 13 Nov 2026; the thirteenth re-gate's residual 2): a signatures.json this tool cannot read by shape is refused by
     # name before anything is written, never a traceback, by the rule check.py judges the folder by (check.entry_shape_fault).
     if not isinstance(sigs, list):
-        print(f"signatures.json: a JSON {check.json_kind(sigs)} is not a list of signature entries: fix the file before signing, nothing written", file=sys.stderr)
+        print(f"signatures.json: a JSON {check.json_kind(sigs)} is not a list of signature entries: fix signatures.json before signing, nothing written", file=sys.stderr)
         return 1
     for i_, s_ in enumerate(sigs):
         if not isinstance(s_, dict):
@@ -68,7 +73,11 @@ def main(argv):
         if fault_:
             print(check.shape_fault_line(i_, fault_) + ": fix signatures.json before signing, nothing written", file=sys.stderr)
             return 1
-    M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
+    try:
+        M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
+    except Exception as ex_:
+        print(f"manifest.json is unreadable: {ex_}: fix manifest.json before signing, nothing written", file=sys.stderr)
+        return 1
     allowed = snap / "allowed_signers"
     given = f"{key_type} {key_b64}"
     keys = check.allowed_keys(allowed) if allowed.exists() else {}
