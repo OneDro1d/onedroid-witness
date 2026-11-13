@@ -194,6 +194,22 @@ class RunRules(unittest.TestCase):
         self.assertTrue(any(k["model"] == "openai/gpt-4.1-nano-2025-04-14" for k in keys))
         self.assertEqual(svc["per_model"]["openai/gpt-4.1-nano"]["model_versioned"], "openai/gpt-4.1-nano-2025-04-14")
 
+    def test_a_key_widened_to_0660_by_the_volume_is_repaired_before_signing(self):
+        """dev, 12 Nov 2026 after the 0.1.1 rollout: Kubernetes re-applied the fsGroup to the PVC and every old private key read 0660;
+        ssh-keygen -Y sign refused them (exit 255) and every job failed. The store repairs the mode before each use."""
+        import os
+        import stat
+        ks = KeyStore(pathlib.Path(self.tmp) / "keys")
+        principal, priv, line, fp, ktype = ks.key_for("example/model-1.0")
+        os.chmod(priv, 0o660)
+        self.assertEqual(stat.S_IMODE(os.stat(priv).st_mode), 0o660)
+        principal2, priv2, _, _, _ = ks.key_for("example/model-1.0")
+        self.assertEqual(priv2, priv)
+        self.assertEqual(stat.S_IMODE(os.stat(priv).st_mode), 0o600)
+        sig = pathlib.Path(self.tmp) / "x.sig"
+        ks.sign(priv2, "claims-snapshot/0.4 witness witness/x.jsonl sha256:00 over audit.jsonl sha256:00", sig)
+        self.assertTrue(sig.is_file())
+
     def test_d7_service_json_is_signed_and_names_the_provider_order(self):
         snap, ans, svc, ks = self._run(models=[{"id": "openai/gpt-4.1-nano", "kind": "chat", "max_tokens": 400, "providers": ["Azure", "OpenAI"]}])
         pm = svc["per_model"]["openai/gpt-4.1-nano"]

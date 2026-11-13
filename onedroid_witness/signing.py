@@ -52,6 +52,13 @@ class KeyStore:
         principal = principal_of(model_id)
         priv = self.dir / principal
         d = self._list()
+        if priv.exists():
+            # a volume mounted with fsGroup is re-permissioned by Kubernetes on every pod start (g+rw on files): a private key then
+            # reads 0660 and ssh-keygen refuses it ("UNPROTECTED PRIVATE KEY FILE", exit 255; seen on dev 12 Nov 2026 after the
+            # 0.1.1 rollout). The mode is repaired before every use; k8s/dev.yaml also sets fsGroupChangePolicy OnRootMismatch.
+            os.chmod(priv, 0o600)
+            if priv.with_suffix(".pub").exists():
+                os.chmod(priv.with_suffix(".pub"), 0o644)
         if not priv.exists():
             subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", principal, "-f", str(priv)], check=True)
             os.chmod(priv, 0o600)

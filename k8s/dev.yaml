@@ -65,6 +65,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 10001
         fsGroup: 10001
+        # without this, every pod start re-applies g+rw to every file on the PVC and ssh-keygen refuses the 0660 private keys (12 Nov 2026)
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: witness
           image: IMAGE_PLACEHOLDER
