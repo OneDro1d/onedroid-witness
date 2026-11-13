@@ -1,0 +1,23 @@
+logs.yaml sets the rotation to 14 days
+dr/b.yaml sets shards to 6
+VERSION says 2.5.0
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes publish the retention evidence
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the notes document a 14-day log rotation
+the policy sets log retention to 14 days
+backup edition 7 keeps logs for 14 days
+the log retention is 14 days
+the archive keeps 14 snapshots

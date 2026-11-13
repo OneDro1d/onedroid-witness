@@ -28,7 +28,9 @@ section of THIS snapshot's manifest in canonical JSON (check.bound_sections), el
 the snapshot carries the auditor's verified `sources` signature (sign.py --role sources, the sources cut of 13 Nov 2026) the refusal says so.
 A `sources` entry is a non-manifest entry: kept in order, its manifest.sources.sig untouched (nothing here writes it).
 One principal, one key (the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31): an answer whose `allowed_signers` fragment would leave any
-principal with two distinct keys, against the snapshot's existing lines or inside the fragment itself, is refused before anything is written."""
+principal with two distinct keys, against the snapshot's existing lines or inside the fragment itself, is refused before anything is written.
+One auditor (the one-auditor cut, 13 Nov 2026, NEXT-REVISION 32): a parent whose signatures.json holds more than one auditor, sources or
+manifest entry, or an auditor entry whose signature file is not audit.jsonl.sig, is refused before anything is written."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -246,6 +248,21 @@ def main(argv):
     for p_, ks_ in would.items():
         if len(ks_) > 1:
             problems.append(f"principal '{p_}' would hold two keys in allowed_signers: one principal, one key")
+    # the one-auditor cut (13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): one entry per fixed role in the parent (auditor, sources,
+    # manifest), and the auditor's signature file is audit.jsonl.sig; a parent carrying a second auditor entry (its own key, its own file)
+    # or an auditor entry under another file name is refused before anything is written. The fragment's own check (witness entries only) is above.
+    try:
+        snap_sigs = json.loads((snap / "signatures.json").read_text(encoding="utf-8")) if (snap / "signatures.json").exists() else []
+    except Exception:
+        snap_sigs = []
+    snap_sigs = [e_ for e_ in snap_sigs if isinstance(e_, dict)] if isinstance(snap_sigs, list) else []
+    for role_ in ("auditor", "sources", "manifest"):
+        n_ = sum(1 for e_ in snap_sigs if e_.get("role") == role_)
+        if n_ > 1:
+            problems.append(f"the snapshot's signatures.json holds {n_} {role_} entries: one {role_} signature in a record")
+    for e_ in snap_sigs:
+        if e_.get("role") == "auditor" and e_.get("signature") != "audit.jsonl.sig":
+            problems.append(f"the snapshot's auditor signature file is '{e_.get('signature')}', not audit.jsonl.sig")
     if problems:
         print("refused, nothing written:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1

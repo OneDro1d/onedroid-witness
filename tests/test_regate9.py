@@ -36,11 +36,11 @@ from test_server import multipart  # noqa: E402
 FX = ROOT / "fixtures"
 AW14 = FX / "snapshot-aw14-regate9-2026-11-13"
 REC_AW14 = FX / "recordings" / "aw14-regate9"
-VERSION = "0.1.10-dev"
+VERSION = "0.1.11-dev"  # 0.1.10-dev when written; the version pin follows the cut
 # the brief's one constant string (render.VOCABULARY_RULE_TEXT), spelt here so a drift in the code is seen
-RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped, a closed table of "
-             "look-alike capitals is folded to Latin and compatibility forms are normalised (NFKC); a token spaced between every letter, or written "
-             "with no spaces, counts; case is not folded")
+RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped (an invisible letter is "
+             "also tried as a space), a closed table of look-alike capitals is folded to Latin before and after compatibility forms are normalised "
+             "(NFKC); a token spaced between every letter, or written with no spaces, counts; case is not folded")  # 0.1.10's text when written; the rule text follows the cut (0.1.11, R4/R5)
 S15_MSG = "part manifest.sources.sig is not accepted: the sources signature travels in signatures.json; leave the file out of the request"
 # the 0.1.9 hit strings on aw14 as the ninth re-gate recorded them (its evidence/service-aw14.json, vocabulary_rule.hits, 13 Nov 2026 07:22Z)
 # and as the committed tree 21a78ac renders them (implementer/00-prompt-sha-before.txt): byte-identical after the change

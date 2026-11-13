@@ -1,0 +1,353 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Claims of a synthetic agent session (tenth re-gate)",
+  "url": null,
+  "publisher": "gate10@example.org",
+  "session_id": "5d5d5d5d-6e6e-4f4f-8a8a-0b0b0b0b0b0b",
+  "turn_end": 5,
+  "parts": []
+ },
+ "taken_at": "2026-11-13T08:30:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "2a6322210080d2d048e8136127b5fabafca3a1b68808f618085f061fc2aceb97",
+   "lines": 23,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "path": "logs.yaml",
+   "role": "file",
+   "file": "sources/files/logs.yaml",
+   "sha256": "4f615777f7237c042bcec46c4561892a958fa5d0d1d56e468b046a54cf022f3c",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "path": "dr/a.yaml",
+   "role": "file",
+   "file": "sources/files/dr/a.yaml",
+   "sha256": "9ae9819b94c5070d63334a3470ea75de1a2ca793bc2a3a6e617cc10770539259",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "path": "dr/b.yaml",
+   "role": "file",
+   "file": "sources/files/dr/b.yaml",
+   "sha256": "7c2b0a7f602916e225fba462efada30eb28f1629eda72672e9c938fd113faa21",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "path": "VERSION",
+   "role": "file",
+   "file": "sources/files/VERSION",
+   "sha256": "c4a2383a03bdb6739d16a0e24058e4b9c7da4e63d203e0be2f448868cc03c530",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "path": "notes/v01.md",
+   "role": "file",
+   "file": "sources/files/notes/v01.md",
+   "sha256": "d6d24ce9b8738d5e619c96c29bc9c14c62f64020b7ca55c885f3b85f2e2ca104",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 6,
+   "url": null,
+   "path": "notes/v02.md",
+   "role": "file",
+   "file": "sources/files/notes/v02.md",
+   "sha256": "123210f94f4e82ce2888529b1b5a56dd5c00411261b7b36098d3de22e4b7530d",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 7,
+   "url": null,
+   "path": "notes/v03.md",
+   "role": "file",
+   "file": "sources/files/notes/v03.md",
+   "sha256": "4905329305c6f66e443e55af36a09a2d06c6072293f2cc2100c48e538b722c80",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 8,
+   "url": null,
+   "path": "notes/v04.md",
+   "role": "file",
+   "file": "sources/files/notes/v04.md",
+   "sha256": "69d6f46f997da4a9cc3937715dd657e1261078c2b1041e7f3484186b033b0a4f",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 9,
+   "url": null,
+   "path": "notes/v05.md",
+   "role": "file",
+   "file": "sources/files/notes/v05.md",
+   "sha256": "772c4e2d29b85f5a7aca478ca1fe014a5f0c63f89e2c0e5b0d1d76cb95cf0ce7",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 10,
+   "url": null,
+   "path": "notes/v06.md",
+   "role": "file",
+   "file": "sources/files/notes/v06.md",
+   "sha256": "376d071f7da79f63f0d91f187de7123c1e5ccc298161746397e0c2f556a73ced",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 11,
+   "url": null,
+   "path": "notes/v07.md",
+   "role": "file",
+   "file": "sources/files/notes/v07.md",
+   "sha256": "0db3dc4d263b228502ce71fa0797805bd45e8b2820016c8748c56b52cff9255d",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 12,
+   "url": null,
+   "path": "notes/v08.md",
+   "role": "file",
+   "file": "sources/files/notes/v08.md",
+   "sha256": "2bf43d47709495ef89f9fbb5d5e69d1f802340a376b69380b2e242786318fa00",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 13,
+   "url": null,
+   "path": "notes/v09.md",
+   "role": "file",
+   "file": "sources/files/notes/v09.md",
+   "sha256": "cb1be29540c84823c565a39495e137214a980d73e6608abe5fd4f209867a7375",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 14,
+   "url": null,
+   "path": "notes/v10.md",
+   "role": "file",
+   "file": "sources/files/notes/v10.md",
+   "sha256": "44c6b0a8dc31263f9fed0f925a56a9ee35493fe48e84df08c4ff8518b3b2eed7",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 15,
+   "url": null,
+   "path": "notes/v11.md",
+   "role": "file",
+   "file": "sources/files/notes/v11.md",
+   "sha256": "219979a8c93c476e6d7a3a6e8a1f07dd97c262581379058c462136d5bfbb0263",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 16,
+   "url": null,
+   "path": "notes/v12.md",
+   "role": "file",
+   "file": "sources/files/notes/v12.md",
+   "sha256": "b82dfa120260653e1570ccb6f7ae7dab7604fe5a3033df2bea68f529d5bed10c",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 17,
+   "url": null,
+   "path": "notes/v14.md",
+   "role": "file",
+   "file": "sources/files/notes/v14.md",
+   "sha256": "8dce0ebb2c20639f8f234e002cfd949606e3eaffadb26883c55dfde1a3aaa896",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 18,
+   "url": null,
+   "path": "notes/x1.md",
+   "role": "file",
+   "file": "sources/files/notes/x1.md",
+   "sha256": "1681d35cbce792011a682a7761f477f2d46f80364569084c54d8feb238c40d2c",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 19,
+   "url": null,
+   "path": "notes/x2.md",
+   "role": "file",
+   "file": "sources/files/notes/x2.md",
+   "sha256": "97c66b355573a3cd273db70466f5a942a13e1723b02187275f45c161c5156529",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 20,
+   "url": null,
+   "path": "notes/w01.md",
+   "role": "file",
+   "file": "sources/files/notes/w01.md",
+   "sha256": "578ad02a199b4d3c8c11b5a4ef638eb3b9ecb07a14c1bc1437476c10c3cdd5c4",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 21,
+   "url": null,
+   "path": "policy.txt",
+   "role": "file",
+   "file": "sources/files/policy.txt",
+   "sha256": "670efca5f8270ce859115041b7191fab793d683961ec9974a91d99afcc4d2b5e",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 22,
+   "url": null,
+   "path": "edition.txt",
+   "role": "file",
+   "file": "sources/files/edition.txt",
+   "sha256": "a52c78cb3e4fa7a0256099bcf21770b1f8e4cd60382e0835b7ad485402a9591c",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 23,
+   "url": null,
+   "path": "fr.txt",
+   "role": "file",
+   "file": "sources/files/fr.txt",
+   "sha256": "843b20c8618b5e4c9be0830bb1eebab89e9acf0e8893dab2dc97aa05d1671ede",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 24,
+   "url": null,
+   "path": "archive.txt",
+   "role": "file",
+   "file": "sources/files/archive.txt",
+   "sha256": "28a9028c3de4d695b3af9c20d4538b0969a7b4d4e90feb7b36f76e575d8f3e1c",
+   "copy": "text",
+   "repo": {
+    "commit": "e1d2c3b4a5968778695a4b3c2d1e0f1e2d3c4b5a"
+   },
+   "taken_from": "synthetic working tree"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "agent-work",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 tenth re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "4411c3bbca50e5172e5c84ab71ca7ac4e49e56b7f8a2670dff1162d65e1a94ce",
+   "signer": "onedroid-claims-verification-gate <SHA256:PXLd9bdvVYiUBySWCvJr+/91M1rJhLaR3O5jOFMPSb0>"
+  }
+ },
+ "counts": {
+  "claims": 23,
+  "checkable": 23
+ }
+}

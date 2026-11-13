@@ -237,6 +237,21 @@ def carried_inventory(M):
 BOUND_SECTIONS = ("subject", "sources", "pages", "grading.profile", "grading.sessions")
 
 
+def service_json_version(snap, M):
+    """service.json's `service_version` (a string) when the manifest's `files`, in either shape, lists service.json and the file parses as a
+    JSON object, else None. K11's 30(a) rule reads it last, after the witness header and the manifest witness entry (13 Nov 2026)."""
+    fl_ = M.get("files")
+    names_ = [e_.get("file") for e_ in fl_ if isinstance(e_, dict)] if isinstance(fl_, list) else (list(fl_) if isinstance(fl_, dict) else [])
+    if "service.json" not in names_:
+        return None
+    try:
+        sj_ = json.loads((snap / "service.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+    v_ = sj_.get("service_version") if isinstance(sj_, dict) else None
+    return v_ if isinstance(v_, str) else None
+
+
 def _section(manifest, dotted):
     """The value at a dotted path of a manifest, None when absent (so a section absent on both sides is equal)."""
     cur = manifest
@@ -978,7 +993,22 @@ def main(argv):
                         elif bv_ != want_[sec_]:
                             bad.append(f"witness {name!r}: bound {sec_!r} sha256 {bv_[:12]}… differs from this record's {want_[sec_][:12]}…: the witness read a manifest whose {sec_} is not this record's")
             elif "carried" in header and ek == "model" and (profile in ("agent-work", "test-run") or any(isinstance(a_.get("evidence"), list) for a_ in audit)):
-                k11_warn.append(f"witness {name!r}: a model witness records `carried` but no `bound`: which manifest its pointers resolved through is not on record (0.1.8 of the witness service writes it)")
+                # 30(a) (the one-auditor cut, 13 Nov 2026): since 0.1.10 every witness header and service.json carry `service_version`, and
+                # 0.1.8 and later always write `bound`, so a header that names such a version and has no `bound` was not written by that
+                # service: FAIL. The version is the header's `service_version`, else the manifest witness entry's, else service.json's when
+                # the manifest's `files` lists it (the first string found wins); `^(\d+)\.(\d+)\.(\d+)` at its start, anything after
+                # (`-dev` included) ignored. No version anywhere: the WARN alone (the 0.1.6 and 0.1.7 example folders keep their line);
+                # a string that is not a version: a WARN beside the existing one.
+                sv_ = next((v_ for v_ in (header.get("service_version"), w.get("service_version")) if isinstance(v_, str)), None)
+                if sv_ is None:
+                    sv_ = service_json_version(snap, M)
+                m_ = re.match(r"(\d+)\.(\d+)\.(\d+)", sv_) if sv_ is not None else None
+                if m_ is not None and tuple(int(x_) for x_ in m_.groups()) >= (0, 1, 8):
+                    bad.append(f"witness {name!r}: a model witness of service version {sv_} records `carried` but no `bound`: 0.1.8 and later of the witness service write it; this header was not written by that service")
+                else:
+                    if sv_ is not None and m_ is None:
+                        k11_warn.append(f"witness {name!r}: service_version '{sv_}' is not a version (major.minor.patch)")
+                    k11_warn.append(f"witness {name!r}: a model witness records `carried` but no `bound`: which manifest its pointers resolved through is not on record (0.1.8 of the witness service writes it)")
             if "manifest_sha256" in header and not (isinstance(header["manifest_sha256"], str) and HEX64.match(header["manifest_sha256"])):
                 bad.append(f"witness {name!r}: header manifest_sha256 {header['manifest_sha256']!r} is not 64 hex characters")
             w_hdr[name], w_kind[name], w_kind_file[wf] = header, ek, ek
@@ -1170,6 +1200,18 @@ def main(argv):
                 sigs, bad = [], bad + [f"signatures.json unreadable: {e}"]
             tool = shutil.which("ssh-keygen")
             listed_keys = allowed_keys(allowed) if allowed.exists() else {}
+            # O1 (the one-auditor cut, 13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): one entry per fixed role. A second `auditor`
+            # entry over audit.jsonl is a second auditor, not a co-signer (the forger's door: its own principal, its own key, its own file,
+            # a genuine signature over the prescribed line, then the sources role under that key); the sources list is signed once, the
+            # manifest once. The entries are still verified below, the FAIL stands beside them; names in entry order.
+            if isinstance(sigs, list):
+                for role_ in ("auditor", "sources", "manifest"):
+                    ents_ = [e_ for e_ in sigs if isinstance(e_, dict) and e_.get("role") == role_]
+                    if len(ents_) > 1:
+                        why_ = {"auditor": "a second entry over audit.jsonl is a second auditor, not a co-signer",
+                                "sources": "the auditor signs the sources list once",
+                                "manifest": "the manifest is signed once, by whoever last changed the folder"}[role_]
+                        bad.append(f"signatures.json: {len(ents_)} {role_} entries ({', '.join(str((e_.get('signer') or {}).get('name')) for e_ in ents_)}): one {role_} signature in a record; {why_}")
             for i, e in enumerate(sigs if isinstance(sigs, list) else []):
                 role, f = e.get("role"), e.get("file")
                 # the sources cut (13 Nov 2026, NEXT-REVISION 25b): manifest.json takes two roles, `manifest` (over its bytes, by whoever last
@@ -1195,7 +1237,16 @@ def main(argv):
                     bad.append(f"signatures[{i}]: line differs from the prescribed one: {e.get('line')!r}")
                     continue
                 sf = snap / (e.get("signature") or "")
-                if not e.get("signature") or not sf.exists():
+                if not e.get("signature"):
+                    bad.append(f"signatures[{i}]: signature file {e.get('signature')!r} missing")
+                    continue
+                # O2 (the one-auditor cut): the signature file is the prescribed one, manifest.sources.sig for the sources role and <file>.sig
+                # for every other role; an entry under another name is not verified (the K16 forger's audit.jsonl.forger.sig)
+                prescribed_ = "manifest.sources.sig" if role == "sources" else f"{f}.sig"
+                if e.get("signature") != prescribed_:
+                    bad.append(f"signatures[{i}]: signature file '{e.get('signature')}' is not the prescribed '{prescribed_}'")
+                    continue
+                if not sf.exists():
                     bad.append(f"signatures[{i}]: signature file {e.get('signature')!r} missing")
                     continue
                 name = (e.get("signer") or {}).get("name")
@@ -1219,19 +1270,31 @@ def main(argv):
                             continue
                     # A2 (the auditor-key cut): the sources key IS the audit's key. R4 compared names; the ninth re-gate's S13 put a forger's
                     # key under the auditor's name and R4 passed it. The key embedded in manifest.sources.sig must equal the key embedded in
-                    # an `auditor` entry's signature file; with or without ssh-keygen.
+                    # the auditor's signature file; with or without ssh-keygen.
+                    # O3 (the one-auditor cut, NEXT-REVISION 32): audit.jsonl has one signature file, audit.jsonl.sig, and A2 reads that one
+                    # and no other (the tenth re-gate's K16 added a second auditor entry with its own file and A2 matched the sources key
+                    # against it); no auditor entry names it, or it is missing or not an SSHSIG: no readable auditor signature.
                     if emb is not None:
-                        a_emb = {k_ for k_ in (sshsig_public_key(snap / e_["signature"]) for e_ in sigs if e_.get("role") == "auditor" and e_.get("signature")) if k_}
-                        if not a_emb:
+                        a_emb = sshsig_public_key(snap / "audit.jsonl.sig") if any(isinstance(e_, dict) and e_.get("role") == "auditor" and e_.get("signature") == "audit.jsonl.sig" for e_ in sigs) else None
+                        if a_emb is None:
                             bad.append("manifest.json: a sources signature with no readable auditor signature to match")
                             continue
-                        if emb not in a_emb:
-                            bad.append(f"manifest.json: the sources signature was made with key {sshsig_fingerprint(emb)} and audit.jsonl with {', '.join(sorted(sshsig_fingerprint(k_) for k_ in a_emb))}: the sources list is bound to the key that signed the audit, not to a name in allowed_signers")
+                        if emb != a_emb:
+                            bad.append(f"manifest.json: the sources signature was made with key {sshsig_fingerprint(emb)} and audit.jsonl with {sshsig_fingerprint(a_emb)}: the sources list is bound to the key that signed the audit, not to a name in allowed_signers")
                             continue
                 # A3 (the auditor-key cut): every signature's embedded key is its principal's listed key. ssh-keygen refuses such a file too
                 # (its line follows); the checker says it by name, and says it without ssh-keygen.
                 if emb is not None and allowed.exists() and name and emb not in listed_keys.get(name, set()):
                     bad.append(f"{f}: the signature's key {sshsig_fingerprint(emb)} is not the key allowed_signers lists for '{name}'")
+                # O4 (the one-auditor cut, NEXT-REVISION 32): the manifest names the auditor who signed. `grading.auditor.signer` is exactly
+                # "<principal> <SHA256:fp>" of the key inside audit.jsonl.sig (what sign.py writes); another name or fingerprint, or no field,
+                # FAILs by name: a reader of the manifest must not be told of an auditor other than the one whose key made the signature.
+                if role == "auditor" and e.get("signature") == "audit.jsonl.sig" and emb is not None and name:
+                    want_signer_ = f"{name} <{sshsig_fingerprint(emb)}>"
+                    got_signer_ = ((M.get("grading") or {}).get("auditor") or {}).get("signer") if isinstance(M.get("grading"), dict) and isinstance((M.get("grading") or {}).get("auditor"), dict) else None
+                    if got_signer_ != want_signer_:
+                        shown_signer_ = repr(got_signer_) if got_signer_ is not None else "missing"
+                        bad.append(f"manifest.json: grading.auditor.signer is {shown_signer_} and audit.jsonl.sig was made by '{name}' {sshsig_fingerprint(emb)}: the manifest names another auditor than the one who signed")
                 if tool and allowed.exists() and name:
                     r = subprocess.run([tool, "-Y", "verify", "-f", str(allowed), "-I", name, "-n", SIGN_NAMESPACE, "-s", str(sf)],
                                        input=line.encode(), capture_output=True)

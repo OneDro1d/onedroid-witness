@@ -13,8 +13,9 @@ other change to the folder, because any later change to manifest.json breaks it 
 sources, pages, grading.profile, grading.sessions): the line `claims-snapshot/0.4 sources manifest.json sha256:<bound digest>`
 (check.bound_digest), the file manifest.sources.sig, the entry's sha256 the bound digest itself, so it holds through every witness insertion
 where a manifest signature cannot. It needs the key that signed audit.jsonl (an `auditor` entry in signatures.json and the key EMBEDDED in
-that entry's signature file, read with check.sshsig_public_key, never a name in allowed_signers: the auditor-key cut, 13 Nov 2026,
-NEXT-REVISION 31), else it refuses and writes nothing; like --role manifest it does not rewrite the manifest.
+audit.jsonl.sig, read with check.sshsig_public_key, never a name in allowed_signers: the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31;
+audit.jsonl.sig alone, never another auditor entry's file: the one-auditor cut of the same day, NEXT-REVISION 32, so an auditor entry
+whose signature file is another name is refused), else it refuses and writes nothing; like --role manifest it does not rewrite the manifest.
 Every role (the auditor-key cut): when allowed_signers already lists --identity with a DIFFERENT key it refuses before writing (one principal,
 one key; a new key is a new principal).
 The private key never enters the snapshot; keep it out of the folder."""
@@ -66,11 +67,17 @@ def main(argv):
         if not a_entries:
             print("the sources role is the auditor's: sign audit.jsonl first", file=sys.stderr)
             return 1
-        a_keys = {k for k in (check.sshsig_public_key(snap / s["signature"]) for s in a_entries if s.get("signature")) if k}
-        if not a_keys:
+        # the one-auditor cut (13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): audit.jsonl has one signature file, audit.jsonl.sig,
+        # and the key is read from that one and no other (a second auditor entry under its own file was the forger's door)
+        odd = next((s for s in a_entries if s.get("signature") != "audit.jsonl.sig"), None)
+        if odd is not None:
+            print(f"the auditor's signature file is audit.jsonl.sig, not '{odd.get('signature')}'", file=sys.stderr)
+            return 1
+        a_key = check.sshsig_public_key(snap / "audit.jsonl.sig")
+        if not a_key:
             print("the sources role is the auditor's: audit.jsonl.sig is missing or not an SSH signature", file=sys.stderr)
             return 1
-        if given not in a_keys:
+        if given != a_key:
             print("the sources role is the auditor's: use the key that signed audit.jsonl", file=sys.stderr)
             return 1
         h = check.bound_digest(M)
@@ -78,6 +85,14 @@ def main(argv):
     else:
         h = check.sha256(fp)
         sig_rel = part + ".sig"
+    if role == "auditor":
+        # the one-auditor cut (13 Nov 2026, NEXT-REVISION 32; the tenth re-gate's K16): one auditor entry in a record. The same identity
+        # re-signing replaces its entry (below); another identity is refused before anything is written, so a second auditor entry is never
+        # made by this tool (K13 O1 fails one in a record anyway).
+        other = next((s for s in sigs if s.get("role") == "auditor" and (s.get("signer") or {}).get("name") != ident), None)
+        if other is not None:
+            print(f"one auditor: audit.jsonl is already signed by '{(other.get('signer') or {}).get('name')}'; remove that entry first to re-sign under another name", file=sys.stderr)
+            return 1
     # the auditor-key cut: one principal, one key. A second key under a listed name would make K13 fail the record (A1) and would let
     # `ssh-keygen -Y verify -I <name>` accept either key; refused before anything is written
     if keys.get(ident, set()) - {given}:

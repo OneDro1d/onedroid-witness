@@ -30,11 +30,11 @@ from test_s1_evidence import CHECK_PY  # noqa: E402
 FX = ROOT / "fixtures"
 AW12 = FX / "snapshot-aw12-regate8-2026-11-13"
 REC_AW12 = FX / "recordings" / "aw12-regate8"
-VERSION = "0.1.10-dev"  # 0.1.9-dev when written; the version pin follows the cut
+VERSION = "0.1.11-dev"  # 0.1.9-dev when written; the version pin follows the cut
 # the brief's one constant string (render.VOCABULARY_RULE_TEXT), spelt here so a drift in the code is seen
-RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped, a closed table of "
-             "look-alike capitals is folded to Latin and compatibility forms are normalised (NFKC); a token spaced between every letter, or written "
-             "with no spaces, counts; case is not folded")  # 0.1.9's text when written; the rule text follows the cut (0.1.10, V3)
+RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped (an invisible letter is "
+             "also tried as a space), a closed table of look-alike capitals is folded to Latin before and after compatibility forms are normalised "
+             "(NFKC); a token spaced between every letter, or written with no spaces, counts; case is not folded")  # 0.1.9's text when written; the rule text follows the cut (0.1.10, V3; 0.1.11, R4/R5)
 # the 0.1.8 hit strings on aw12, read on the committed tree 47d1f0c before any edit (tools/render-before.txt): byte-identical after the cut
 HITS_018 = {"C-005": "[0] file region.yaml line 1 (source 4, copy at hand) holds UNDECIDED",
             "C-006": "[0] file workers.conf line 1 (source 5, copy at hand) holds CONTRADICTED",

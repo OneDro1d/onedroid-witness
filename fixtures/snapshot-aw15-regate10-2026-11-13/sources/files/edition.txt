@@ -1,0 +1,1 @@
+BACKUP E D I T I O N 7: log retention 14 days

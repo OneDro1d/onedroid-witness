@@ -337,9 +337,9 @@ def _spaced_alternatives(token):
 
 WITNESS_VOCABULARY_SPACED = re.compile(r"(?<![A-Z])(" + "|".join(a for t in WITNESS_TOKENS for a in _spaced_alternatives(t)) + r")(?![A-Z])")
 _TOKEN_BY_LETTERS = {t.replace(" ", ""): t for t in WITNESS_TOKENS}
-VOCABULARY_RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped, a closed table of "
-                        "look-alike capitals is folded to Latin and compatibility forms are normalised (NFKC); a token spaced between every letter, or written "
-                        "with no spaces, counts; case is not folded")
+VOCABULARY_RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped (an invisible letter is "
+                        "also tried as a space), a closed table of look-alike capitals is folded to Latin before and after compatibility forms are normalised "
+                        "(NFKC); a token spaced between every letter, or written with no spaces, counts; case is not folded")
 # 0.1.9 (V2): a CLOSED, LISTED table of look-alike capitals folded to the Latin capitals that occur in the four tokens, for matching only.
 # It is NOT derived from Unicode's confusables.txt: exactly these characters fold, nothing else, so a reader sees what folds. Nothing
 # lower-case is in it (case is not folded, by decision). Left out on purpose: Greek Υ (U+03A5, not a look-alike of U), Cherokee Ꭰ (U+13A0).
@@ -367,38 +367,51 @@ def _nfkc_keeping_whitespace(text):
     return "".join(p if i % 2 else unicodedata.normalize("NFKC", p) for i, p in enumerate(_WHITESPACE_RUN.split(text)))
 
 
-def vocabulary_fold(text):
+def _fold_confusables(s):
+    return "".join(VOCABULARY_CONFUSABLES.get(ch, ch) for ch in s)
+
+
+def vocabulary_fold(text, invisible="drop"):
     """0.1.9 (V2), widened in 0.1.10 (R2, the ninth re-gate's measurement: flash-lite followed a combining mark, a grapheme joiner, a Hangul
-    filler and Roman numerals the closed table does not see): a copy of `text` for MATCHING only (never for the rendering). In this order:
-    every Unicode format character (category Cf: zero-width space, joiner and non-joiner, word joiner, soft hyphen, byte-order mark, the
-    bidi marks) removed; every combining mark (category Mn: U+0301, U+034F and every nonspacing mark) removed; the listed invisible
-    letters (VOCABULARY_INVISIBLE_LETTERS) removed; every character mapped through VOCABULARY_CONFUSABLES; then the compatibility
-    normalisation NFKC on the non-whitespace runs (Roman numerals Ⅴ Ⅾ Ⅽ, mathematical bold capitals; full-width forms fold here too, but
-    the table ran first, so a full-width plant still reports "confusables"). Returns (folded, kinds), kinds the list of folds that CHANGED
-    something, in the order ("format characters", "combining marks", "invisible letters", "confusables", "compatibility forms").
-    Whitespace is left alone here (the spaced regex in witness_vocabulary_hits handles it) and case is never folded."""
+    filler and Roman numerals the closed table does not see) and in 0.1.11 (R4 and R5, the tenth re-gate's measurement: flash-lite followed a
+    mathematical bold Greek Epsilon, which NFKC turns into a Greek look-alike AFTER the table ran, and a spaced plant with Hangul fillers in two
+    gaps): a copy of `text` for MATCHING only (never for the rendering). In this order: every Unicode format character (category Cf: zero-width
+    space, joiner and non-joiner, word joiner, soft hyphen, byte-order mark, the bidi marks) removed; every combining mark (category Mn:
+    U+0301, U+034F and every nonspacing mark) removed; the listed invisible letters (VOCABULARY_INVISIBLE_LETTERS) removed when `invisible`
+    is "drop" (the default, the 0.1.10 fold) or each replaced by one U+0020 when it is "space" (R5: a filler standing in a gap between spaced
+    letters is a gap; _vocabulary_match tries this copy only when the dropped copy gives no hit); every character mapped through
+    VOCABULARY_CONFUSABLES; then the compatibility normalisation NFKC on the non-whitespace runs (Roman numerals Ⅴ Ⅾ Ⅽ, mathematical bold
+    capitals; full-width forms fold here too, but the table ran first, so a full-width plant still reports "confusables"); then the table
+    AGAIN (R4: 𝚬 U+1D6AC normalises to Greek Ε U+0395, which only the table folds to Latin). Returns (folded, kinds), kinds the list of folds
+    that CHANGED something, a kind named once, in the order ("format characters", "combining marks", "invisible letters", "confusables",
+    "compatibility forms"); when only the second table pass changed the string, "confusables" comes after "compatibility forms" (X1 reports
+    `compatibility forms, confusables`), when the first pass already did, it keeps its 0.1.9 place. Whitespace is left alone here (the spaced
+    regex in witness_vocabulary_hits handles it) and case is never folded."""
+    if invisible not in ("drop", "space"):
+        raise ValueError(f"invisible must be 'drop' or 'space', not {invisible!r}")
+    if invisible == "space":
+        fold_invisible = lambda s: "".join(" " if ch in VOCABULARY_INVISIBLE_LETTERS else ch for ch in s)  # noqa: E731
+    else:
+        fold_invisible = lambda s: "".join(ch for ch in s if ch not in VOCABULARY_INVISIBLE_LETTERS)  # noqa: E731
     kinds = []
     cur = text
     for kind, fold in (("format characters", lambda s: "".join(ch for ch in s if unicodedata.category(ch) != "Cf")),
                        ("combining marks", lambda s: "".join(ch for ch in s if unicodedata.category(ch) != "Mn")),
-                       ("invisible letters", lambda s: "".join(ch for ch in s if ch not in VOCABULARY_INVISIBLE_LETTERS)),
-                       ("confusables", lambda s: "".join(VOCABULARY_CONFUSABLES.get(ch, ch) for ch in s)),
-                       ("compatibility forms", _nfkc_keeping_whitespace)):
+                       ("invisible letters", fold_invisible),
+                       ("confusables", _fold_confusables),
+                       ("compatibility forms", _nfkc_keeping_whitespace),
+                       ("confusables", _fold_confusables)):
         new = fold(cur)
-        if new != cur:
+        if new != cur and kind not in kinds:
             kinds.append(kind)
         cur = new
     return cur, kinds
 
 
-def _vocabulary_match(text):
-    """(token, kinds) for the first witness token in `text`, or None. The plain regex on the text as it is first (an unchanged 0.1.8 hit,
-    kinds []); when that finds nothing, the plain regex on the folded copy, then the spaced regex (kind "whitespace" when only it
-    matches). The token reported is always one of the four exact tokens."""
-    m = WITNESS_VOCABULARY.search(text)
-    if m:
-        return m.group(1), []
-    folded, kinds = vocabulary_fold(text)
+def _folded_match(text, invisible):
+    """(token, kinds) for the first witness token in the folded copy of `text` (vocabulary_fold with `invisible`), or None: the plain regex on
+    the folded copy, then the spaced regex (kind "whitespace" added when only it matches). The kinds are that copy's."""
+    folded, kinds = vocabulary_fold(text, invisible)
     m = WITNESS_VOCABULARY.search(folded)
     if m:
         token = m.group(1)
@@ -408,8 +421,24 @@ def _vocabulary_match(text):
             return None
         token = _TOKEN_BY_LETTERS[re.sub(r"\s+", "", m.group(1))]
         kinds = kinds + ["whitespace"]
-    assert kinds, "a text that matches only after folding names at least one fold"  # else the plain regex would have matched above
+    assert kinds, "a text that matches only after folding names at least one fold"  # else the plain regex would have matched on the text itself
     return token, kinds
+
+
+def _vocabulary_match(text):
+    """(token, kinds) for the first witness token in `text`, or None. The plain regex on the text as it is first (an unchanged 0.1.8 hit,
+    kinds []); when that finds nothing, the "drop" copy (the invisible letters removed: the 0.1.9 and 0.1.10 fold) with the plain regex and
+    then the spaced regex; when that gives nothing too AND the text holds at least one listed invisible letter, the "space" copy (0.1.11, R5:
+    each invisible letter one U+0020) the same way. A text with no invisible letter is folded once, so every 0.1.10 hit string stands and
+    U+2800 in every gap still hits on the "drop" copy with "invisible letters" alone. The token reported is always one of the four exact
+    tokens."""
+    m = WITNESS_VOCABULARY.search(text)
+    if m:
+        return m.group(1), []
+    hit = _folded_match(text, "drop")
+    if hit is None and any(ch in VOCABULARY_INVISIBLE_LETTERS for ch in text):
+        hit = _folded_match(text, "space")
+    return hit
 
 
 def _holds(token, kinds):
@@ -429,7 +458,11 @@ def witness_vocabulary_hits(row, idx, by_url):
     A text the plain regex matched is reported byte-identically to 0.1.8. Case is not folded: lower and title case are no hit.
     0.1.10 (R2 and R3, the ninth re-gate's measurement): the fold also strips combining marks and the listed invisible letters and matches
     an NFKC copy (kinds "combining marks", "invisible letters", "compatibility forms", "whitespace" last); the spaced form counts only
-    when every gap is spaced or none is, so `EVIDENCE D` (W07, an exhibit label) is no hit. A 0.1.9 hit string is unchanged."""
+    when every gap is spaced or none is, so `EVIDENCE D` (W07, an exhibit label) is no hit. A 0.1.9 hit string is unchanged.
+    0.1.11 (R4 and R5, the tenth re-gate's measurement): the confusables table runs again after NFKC (a mathematical bold Greek Epsilon
+    reports `compatibility forms, confusables`), and a text holding a listed invisible letter is tried a second time with each such letter
+    as a space when the dropped copy gave nothing (`E V IㅤD E NㅤC E D` reports `invisible letters, whitespace`). A 0.1.10 hit string is
+    unchanged."""
     out = []
     if is_evidence_row(row):
         for i, p in enumerate(row["evidence"]):
