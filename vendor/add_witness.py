@@ -16,8 +16,10 @@ usage: python3 -I add_witness.py SNAPSHOT_DIR ANSWER_DIR --key PRIVATE_KEY --ide
   --keys FILE        passed to check.py (the published key list)
 What it does, in this order, after checking everything first and refusing before it writes anything: copies the witness files in,
 appends the allowed_signers lines (never a duplicate), inserts the manifest entries (never a duplicate name, never `primary`),
-appends the signatures entries, lists service.json and split.jsonl with their sha256, recomputes the sha256 of every file it
-added, re-signs the manifest, and runs check.py on the folder: prints its SUMMARY line and exits with check.py's exit code.
+appends the signatures entries, lists service.json and split.jsonl with their sha256 in the manifest's `files` (list or object, as the
+writer shaped it) and drops signatures.json, allowed_signers, anchors.json and CHECK.* from it (structural files are never named by
+hash: NEXT-REVISION 22), recomputes the sha256 of every file it added, re-signs the manifest, and runs check.py on the folder: prints
+its SUMMARY line and exits with check.py's exit code. A pre-witness folder (no claims.jsonl) is taken as it is (13 Nov 2026).
 It never touches audit.jsonl, claims.jsonl, an existing witness file, the pages, the sources or the primary witness's score
 (it hashes them before and after, and says so)."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
@@ -36,6 +38,34 @@ def arg(argv, flag, default=None):
 def as_list(path):
     v = json.loads(path.read_text(encoding="utf-8"))
     return v if isinstance(v, list) else [v]
+
+
+# the structural files a manifest never names by hash: signatures.json and allowed_signers grow with every signature, anchors.json
+# with every anchor, CHECK.* is the checker's report, and the manifest's own signature lands in signatures.json AFTER the manifest is
+# hashed, so a manifest that names them can never be versioned (the evidence store refused exactly that at the gate of 1e, 13 Nov 2026;
+# NEXT-REVISION 22). Entries for other files are left exactly as found: this tool repairs no hash it did not make.
+STRUCTURAL = ("manifest.json", "signatures.json", "allowed_signers", "anchors.json", "CHECK.json", "CHECK.txt")
+
+
+def list_files(M, snap, extra):
+    """Add the extra files to the manifest's `files` with their hashes, in the shape the writer used (a list of {file, sha256} or an
+    object file -> sha256), and drop the structural entries. Returns the names dropped."""
+    files = M.get("files")
+    if isinstance(files, dict):
+        entries = [{"file": k, "sha256": v} for k, v in files.items()]
+    elif isinstance(files, list):
+        entries = [dict(e) for e in files if isinstance(e, dict) and e.get("file")]
+    else:
+        entries = []
+    dropped = [e["file"] for e in entries if e["file"] in STRUCTURAL]
+    entries = [e for e in entries if e["file"] not in STRUCTURAL]
+    for name in extra:
+        entries = [e for e in entries if e["file"] != name] + [{"file": name, "sha256": check.sha256(snap / name)}]
+    if isinstance(files, dict):
+        M["files"] = {e["file"]: e.get("sha256") for e in entries}
+    elif entries or files is not None:
+        M["files"] = entries
+    return dropped
 
 
 def main(argv):
@@ -133,7 +163,7 @@ def main(argv):
         print("refused, nothing written:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1
 
-    before = {f: check.sha256(snap / f) for f in UNTOUCHED}
+    before = {f: check.sha256(snap / f) for f in UNTOUCHED if (snap / f).exists()}  # a pre-witness folder has no claims.jsonl (gate of 1e, 13 Nov 2026)
     for w in g["witnesses"]:
         before[w["file"]] = check.sha256(snap / w["file"]) if w.get("file") and (snap / w["file"]).exists() else None
     for src, rel in adds:
@@ -154,19 +184,19 @@ def main(argv):
     for se in sig_entries:
         sigs.append(dict(se))  # as the service signed it: a hash that does not match the file fails K13, which is the point
     sigs_p.write_text(json.dumps(sigs, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    if extra:
-        files = M.setdefault("files", [])
-        for name in extra:
-            shutil.copyfile(ans / name, snap / name)
-            files.append({"file": name, "sha256": check.sha256(snap / name)})
+    for name in extra:
+        shutil.copyfile(ans / name, snap / name)
+    dropped = list_files(M, snap, extra)
     (snap / "manifest.json").write_text(json.dumps(M, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
     after = {f: (check.sha256(snap / f) if (snap / f).exists() else None) for f in before}
     if before != after:
         print("ABORT: a file that must not change did change: " + ", ".join(k for k in before if before[k] != after[k]), file=sys.stderr)
         return 1
+    untouched = [f for f in UNTOUCHED if f in before]
     print(f"added {len(entries)} witness(es): {', '.join(sorted(new_names))}; {len(new_lines)} allowed_signers line(s), {len(extra)} extra file(s); "
-          f"audit.jsonl, claims.jsonl and the {len(before) - len(UNTOUCHED)} existing witness file(s) unchanged (sha256 equal before and after)")
+          f"{', '.join(untouched)} and the {len(before) - len(untouched)} existing witness file(s) unchanged (sha256 equal before and after)"
+          + (f"; dropped from the manifest's files: {', '.join(dropped)} (structural files are never named by hash)" if dropped else ""))
     r = subprocess.run([sys.executable, "-I", str(HERE / "sign.py"), str(snap), "--role", "manifest", "--key", key, "--identity", ident],
                        capture_output=True, text=True)
     print((r.stdout + r.stderr).strip())
