@@ -26,7 +26,9 @@ session records this snapshot's manifest lists, each with the manifest's sha256,
 A witness header's `bound` (the bound cut, 13 Nov 2026), when present, must name exactly the five bound manifest sections with the sha256 of each
 section of THIS snapshot's manifest in canonical JSON (check.bound_sections), else the whole answer is refused before anything is written; when
 the snapshot carries the auditor's verified `sources` signature (sign.py --role sources, the sources cut of 13 Nov 2026) the refusal says so.
-A `sources` entry is a non-manifest entry: kept in order, its manifest.sources.sig untouched (nothing here writes it)."""
+A `sources` entry is a non-manifest entry: kept in order, its manifest.sources.sig untouched (nothing here writes it).
+One principal, one key (the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31): an answer whose `allowed_signers` fragment would leave any
+principal with two distinct keys, against the snapshot's existing lines or inside the fragment itself, is refused before anything is written."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -231,6 +233,19 @@ def main(argv):
             if (snap / name).exists():
                 problems.append(f"{name} already exists in the snapshot: refused to overwrite")
             extra.append(name)
+    # the auditor-key cut (13 Nov 2026, NEXT-REVISION 31; the ninth re-gate's S13): one principal, one key. The fragment's lines against the
+    # snapshot's allowed_signers and against each other: a principal that would end up holding two distinct keys refuses the whole answer
+    # (ssh-keygen -Y verify -I <name> accepts any key listed under the name, so a second line under the auditor's name is a forger's door)
+    allowed_p = snap / "allowed_signers"
+    would = {k: set(v) for k, v in (check.allowed_keys(allowed_p) if allowed_p.exists() else {}).items()}
+    for l in frag:
+        f_ = l.split()
+        if len(f_) >= 3 and check.key_of(f_[1:]):
+            for p_ in f_[0].split(","):
+                would.setdefault(p_, set()).add(check.key_of(f_[1:]))
+    for p_, ks_ in would.items():
+        if len(ks_) > 1:
+            problems.append(f"principal '{p_}' would hold two keys in allowed_signers: one principal, one key")
     if problems:
         print("refused, nothing written:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1

@@ -109,7 +109,7 @@ class T1T2Bound(_Run):
                 self.assertEqual(sorted(header["bound"]), sorted(BOUND_SECTIONS))
                 keys = list(header)
                 i = keys.index("carried")
-                self.assertEqual(keys[i: i + 3], ["carried", "bound", "started_at"], keys)
+                self.assertEqual(keys[i: i + 4], ["carried", "bound", "service_version", "started_at"], keys)  # service_version after bound since 0.1.10
 
     def test_t2_the_forged_request_differs_from_the_genuine_in_bound_sources_only(self):
         d, ans, svc, client = self._run(AW10_FORGER, [CHAT_CFG, DEC_CFG], "t2-forger")  # accepted offline: nothing here can tell
@@ -276,8 +276,8 @@ class T6T8T9Server(_Server):
 
     def test_t9_healthz_names_the_version_and_the_unchanged_prompts(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.9-dev")  # 0.1.8-dev when written; the version pin follows the cut
-        self.assertEqual(h["version"], "0.1.9-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.10-dev")  # 0.1.8-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.10-dev")
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)
         self.assertEqual(h["questions_sha256"], QUESTIONS_SHA_BEFORE)
 

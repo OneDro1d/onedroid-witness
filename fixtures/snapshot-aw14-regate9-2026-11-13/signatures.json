@@ -1,0 +1,30 @@
+[
+ {
+  "role": "auditor",
+  "file": "audit.jsonl",
+  "sha256": "96a728c084fddd683e5bb087933e1ef8bf2054ba4bc634190e16983023bda1a5",
+  "line": "claims-snapshot/0.4 auditor audit.jsonl sha256:96a728c084fddd683e5bb087933e1ef8bf2054ba4bc634190e16983023bda1a5",
+  "signer": {
+   "name": "onedroid-claims-verification-gate",
+   "key_id": "SHA256:QtxSDbXjSQP2Ajpjo0M1X8WBYe+xiXx9QglpawV59yA",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-13T07:20:12Z",
+  "signature": "audit.jsonl.sig",
+  "commit": null
+ },
+ {
+  "role": "sources",
+  "file": "manifest.json",
+  "sha256": "5d87f8148e933a07760d88887e783b9d404771bff72840336af35a25e028e009",
+  "line": "claims-snapshot/0.4 sources manifest.json sha256:5d87f8148e933a07760d88887e783b9d404771bff72840336af35a25e028e009",
+  "signer": {
+   "name": "onedroid-claims-verification-gate",
+   "key_id": "SHA256:QtxSDbXjSQP2Ajpjo0M1X8WBYe+xiXx9QglpawV59yA",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-13T07:20:12Z",
+  "signature": "manifest.sources.sig",
+  "commit": null
+ }
+]

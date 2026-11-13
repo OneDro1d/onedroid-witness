@@ -64,6 +64,8 @@ says so. `GET /healthz` lists the profiles served and, for each not served, why,
 text, and any file the manifest names under `sources/` or `sessions/` as a part named by that path; fields `models` (a comma-separated
 string or a list of ids), `max_cost_usd` (a finite number), `published_url`) answers `202 {job_id, estimate_usd}` or a refusal; `GET /witness/{job_id}` the status;
 `GET /witness/{job_id}/answer.tar` the answer with its sha256 in `X-Answer-SHA256`; `GET /models`, `GET /keys`, `GET /healthz`.
+A sources-signed publisher (the format's `sign.py --role sources`) leaves `manifest.sources.sig` out of the request: `signatures.json` carries
+the entry, and the service refuses that file by name (0.1.10, the ninth re-gate's S15).
 
 ## Where it comes from
 Contract: the witness-service contract draft v6 and the measurements of 12 Nov 2026 (two probes, 36 models over a 74-claim snapshot), in the

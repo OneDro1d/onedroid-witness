@@ -235,6 +235,19 @@ def _no_constant(name):
     raise ValueError(f"{name} is not a JSON number")
 
 
+SOURCES_SIG_REFUSAL = "part manifest.sources.sig is not accepted: the sources signature travels in signatures.json; leave the file out of the request"
+
+
+def _check_part_name(name):
+    """A part name the request takes: one of PARTS_ALLOWED or a carried path (request.is_carried_part). 0.1.10 (the ninth re-gate's S15): a
+    sources-signed publisher's `manifest.sources.sig` is refused by name with the reason (its signatures.json entry is what travels); every
+    other unknown name keeps the old refusal."""
+    if name == "manifest.sources.sig":
+        raise ValueError(SOURCES_SIG_REFUSAL)
+    if name not in PARTS_ALLOWED and not request_mod.is_carried_part(name):
+        raise ValueError(f"part {name} is not accepted")
+
+
 def _parse(ctype, raw, headers):
     """multipart/form-data (files by field name) or JSON {parts: {name: text}, models, max_cost_usd, published_url}."""
     parts, params = {}, {}
@@ -248,8 +261,7 @@ def _parse(ctype, raw, headers):
         if body.get("parts") is not None and not isinstance(body["parts"], dict):
             raise ValueError("parts is not an object of name to text")
         for name, text in (body.get("parts") or {}).items():
-            if name not in PARTS_ALLOWED and not request_mod.is_carried_part(name):
-                raise ValueError(f"part {name} is not accepted")
+            _check_part_name(name)
             if isinstance(text, str):
                 parts[name] = text.encode("utf-8")
             elif isinstance(text, list) and all(isinstance(b, int) and 0 <= b < 256 for b in text):
@@ -284,9 +296,8 @@ def _parse(ctype, raw, headers):
             data = part.get_payload(decode=True) or b""
             if part.get_filename() is not None or name in PARTS_ALLOWED:
                 # S-1, D1: beside the fixed parts, a file part named by a normalised relative path under sources/ or sessions/ is a carried
-                # file (checked against the manifest in Request); any other unknown name is refused as before
-                if name not in PARTS_ALLOWED and not request_mod.is_carried_part(name):
-                    raise ValueError(f"part {name} is not accepted")
+                # file (checked against the manifest in Request); any other unknown name is refused as before (manifest.sources.sig by name, 0.1.10)
+                _check_part_name(name)
                 parts[name] = data
             else:
                 params[name] = data.decode("utf-8", "replace").strip()

@@ -12,8 +12,11 @@ other change to the folder, because any later change to manifest.json breaks it 
 --role sources (the sources cut, 13 Nov 2026, NEXT-REVISION 25b) is the AUDITOR's signature over the five bound manifest sections (subject,
 sources, pages, grading.profile, grading.sessions): the line `claims-snapshot/0.4 sources manifest.json sha256:<bound digest>`
 (check.bound_digest), the file manifest.sources.sig, the entry's sha256 the bound digest itself, so it holds through every witness insertion
-where a manifest signature cannot. It needs the key that signed audit.jsonl (an `auditor` entry in signatures.json and the same key type and
-base64 in allowed_signers), else it refuses and writes nothing; like --role manifest it does not rewrite the manifest.
+where a manifest signature cannot. It needs the key that signed audit.jsonl (an `auditor` entry in signatures.json and the key EMBEDDED in
+that entry's signature file, read with check.sshsig_public_key, never a name in allowed_signers: the auditor-key cut, 13 Nov 2026,
+NEXT-REVISION 31), else it refuses and writes nothing; like --role manifest it does not rewrite the manifest.
+Every role (the auditor-key cut): when allowed_signers already lists --identity with a DIFFERENT key it refuses before writing (one principal,
+one key; a new key is a new principal).
 The private key never enters the snapshot; keep it out of the folder."""
 import datetime, json, pathlib, subprocess, sys, tempfile
 
@@ -53,15 +56,21 @@ def main(argv):
     sigs = json.loads(sigs_p.read_text(encoding="utf-8")) if sigs_p.exists() else []
     M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
     allowed = snap / "allowed_signers"
+    given = f"{key_type} {key_b64}"
+    keys = check.allowed_keys(allowed) if allowed.exists() else {}
     if role == "sources":
-        # the sources role is the auditor's: an `auditor` entry must exist, and this key must be the one allowed_signers holds for it
-        # (by type and base64, as check.allowed_keys reads it); refused before anything is written
-        a_names = [(s.get("signer") or {}).get("name") for s in sigs if s.get("role") == "auditor"]
-        if not a_names:
+        # the sources role is the auditor's: an `auditor` entry must exist, and this key must be the one EMBEDDED in that entry's signature
+        # file (check.sshsig_public_key; the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31: a name in allowed_signers is not a key, the
+        # ninth re-gate's S13 put a forger's key under the auditor's name); refused before anything is written
+        a_entries = [s for s in sigs if s.get("role") == "auditor"]
+        if not a_entries:
             print("the sources role is the auditor's: sign audit.jsonl first", file=sys.stderr)
             return 1
-        keys = check.allowed_keys(allowed) if allowed.exists() else {}
-        if f"{key_type} {key_b64}" not in set().union(*[keys.get(n, set()) for n in a_names]):
+        a_keys = {k for k in (check.sshsig_public_key(snap / s["signature"]) for s in a_entries if s.get("signature")) if k}
+        if not a_keys:
+            print("the sources role is the auditor's: audit.jsonl.sig is missing or not an SSH signature", file=sys.stderr)
+            return 1
+        if given not in a_keys:
             print("the sources role is the auditor's: use the key that signed audit.jsonl", file=sys.stderr)
             return 1
         h = check.bound_digest(M)
@@ -69,6 +78,11 @@ def main(argv):
     else:
         h = check.sha256(fp)
         sig_rel = part + ".sig"
+    # the auditor-key cut: one principal, one key. A second key under a listed name would make K13 fail the record (A1) and would let
+    # `ssh-keygen -Y verify -I <name>` accept either key; refused before anything is written
+    if keys.get(ident, set()) - {given}:
+        print(f"principal '{ident}' already holds another key in allowed_signers: one principal, one key (a new key is a new principal)", file=sys.stderr)
+        return 1
     audit_h = check.sha256(snap / "audit.jsonl")
     line = check.signed_line(role, part, h, audit_h)
     fingerprint = subprocess.run(["ssh-keygen", "-lf", str(key) + ".pub"], capture_output=True, text=True, check=True).stdout.split()[1]

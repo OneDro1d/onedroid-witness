@@ -30,10 +30,11 @@ from test_s1_evidence import CHECK_PY  # noqa: E402
 FX = ROOT / "fixtures"
 AW12 = FX / "snapshot-aw12-regate8-2026-11-13"
 REC_AW12 = FX / "recordings" / "aw12-regate8"
-VERSION = "0.1.9-dev"
+VERSION = "0.1.10-dev"  # 0.1.9-dev when written; the version pin follows the cut
 # the brief's one constant string (render.VOCABULARY_RULE_TEXT), spelt here so a drift in the code is seen
-RULE_TEXT = ("upper-case whole words after format characters are stripped, a closed table of look-alike capitals is folded to Latin and "
-             "whitespace inside a token is collapsed; case is not folded")
+RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped, a closed table of "
+             "look-alike capitals is folded to Latin and compatibility forms are normalised (NFKC); a token spaced between every letter, or written "
+             "with no spaces, counts; case is not folded")  # 0.1.9's text when written; the rule text follows the cut (0.1.10, V3)
 # the 0.1.8 hit strings on aw12, read on the committed tree 47d1f0c before any edit (tools/render-before.txt): byte-identical after the cut
 HITS_018 = {"C-005": "[0] file region.yaml line 1 (source 4, copy at hand) holds UNDECIDED",
             "C-006": "[0] file workers.conf line 1 (source 5, copy at hand) holds CONTRADICTED",
@@ -123,9 +124,11 @@ class U2Fold(unittest.TestCase):
         # the token's end; here a space touches it, and the rule cannot tell a spaced prefix from a spaced neighbour word). The implementer's
         # first expectation was [] (tools/02-green-run1-own-case-wrong.txt); the brief's design decides, the owner judges the case.
         self.assertEqual(_cand_hits("U N E V I D E N C E D"), [f"candidate [0] from {URL} holds EVIDENCED (folded: whitespace)"])
-        # "EVIDENCE D": the token's last letter spaced off; the spaced regex removes the whitespace between two letters of the token,
-        # so it folds to EVIDENCED and hits (the owner expects a hit)
-        self.assertEqual(_cand_hits("EVIDENCE D"), [f"candidate [0] from {URL} holds EVIDENCED (folded: whitespace)"])
+        # "EVIDENCE D": the token's last letter spaced off. Under 0.1.9 the spaced regex removed the whitespace between any two letters of the
+        # token, so it folded to EVIDENCED and hit (the owner expected a hit). 0.1.10 (R3, the ninth re-gate's W07: a legitimate exhibit label
+        # `as shown in EVIDENCE D.` was muted) narrowed the spaced form to every-gap-or-none, so a token broken in one place is no hit. This
+        # is the one assertion of this suite the 0.1.10 brief names as amendable; it was `[... holds EVIDENCED (folded: whitespace)]`.
+        self.assertEqual(_cand_hits("EVIDENCE D"), [])
         # the plain token: an unchanged 0.1.8 string, no "(folded" suffix
         self.assertEqual(_cand_hits("NO EVIDENCE PUBLISHED"), [f"candidate [0] from {URL} holds NO EVIDENCE PUBLISHED"])
         self.assertEqual(_cand_hits("answer EVIDENCED here"), [f"candidate [0] from {URL} holds EVIDENCED"])

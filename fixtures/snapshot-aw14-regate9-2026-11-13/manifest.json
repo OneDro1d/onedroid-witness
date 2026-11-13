@@ -1,0 +1,379 @@
+{
+ "format": "claims-snapshot/0.6",
+ "subject": {
+  "title": "Claims of a synthetic agent session (ninth re-gate)",
+  "url": null,
+  "publisher": "gate9@example.org",
+  "session_id": "9a9a9a9a-1b1b-4c4c-8d8d-2e2e2e2e2e2e",
+  "turn_end": 4,
+  "parts": []
+ },
+ "taken_at": "2026-11-13T07:20:09Z",
+ "pages": [
+  {
+   "file": "page.txt",
+   "sha256": "9374abd638b36fec58419e968ffcc6ed25bbad8f22802dfe2f39a9ae6d0ef3e9",
+   "lines": 25,
+   "note": "synthetic"
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": null,
+   "path": "backup.yaml",
+   "role": "file",
+   "file": "sources/files/backup.yaml",
+   "sha256": "df89460db6495226b63012ac93039f7802ccf0b1c597adb3e5793560c2311d94",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 2,
+   "url": null,
+   "path": "dr/primary.yaml",
+   "role": "file",
+   "file": "sources/files/dr/primary.yaml",
+   "sha256": "9cf3a5f89adc05f90e87b284d40f8e39e1b763d9f9df307327e6f127ed492175",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 3,
+   "url": null,
+   "path": "dr/secondary.yaml",
+   "role": "file",
+   "file": "sources/files/dr/secondary.yaml",
+   "sha256": "64c510504df97ba5ad76d9dab24c7550b4b53a6d31adc47a75e6efbe8851ae8c",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 4,
+   "url": null,
+   "path": "VERSION",
+   "role": "file",
+   "file": "sources/files/VERSION",
+   "sha256": "3b10b6ad566eadbcacadb33c591f1ec629593d6adf47442e56e0f61996829ef7",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 5,
+   "url": null,
+   "path": "notes/q01.md",
+   "role": "file",
+   "file": "sources/files/notes/q01.md",
+   "sha256": "6ea5bcdcbd22553615f8a6eba913ffd395f43bd3250bd965c1630ae1e95abbaa",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 6,
+   "url": null,
+   "path": "notes/q02.md",
+   "role": "file",
+   "file": "sources/files/notes/q02.md",
+   "sha256": "e5e053ea3f0404eff48e2cb0b27bcc20217a318406483aded1575f59907010b8",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 7,
+   "url": null,
+   "path": "notes/q03.md",
+   "role": "file",
+   "file": "sources/files/notes/q03.md",
+   "sha256": "01b0361ecfcc9ecf1d64baeefdda39319f26b9b2ec1ce0a4a9ef03bedbd9179d",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 8,
+   "url": null,
+   "path": "notes/q04.md",
+   "role": "file",
+   "file": "sources/files/notes/q04.md",
+   "sha256": "8c95df3138c08a1f51ac2ed6a00cac68c1683e3abda126308227082df87d9e54",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 9,
+   "url": null,
+   "path": "notes/q05.md",
+   "role": "file",
+   "file": "sources/files/notes/q05.md",
+   "sha256": "2215645dc1b927764ba4feb5f77034aa63fa95d386431509bc7f3414e032ef40",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 10,
+   "url": null,
+   "path": "notes/q06.md",
+   "role": "file",
+   "file": "sources/files/notes/q06.md",
+   "sha256": "8b3cfa57cd41ed2022919a6e44c169ea7a9ee6a2bacda31799af0213885e3cb3",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 11,
+   "url": null,
+   "path": "notes/q07.md",
+   "role": "file",
+   "file": "sources/files/notes/q07.md",
+   "sha256": "ccb1b50f74620ed4e082ce3a3cd555cce6c10083cd722f3db56abe32443f9767",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 12,
+   "url": null,
+   "path": "notes/q08.md",
+   "role": "file",
+   "file": "sources/files/notes/q08.md",
+   "sha256": "badeab9c7fdb98f23e9517084820206322796f02ae3f12ef485f683e8f35170e",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 13,
+   "url": null,
+   "path": "notes/q09.md",
+   "role": "file",
+   "file": "sources/files/notes/q09.md",
+   "sha256": "2504a246df15b0e38233636491294527005ac84d711aff494eec8ea18667cd40",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 14,
+   "url": null,
+   "path": "notes/q10.md",
+   "role": "file",
+   "file": "sources/files/notes/q10.md",
+   "sha256": "e289d9e78d7371b4ec03687c98ac70a5153b24cc55758ef0f772228c54e8bfe3",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 15,
+   "url": null,
+   "path": "notes/q11.md",
+   "role": "file",
+   "file": "sources/files/notes/q11.md",
+   "sha256": "4bd133dc903bc4019573f96a0c6c885313c9ae4a0a4335c4329858780daf299e",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 16,
+   "url": null,
+   "path": "notes/q12.md",
+   "role": "file",
+   "file": "sources/files/notes/q12.md",
+   "sha256": "1c7772539f4af73e0437fbc00dbfd16f484209a55e0432343e5f52e93c0c2428",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 17,
+   "url": null,
+   "path": "snapshots.conf",
+   "role": "file",
+   "file": "sources/files/snapshots.conf",
+   "sha256": "01ea420f4898847c49f0188a5dd6d2ef96136810c82194920231ae189d57a349",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 18,
+   "url": null,
+   "path": "notes/x1.md",
+   "role": "file",
+   "file": "sources/files/notes/x1.md",
+   "sha256": "757cd059ce9a3682813b66ea3c2bd24ac91bc28a657b3a229fa17a4ec89b436d",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 19,
+   "url": null,
+   "path": "notes/x2.md",
+   "role": "file",
+   "file": "sources/files/notes/x2.md",
+   "sha256": "04b03ae0f3fc1d6bc628504d0900dd6e9aefbb422f3c4657ecf24a2bd568ca56",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 20,
+   "url": null,
+   "path": "notes/x3.md",
+   "role": "file",
+   "file": "sources/files/notes/x3.md",
+   "sha256": "341f73dcf1807c9071ee72f5f45d416455af9492acecc9e9c74d5d9f41939ded",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 21,
+   "url": null,
+   "path": "notes/w01.md",
+   "role": "file",
+   "file": "sources/files/notes/w01.md",
+   "sha256": "578ad02a199b4d3c8c11b5a4ef638eb3b9ecb07a14c1bc1437476c10c3cdd5c4",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 22,
+   "url": null,
+   "path": "drill.md",
+   "role": "file",
+   "file": "sources/files/drill.md",
+   "sha256": "9b03e84d3778ba97570c4aa6bd9e23947e06ee3574a069cf560d3467959bd521",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 23,
+   "url": null,
+   "path": "edition.txt",
+   "role": "file",
+   "file": "sources/files/edition.txt",
+   "sha256": "7f265f2420e5b7f6a9914d3fe273fbf8f4f6d529ac922676ad748dc5cf796dbf",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 24,
+   "url": null,
+   "path": "region.yaml",
+   "role": "file",
+   "file": "sources/files/region.yaml",
+   "sha256": "63ef62e4812ed7e6b9f8859cde133e0ae1d88d22c80f4d234f0f4fb0523d8b36",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 25,
+   "url": null,
+   "path": "retention.txt",
+   "role": "file",
+   "file": "sources/files/retention.txt",
+   "sha256": "4af92cc59da85c0c25dbce882dd5fb52d392b502ddca3247266ccf825c69d86b",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  },
+  {
+   "n": 26,
+   "url": null,
+   "path": "policy.txt",
+   "role": "file",
+   "file": "sources/files/policy.txt",
+   "sha256": "40228980522f07c4cdb4451a4be0e8179741508ed22e1ba0185fca80c8ccc948",
+   "copy": "text",
+   "repo": {
+    "commit": "7c6b5a4f3e2d1c0b7c6b5a4f3e2d1c0b7c6b5a4f"
+   },
+   "taken_from": "synthetic working tree"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "agent-work",
+  "gates": [],
+  "rounds": [],
+  "sessions": [],
+  "witnesses": [],
+  "auditor": {
+   "name": "the claims session's S1 ninth re-gate of onedroid-witness (synthetic, fictional)",
+   "model": "Claude Opus 5.5",
+   "file": "audit.jsonl",
+   "sha256": "96a728c084fddd683e5bb087933e1ef8bf2054ba4bc634190e16983023bda1a5",
+   "signer": "onedroid-claims-verification-gate <SHA256:QtxSDbXjSQP2Ajpjo0M1X8WBYe+xiXx9QglpawV59yA>"
+  }
+ },
+ "counts": {
+  "claims": 25,
+  "checkable": 25
+ }
+}

@@ -314,15 +314,32 @@ def resolve_pointer(p, idx, root=None):
 
 WITNESS_TOKENS = ("EVIDENCED", "CONTRADICTED", "UNDECIDED", "NO EVIDENCE PUBLISHED")
 WITNESS_VOCABULARY = re.compile(r"\b(" + "|".join(WITNESS_TOKENS) + r")\b")  # case-sensitive, whole words; unchanged since 0.1.8
-# 0.1.9 (V2, the eighth re-gate's measurement): the same four tokens with any whitespace allowed between every pair of letters (and where
-# a token has a space), so `E V I D E N C E D`, `NOEVIDENCEPUBLISHED` and `N O  E V I D E N C E  P U B L I S H E D` match. The look-arounds
-# refuse a Latin capital touching either end instead of \b: a spaced token's letters are separate words, so \b would let `UNEVIDENCED`'s
-# tail through. The look-arounds are narrower than \b in one way (a digit or an underscore touching the token is not refused), so a
-# text like `EVIDENCED_1` that \b never matched is matched here, with kind "whitespace" (matched by this regex alone).
-WITNESS_VOCABULARY_SPACED = re.compile(r"(?<![A-Z])(" + "|".join(r"\s*".join(t.replace(" ", "")) for t in WITNESS_TOKENS) + r")(?![A-Z])")
+# 0.1.9 (V2, the eighth re-gate's measurement): the same four tokens with whitespace allowed inside a token, so `E V I D E N C E D`,
+# `NOEVIDENCEPUBLISHED` and `N O  E V I D E N C E  P U B L I S H E D` match. The look-arounds refuse a Latin capital touching either end
+# instead of \b: a spaced token's letters are separate words, so \b would let `UNEVIDENCED`'s tail through. The look-arounds are narrower
+# than \b in one way (a digit or an underscore touching the token is not refused), so a text like `EVIDENCED_1` that \b never matched is
+# matched here, with kind "whitespace" (matched by this regex alone).
+# 0.1.10 (R3, the ninth re-gate's W07: a legitimate exhibit label `as shown in EVIDENCE D.` was muted by 0.1.9's `\s*` between every pair
+# of letters, a supporting line made UNDECIDED): a token counts as spaced only when a separator stands between EVERY pair of its letters,
+# or none at all. Per token the alternatives are (i) FULLY spaced: every letter of every word joined with \s+, the word gaps \s+ too;
+# (ii) COLLAPSED: every letter with no whitespace at all (`NOEVIDENCEPUBLISHED`); (iii) for the multi-word token only, the words intact
+# joined with \s+ (`NO EVIDENCE  PUBLISHED`). A token broken in one place (`EVIDENCE D`, `EVI DENCED`, `BACKUP E D I T I O N 4`) is no
+# vocabulary hit: a half-spaced plant stays a measurement item for the gate's plant set.
+
+
+def _spaced_alternatives(token):
+    letters = token.replace(" ", "")
+    out = [r"\s+".join(letters), letters]
+    if " " in token:
+        out.append(r"\s+".join(token.split(" ")))
+    return out
+
+
+WITNESS_VOCABULARY_SPACED = re.compile(r"(?<![A-Z])(" + "|".join(a for t in WITNESS_TOKENS for a in _spaced_alternatives(t)) + r")(?![A-Z])")
 _TOKEN_BY_LETTERS = {t.replace(" ", ""): t for t in WITNESS_TOKENS}
-VOCABULARY_RULE_TEXT = ("upper-case whole words after format characters are stripped, a closed table of look-alike capitals is folded to Latin and "
-                        "whitespace inside a token is collapsed; case is not folded")
+VOCABULARY_RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped, a closed table of "
+                        "look-alike capitals is folded to Latin and compatibility forms are normalised (NFKC); a token spaced between every letter, or written "
+                        "with no spaces, counts; case is not folded")
 # 0.1.9 (V2): a CLOSED, LISTED table of look-alike capitals folded to the Latin capitals that occur in the four tokens, for matching only.
 # It is NOT derived from Unicode's confusables.txt: exactly these characters fold, nothing else, so a reader sees what folds. Nothing
 # lower-case is in it (case is not folded, by decision). Left out on purpose: Greek Υ (U+03A5, not a look-alike of U), Cherokee Ꭰ (U+13A0).
@@ -334,21 +351,44 @@ VOCABULARY_CONFUSABLES = {
     # full-width Latin capitals Ａ..Ｚ (U+FF21..U+FF3A)
     **{chr(0xFF21 + i): chr(ord("A") + i) for i in range(26)},
 }
+# 0.1.10 (R2, the ninth re-gate's X2): a CLOSED, LISTED set of letters (category Lo or So) that render as nothing, removed for matching
+# only: the Hangul choseong filler U+115F, the Hangul jungseong filler U+1160, the Hangul filler U+3164, the half-width Hangul filler
+# U+FFA0 and the Braille pattern blank U+2800, in that order between the quotes below. Exactly these, nothing else; the characters
+# themselves render as nothing, which is why this comment names the code points. Like the confusables table it is not derived from any
+# Unicode data file, so a reader sees what is stripped.
+VOCABULARY_INVISIBLE_LETTERS = {"ᅟ", "ᅠ", "ㅤ", "ﾠ", "⠀"}
+_WHITESPACE_RUN = re.compile(r"(\s+)")
+
+
+def _nfkc_keeping_whitespace(text):
+    """unicodedata.normalize("NFKC") on every run of non-whitespace, the whitespace runs kept as they are. NFKC alone would turn a no-break
+    space (U+00A0, the ninth re-gate's Q05) into U+0020 and name a fold that did not matter to the match; whitespace is the spaced regex's
+    business and the fold leaves it alone (0.1.10, R2)."""
+    return "".join(p if i % 2 else unicodedata.normalize("NFKC", p) for i, p in enumerate(_WHITESPACE_RUN.split(text)))
 
 
 def vocabulary_fold(text):
-    """0.1.9 (V2): a copy of `text` for MATCHING only (never for the rendering): every Unicode format character (category Cf: zero-width
-    space, joiner and non-joiner, word joiner, soft hyphen, byte-order mark, the bidi marks) removed, then every character mapped through
-    VOCABULARY_CONFUSABLES. Returns (folded, kinds), kinds the list of folds that CHANGED something, in the order ("format characters",
-    "confusables"). Whitespace is left alone here (the spaced regex in witness_vocabulary_hits handles it) and case is never folded."""
+    """0.1.9 (V2), widened in 0.1.10 (R2, the ninth re-gate's measurement: flash-lite followed a combining mark, a grapheme joiner, a Hangul
+    filler and Roman numerals the closed table does not see): a copy of `text` for MATCHING only (never for the rendering). In this order:
+    every Unicode format character (category Cf: zero-width space, joiner and non-joiner, word joiner, soft hyphen, byte-order mark, the
+    bidi marks) removed; every combining mark (category Mn: U+0301, U+034F and every nonspacing mark) removed; the listed invisible
+    letters (VOCABULARY_INVISIBLE_LETTERS) removed; every character mapped through VOCABULARY_CONFUSABLES; then the compatibility
+    normalisation NFKC on the non-whitespace runs (Roman numerals Ⅴ Ⅾ Ⅽ, mathematical bold capitals; full-width forms fold here too, but
+    the table ran first, so a full-width plant still reports "confusables"). Returns (folded, kinds), kinds the list of folds that CHANGED
+    something, in the order ("format characters", "combining marks", "invisible letters", "confusables", "compatibility forms").
+    Whitespace is left alone here (the spaced regex in witness_vocabulary_hits handles it) and case is never folded."""
     kinds = []
-    stripped = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
-    if stripped != text:
-        kinds.append("format characters")
-    folded = "".join(VOCABULARY_CONFUSABLES.get(ch, ch) for ch in stripped)
-    if folded != stripped:
-        kinds.append("confusables")
-    return folded, kinds
+    cur = text
+    for kind, fold in (("format characters", lambda s: "".join(ch for ch in s if unicodedata.category(ch) != "Cf")),
+                       ("combining marks", lambda s: "".join(ch for ch in s if unicodedata.category(ch) != "Mn")),
+                       ("invisible letters", lambda s: "".join(ch for ch in s if ch not in VOCABULARY_INVISIBLE_LETTERS)),
+                       ("confusables", lambda s: "".join(VOCABULARY_CONFUSABLES.get(ch, ch) for ch in s)),
+                       ("compatibility forms", _nfkc_keeping_whitespace)):
+        new = fold(cur)
+        if new != cur:
+            kinds.append(kind)
+        cur = new
+    return cur, kinds
 
 
 def _vocabulary_match(text):
@@ -386,7 +426,10 @@ def witness_vocabulary_hits(row, idx, by_url):
     0.1.9 (V2, the eighth re-gate's measurement: flash-lite followed a spaced and a homoglyph plant): a text the plain regex does not match
     is tried again on a folded copy (vocabulary_fold: format characters stripped, the closed confusables table applied) with the plain
     regex and then WITNESS_VOCABULARY_SPACED; such a hit names the canonical token and the folds, "... holds <TOKEN> (folded: <kinds>)".
-    A text the plain regex matched is reported byte-identically to 0.1.8. Case is not folded: lower and title case are no hit."""
+    A text the plain regex matched is reported byte-identically to 0.1.8. Case is not folded: lower and title case are no hit.
+    0.1.10 (R2 and R3, the ninth re-gate's measurement): the fold also strips combining marks and the listed invisible letters and matches
+    an NFKC copy (kinds "combining marks", "invisible letters", "compatibility forms", "whitespace" last); the spaced form counts only
+    when every gap is spaced or none is, so `EVIDENCE D` (W07, an exhibit label) is no hit. A 0.1.9 hit string is unchanged."""
     out = []
     if is_evidence_row(row):
         for i, p in enumerate(row["evidence"]):

@@ -8,7 +8,7 @@ import hashlib
 import json
 import pathlib
 
-from . import normalise, prompts, render
+from . import __version__, normalise, prompts, render
 from .openrouter import CapReached, refuse_routers
 from .request import BOUND_MANIFEST_SECTIONS, _canonical, _section
 from .signing import now
@@ -72,7 +72,9 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     # absent section hashes "null"), so a witness header says which subject, sources, pages, profile and session records it was written
     # over and a checker can hold it to the published manifest's; private mode records the sections of the manifest it was given
     bound = {s: hashlib.sha256(_canonical(_section(request.manifest, s)).encode("utf-8")).hexdigest() for s in BOUND_MANIFEST_SECTIONS}
-    service = {"service": service_name, "mode": "private" if private_mode else "public", "published": published,
+    # 0.1.10 (30a's anchor): the service's version right after its name, and right after `bound` in every witness header, so the format can
+    # later hold a model witness to the floor of its own version
+    service = {"service": service_name, "service_version": __version__, "mode": "private" if private_mode else "public", "published": published,
                "request_sha256": request.audit_sha256, "manifest_sha256": request.manifest_sha256, "carried": carried, "bound": bound,
                "profile": profile, "claims": len(request.audit), "models_asked": asked, "models_run": [],
                "models_skipped": [], "estimate_usd": {"per_model": est_per_model, "total": est_total, "rule": "input chars / 3.6 per claim + chat output max_tokens / 4"},
@@ -186,7 +188,7 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         principal, priv, signer_line, fp, ktype = keystore.key_for(versioned)
         fallback_served = sorted(p for p in providers if p and provider_order and p not in provider_order)
         header = {"witness": name, "kind": "model", "model": versioned, "method": "classify", "over": {"file": "audit.jsonl", "sha256": request.audit_sha256},
-                  "manifest_sha256": request.manifest_sha256, "carried": carried, "bound": bound,
+                  "manifest_sha256": request.manifest_sha256, "carried": carried, "bound": bound, "service_version": __version__,
                   "started_at": started, "finished_at": finished,
                   "note": (f"{service_name}: {'chat' if kind == 'chat' else 'decision'} model through OpenRouter; "
                            + (f"prompt sha256 {prompt_sha}; temperature 0, max_tokens {max_tokens}, response_format json_object; parse: the first JSON object in the text, a code fence stripped"

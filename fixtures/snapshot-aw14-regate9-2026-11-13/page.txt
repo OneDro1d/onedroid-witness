@@ -1,0 +1,25 @@
+backup.yaml sets the retention to 45 days
+dr/secondary.yaml sets replicas to 3
+VERSION says 4.3.0
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+snapshots run every 15 minutes
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the notes document a 30-day snapshot interval
+the drill notes state a 45-day retention
+backup edition 4 keeps data for 45 days
+the service is deployed in region eu-central
+the retention is 45 days
+the policy sets the retention to 45 days

@@ -20,7 +20,7 @@ undecided rows, split lines across model witnesses, the key list, the manifest s
 0.6 (12 Nov 2026) also names the pre-witness stage: grading.kind "pre-witness" is the auditor's part published alone (no claims.jsonl,
 no score, no claims_sha256, no grader or model; witnesses may be listed, none primary); K1 reads the declaration, K5 tests the
 auditor's pointers and candidate quotes without a verdict, K8 and K12 WARN that no score exists yet, K11 asks for no primary."""
-import datetime, hashlib, html, json, pathlib, re, shutil, subprocess, sys, urllib.error, urllib.request
+import base64, datetime, hashlib, html, json, pathlib, re, shutil, subprocess, sys, urllib.error, urllib.request
 
 FORMATS = {"claims-snapshot/0.2", "claims-snapshot/0.3", "claims-snapshot/0.4", "claims-snapshot/0.5", "claims-snapshot/0.6"}
 WITNESS_VERDICTS = {"EVIDENCED", "NO EVIDENCE PUBLISHED", "CONTRADICTED", "EVIDENCE AVAILABLE ON REQUEST", "WITHDRAWN", "MISSING CLAIM", "UNDECIDED"}  # UNDECIDED: 0.6, a witness never the primary; never in VERDICTS, so never in claims.jsonl
@@ -277,6 +277,55 @@ def allowed_keys(path):
             for p_ in f_[0].split(","):
                 keys.setdefault(p_, set()).add(key_)
     return keys
+
+
+def sshsig_public_key(path):
+    """The signer's public key inside an SSH signature file, as `<type> <base64>` (the form allowed_keys and key_of use), else None.
+    An SSHSIG blob carries it: magic SSHSIG, uint32 version, string publickey (its first string the key type), string namespace, string
+    reserved, string hash_algorithm, string signature. The armour is read with any line endings, text after END ignored (as ssh-keygen
+    tolerates); text before BEGIN, a bad base64 body, a wrong magic, a short or over-long blob are None. Standard library only.
+    The auditor-key cut (13 Nov 2026, NEXT-REVISION 31): a name in allowed_signers is not a key; the key inside the signature is."""
+    try:
+        text = pathlib.Path(path).read_bytes().decode("ascii")
+    except (OSError, UnicodeDecodeError):
+        return None
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "-----BEGIN SSH SIGNATURE-----":
+        return None
+    end = next((i for i, l in enumerate(lines) if i > 0 and l.strip() == "-----END SSH SIGNATURE-----"), None)
+    if end is None:
+        return None
+    try:
+        blob = base64.b64decode("".join(l.strip() for l in lines[1:end]), validate=True)
+    except (ValueError, TypeError):
+        return None
+    if len(blob) < 10 or blob[:6] != b"SSHSIG":
+        return None
+
+    def rd(off):
+        if off + 4 > len(blob):
+            raise ValueError("short")
+        n = int.from_bytes(blob[off:off + 4], "big")
+        if off + 4 + n > len(blob):
+            raise ValueError("short")
+        return blob[off + 4:off + 4 + n], off + 4 + n
+    try:
+        pk, off = rd(10)
+        for _ in range(4):
+            _, off = rd(off)
+    except ValueError:
+        return None
+    if off != len(blob) or len(pk) < 4 or 4 + int.from_bytes(pk[:4], "big") > len(pk):
+        return None
+    kt = pk[4:4 + int.from_bytes(pk[:4], "big")].decode("ascii", errors="replace")
+    if not kt.startswith(("ssh-", "ecdsa-", "sk-")):
+        return None
+    return kt + " " + base64.b64encode(pk).decode("ascii")
+
+
+def sshsig_fingerprint(key):
+    """`SHA256:<base64, no padding>` of a `<type> <base64>` key: what ssh-keygen -lf prints and signatures.json's key_id records."""
+    return "SHA256:" + base64.b64encode(hashlib.sha256(base64.b64decode(key.split()[1])).digest()).decode("ascii").rstrip("=")
 
 
 def merge_rows(audit, wrows, witness_name):
@@ -1102,16 +1151,25 @@ def main(argv):
         # K13 signatures over the prescribed line, verified with ssh-keygen when it is on PATH
         parts = {"audit.jsonl": "auditor"} | {w.get("file"): "witness" for w in witnesses if w.get("file")} | {"manifest.json": "manifest"}  # manifest: 0.6, optional
         sig_p = snap / "signatures.json"
+        allowed = snap / "allowed_signers"
         bad, warn, ok, covered, bind_ok = [], [], [], set(), []
+        # A1 (the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31; the ninth re-gate's S13): one principal, one key. A second line under a
+        # name is a second key, not a second signer: ssh-keygen -Y verify -I <name> accepts any key listed under the name, so a forger's
+        # line under the auditor's principal made its signatures "verified". A repeated identical line is one key (allowed_keys holds
+        # sets); a comma-joined principal field lists each name once; one line per offending principal, in file order.
+        if allowed.exists():
+            for p_, ks_ in allowed_keys(allowed).items():
+                if len(ks_) > 1:
+                    bad.append(f"allowed_signers: principal '{p_}' holds {len(ks_)} keys: one principal, one key in a record (a second line under a name is a second key, not a second signer)")
         if not sig_p.exists():
             warn.append("no signatures.json: the parts are unsigned")
         else:
             try:
                 sigs = json.loads(sig_p.read_text(encoding="utf-8"))
             except Exception as e:
-                sigs, bad = [], [f"signatures.json unreadable: {e}"]
+                sigs, bad = [], bad + [f"signatures.json unreadable: {e}"]
             tool = shutil.which("ssh-keygen")
-            allowed = snap / "allowed_signers"
+            listed_keys = allowed_keys(allowed) if allowed.exists() else {}
             for i, e in enumerate(sigs if isinstance(sigs, list) else []):
                 role, f = e.get("role"), e.get("file")
                 # the sources cut (13 Nov 2026, NEXT-REVISION 25b): manifest.json takes two roles, `manifest` (over its bytes, by whoever last
@@ -1142,6 +1200,11 @@ def main(argv):
                     continue
                 name = (e.get("signer") or {}).get("name")
                 covered.add(f)
+                # the auditor-key cut: the key INSIDE the signature file, read without ssh-keygen (None: not an SSHSIG, said by name; the
+                # ssh-keygen line below follows where the tool is on PATH)
+                emb = sshsig_public_key(sf)
+                if emb is None:
+                    bad.append(f"{f}: signature file {e.get('signature')} is not an SSH signature")
                 if role == "sources":
                     # R4: the sources role is the auditor's. The signer's key (by type and base64 from allowed_signers, a trailing comment
                     # ignored, as the auditor-key rule below reads keys) is one of the keys of the `auditor` entries; no auditor entry, no match.
@@ -1154,6 +1217,21 @@ def main(argv):
                         if not (keys_.get(name, set()) & set().union(*[keys_.get(n_, set()) for n_ in a_names])):
                             bad.append(f"manifest.json: the sources signature by {name!r} is not the auditor's key: the sources list is bound to the auditor alone")
                             continue
+                    # A2 (the auditor-key cut): the sources key IS the audit's key. R4 compared names; the ninth re-gate's S13 put a forger's
+                    # key under the auditor's name and R4 passed it. The key embedded in manifest.sources.sig must equal the key embedded in
+                    # an `auditor` entry's signature file; with or without ssh-keygen.
+                    if emb is not None:
+                        a_emb = {k_ for k_ in (sshsig_public_key(snap / e_["signature"]) for e_ in sigs if e_.get("role") == "auditor" and e_.get("signature")) if k_}
+                        if not a_emb:
+                            bad.append("manifest.json: a sources signature with no readable auditor signature to match")
+                            continue
+                        if emb not in a_emb:
+                            bad.append(f"manifest.json: the sources signature was made with key {sshsig_fingerprint(emb)} and audit.jsonl with {', '.join(sorted(sshsig_fingerprint(k_) for k_ in a_emb))}: the sources list is bound to the key that signed the audit, not to a name in allowed_signers")
+                            continue
+                # A3 (the auditor-key cut): every signature's embedded key is its principal's listed key. ssh-keygen refuses such a file too
+                # (its line follows); the checker says it by name, and says it without ssh-keygen.
+                if emb is not None and allowed.exists() and name and emb not in listed_keys.get(name, set()):
+                    bad.append(f"{f}: the signature's key {sshsig_fingerprint(emb)} is not the key allowed_signers lists for '{name}'")
                 if tool and allowed.exists() and name:
                     r = subprocess.run([tool, "-Y", "verify", "-f", str(allowed), "-I", name, "-n", SIGN_NAMESPACE, "-s", str(sf)],
                                        input=line.encode(), capture_output=True)
@@ -1189,9 +1267,14 @@ def main(argv):
             declared_self_audit = g.get("kind") == "self-audit" and isinstance(gates_, list) and len(gates_) > 0
             if (profile in ("agent-work", "test-run") or ma_files) and allowed.exists() and isinstance(sigs, list):
                 keys = allowed_keys(allowed)  # the key by type and base64; a trailing comment is not part of it (ssh-keygen ignores it, so must this comparison)
+                # A4 (the auditor-key cut): the key sets hold the listed keys AND the key embedded in each entry's signature file, so a
+                # witness file signed with the auditor's key is caught by the key itself, whatever allowed_signers lists under the name
+                emb_of = lambda e_: sshsig_public_key(snap / e_["signature"]) if e_.get("signature") else None  # noqa: E731
                 a_keys = set().union(*[keys.get((e.get("signer") or {}).get("name"), set()) for e in sigs if e.get("role") == "auditor"] or [set()])
+                a_keys |= {k_ for k_ in (emb_of(e) for e in sigs if e.get("role") == "auditor") if k_}
                 for e in sigs:
-                    if e.get("role") == "witness" and keys.get((e.get("signer") or {}).get("name"), set()) & a_keys:
+                    w_keys = keys.get((e.get("signer") or {}).get("name"), set()) | ({emb_of(e)} if e.get("role") == "witness" and emb_of(e) else set())
+                    if e.get("role") == "witness" and w_keys & a_keys:
                         if profile in ("agent-work", "test-run"):
                             bad.append(f"{e.get('file')}: signed with the auditor's key: the witness is never the auditor ({profile}, VR-I11)")
                         elif e.get("file") in ma_files:
