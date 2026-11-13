@@ -21,7 +21,7 @@ undecided rows, split lines across model witnesses, the key list, the manifest s
 no score, no claims_sha256, no grader or model; witnesses may be listed, none primary); K1 reads the declaration, K5 tests the
 auditor's pointers and candidate quotes without a verdict, K8 and K12 WARN that no score exists yet, K11 asks for no primary."""
 import traceback
-import base64, datetime, hashlib, html, json, pathlib, re, shutil, subprocess, sys, urllib.error, urllib.request
+import base64, datetime, hashlib, html, json, os, pathlib, re, shutil, stat, subprocess, sys, tempfile, urllib.error, urllib.request
 
 FORMATS = {"claims-snapshot/0.2", "claims-snapshot/0.3", "claims-snapshot/0.4", "claims-snapshot/0.5", "claims-snapshot/0.6"}
 WITNESS_VERDICTS = {"EVIDENCED", "NO EVIDENCE PUBLISHED", "CONTRADICTED", "EVIDENCE AVAILABLE ON REQUEST", "WITHDRAWN", "MISSING CLAIM", "UNDECIDED"}  # UNDECIDED: 0.6, a witness never the primary; never in VERDICTS, so never in claims.jsonl
@@ -191,7 +191,7 @@ class Report:
         """CHECK.json (SPEC.md section 5): what ran, over which bytes, when, with what result."""
         return {"engine": "check.py", "checker_sha256": sha256(__file__), "format_read": fmt,
                 "ran_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "manifest_sha256": sha256(snap / "manifest.json"), "flags": flags,
+                "manifest_sha256": sha256(snap / "manifest.json") if (snap / "manifest.json").is_file() else None, "flags": flags,
                 "checks": [{"id": k, "status": s, "text": m, "details": d} for k, s, m, d in self.rows], "result": self.result()}
 
 
@@ -488,12 +488,74 @@ def copy_text(snap, copies, src):
     return None
 
 
+class CheckJsonRefused(OSError):
+    """An existing CHECK.json the checker will not write over (V2i): a symbolic link, a pipe, a directory, anything but a regular file."""
+
+
+def write_check_json(R, snap, argv, fmt):
+    """V2i (the nineteenth re-gate's J05, J03, J04, U, 13 Nov 2026): CHECK.json is written on EVERY exit of a --json run, the early K1 and
+    K0 stops included, so a stale CHECK.json saying PASS never outlives a run that FAILed. It is written to a temporary file in the folder
+    and moved into place, so a write that stops half-way leaves the old file whole, never a truncated one. An existing CHECK.json that is
+    a symbolic link (it could point outside the folder and the run would overwrite that file), a named pipe, a directory or anything but a
+    regular file is refused, and so is one the user may not write (mode 444 stays a FAIL, as before). A refusal or a failed write is a K0
+    FAIL inside the one report. Text the folder supplies that UTF-8 cannot encode (a lone surrogate) is written backslash-escaped."""
+    p = snap / "CHECK.json"
+    flags = [a for a in argv[2:] if a.startswith("--") and a != "--json"]
+    tmpname = None
+    try:
+        try:
+            st = os.lstat(p)
+        except FileNotFoundError:
+            st = None
+        if st is not None:
+            if stat.S_ISLNK(st.st_mode):
+                raise CheckJsonRefused("a symbolic link, refused: the checker never writes through one")
+            if not stat.S_ISREG(st.st_mode):
+                raise CheckJsonRefused("not a regular file, refused")
+            if not os.access(p, os.W_OK):
+                raise PermissionError("not writable")
+        data = (json.dumps(R.as_json(snap, fmt, flags), ensure_ascii=False, indent=1) + "\n").encode("utf-8", "backslashreplace")
+        fd, tmpname = tempfile.mkstemp(prefix=".CHECK.json.", dir=snap)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        mask = os.umask(0)
+        os.umask(mask)
+        os.chmod(tmpname, 0o666 & ~mask)
+        os.replace(tmpname, p)
+        tmpname = None
+        return R.result()
+    except Exception as e:
+        why = f": {e.args[0]}" if isinstance(e, (CheckJsonRefused, PermissionError)) and len(e.args) == 1 and isinstance(e.args[0], str) else ""
+        R.add("K0", "FAIL", f"CHECK.json could not be written ({type(e).__name__}{why}): the checks ran, their record did not land; not a PASS")
+        return None
+    finally:
+        if tmpname is not None:
+            try:
+                os.unlink(tmpname)
+            except OSError:
+                pass
+
+
+def finish(R, snap, argv, fmt):
+    """The one way a run ends (V2i): CHECK.json first when --json asks for it, then the one report, then the written line."""
+    written = write_check_json(R, snap, argv, fmt) if snap is not None and "--json" in argv else None
+    print(R.text())
+    if written:
+        print(f"CHECK.json written ({written})")
+    return 1 if R.failed() else 0
+
+
 def main(argv):
     """V2g (the seventeenth re-gate's finding B, 13 Nov 2026): the checker never ends in a traceback. A part of the folder that no rule
     names and that still stops a check is a K0 FAIL, with the exception's type and the checker line, and the SUMMARY line the reader
     keys on; the folder is not checked further and is never a PASS. A named rule (K1's shape lines, K13's entry lines) is the fix for
     each such part; this line is the net under the ones not named yet."""
     R = Report()
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
     try:
         return _main(argv, R)
     except Exception as e:
@@ -508,7 +570,7 @@ def main(argv):
             return 1
         R.add("K0", "FAIL", f"the checker stopped on a part of the folder it does not read ({type(e).__name__} at check.py:{where}: {msg[:160]}): "
                             "the folder is not checked further and is not a PASS")
-        print(R.text())
+        finish(R, pathlib.Path(argv[1]) if len(argv) > 1 and argv[1] else None, argv, getattr(R, "fmt", None))
         return 1
 
 
@@ -528,14 +590,13 @@ def _main(argv, R):
         M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
     except Exception as e:
         R.add("K1", "FAIL", f"manifest.json unreadable: {e}")
-        print(R.text())
-        return 1
+        return finish(R, snap, argv, None)
+    R.fmt = M.get("format") if isinstance(M, dict) else None
     shape_ = manifest_shape_faults(M)
     if shape_:
         # V2f: a manifest of another shape fails here by name, never a traceback further down
         R.add("K1", "FAIL", f"manifest shape: {len(shape_)} part(s) of the wrong JSON kind, the folder is not checked further", shape_)
-        print(R.text())
-        return 1
+        return finish(R, snap, argv, M.get("format") if isinstance(M, dict) else None)
     # 0.6, the pre-witness stage (12 Nov 2026, SPEC 14): grading.kind "pre-witness" declares the auditor's part alone, no primary
     # witness named yet: no claims.jsonl, no score, no claims_sha256, no grading.grader or grading.model; witnesses may be listed, none
     # primary. The declaration is required: an undeclared folder missing those fields fails K1 as before.
@@ -637,8 +698,7 @@ def _main(argv, R):
         k1_text += "; pre-witness: the auditor's part alone, no primary witness named yet"
     R.add("K1", "FAIL" if missing or tr_bad or pre_bad else "PASS", k1_text)
     if missing or tr_bad or pre_bad:
-        print(R.text())
-        return 1
+        return finish(R, snap, argv, M.get("format"))
 
     # K2 files and hashes: every content file the manifest names, wherever it names it, each once (13 Nov 2026, NEXT-REVISION 20 and 22):
     # pages, sources, claims.jsonl (not pre-witness), the auditor part through grading.auditor.sha256 (0.4 and later), every witness
@@ -1742,19 +1802,8 @@ def _main(argv, R):
               gone + status_bad + page_gone + unchecked + drift + errs)
 
     # V2h (the eighteenth re-gate's X): CHECK.json is written BEFORE the one print, so a failed write is a FAIL line inside the report,
-    # never a PASS SUMMARY followed by a second one
-    written = None
-    if want_json:
-        flags = [a for a in argv[2:] if a.startswith("--") and a != "--json"]
-        try:
-            (snap / "CHECK.json").write_text(json.dumps(R.as_json(snap, M.get("format"), flags), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-            written = R.result()
-        except OSError as e:
-            R.add("K0", "FAIL", f"CHECK.json could not be written ({type(e).__name__}): the checks ran, their record did not land; not a PASS")
-    print(R.text())
-    if written:
-        print(f"CHECK.json written ({written})")
-    return 1 if R.failed() else 0
+    # never a PASS SUMMARY followed by a second one; V2i: the same finish on every exit
+    return finish(R, snap, argv, M.get("format"))
 
 
 if __name__ == "__main__":
