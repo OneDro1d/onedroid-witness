@@ -145,6 +145,12 @@ def main(argv):
     if bad_w_ is not None:
         print(f"refused: {snap}/manifest.json: grading.witnesses[{bad_w_}] is a JSON {check.json_kind(g['witnesses'][bad_w_])}, not an object", file=sys.stderr)
         return 1
+    # V2f (the sixteenth re-gate's A04, 13 Nov 2026): the parent manifest by the checker's shape rule, before any write (a string
+    # grading.auditor used to be written into, then stopped at "manifest not signed").
+    shape_ = check.manifest_shape_faults(M)
+    if shape_:
+        print(f"refused: {snap}/{shape_[0]}", file=sys.stderr)
+        return 1
     try:
         entries = as_list(ans / "manifest-entry.json")
         sig_entries = as_list(ans / "signatures-entry.json")

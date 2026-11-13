@@ -302,6 +302,54 @@ def json_kind(v):
     return JSON_KIND.get(type(v), type(v).__name__)
 
 
+def manifest_shape_faults(M):
+    """V2f (the twelfth cut, 13 Nov 2026, NEXT-REVISION 33; the sixteenth re-gate's checker finding): every part of manifest.json that a
+    reader uses as an object, a list, a path or a hash, checked by JSON kind, as lines "manifest.json: <path> is a JSON <kind>, not <want>",
+    every fault in document order (none dropped). The document is an object; grading an object (null included); grading.auditor an object
+    and its file, sha256 and name strings; grading.witnesses a list of objects whose name, file and sha256 are strings; pages and sources
+    lists of objects whose file and sha256 are strings (a source's may be null: a hash-only or no-copy source). An ABSENT field is not a fault here (K1 and the later checks say what a missing field
+    means); grading.auditor and grading.witnesses null read as absent (sign.py's rule since V2e). check.py fails K1 on any line; sign.py and
+    add_witness.py refuse by the same rule before writing."""
+    if not isinstance(M, dict):
+        return [f"manifest.json: a JSON {json_kind(M)} is not an object"]
+    out = []
+
+    def fault(path, v, want):
+        out.append(f"manifest.json: {path} is a JSON {json_kind(v)}, not {want}")
+
+    def strings(path, e, keys, nullable=False):
+        for k in keys:
+            if k in e and not isinstance(e[k], str) and not (nullable and e[k] is None):
+                fault(f"{path}.{k}", e[k], "a string or null" if nullable else "a string")
+
+    def object_list(path, v, keys, nullable=False):
+        if not isinstance(v, list):
+            fault(path, v, "a list")
+            return
+        for i, e in enumerate(v):
+            if isinstance(e, dict):
+                strings(f"{path}[{i}]", e, keys, nullable)
+            else:
+                fault(f"{path}[{i}]", e, "an object")
+    for k in ("pages", "sources"):
+        if k in M:
+            object_list(k, M[k], ("file", "sha256"), nullable=(k == "sources"))
+    if "grading" in M:
+        g = M["grading"]
+        if not isinstance(g, dict):
+            fault("grading", g, "an object")
+        else:
+            au = g.get("auditor")
+            if au is not None:
+                if isinstance(au, dict):
+                    strings("grading.auditor", au, ("file", "sha256", "name"))
+                else:
+                    fault("grading.auditor", au, "an object")
+            if g.get("witnesses") is not None:
+                object_list("grading.witnesses", g["witnesses"], ("name", "file", "sha256"))
+    return out
+
+
 def entry_shape_fault(e):
     """V2b and V2c (the twelfth cut, 13 Nov 2026, NEXT-REVISION 33; the twelfth re-gate's Q06 and the thirteenth's R05): the first wrong-shaped
     field of an OBJECT signature entry, as (field, JSON kind, what it should be), else None. role, file, sha256, line and signature are strings;
@@ -440,6 +488,12 @@ def main(argv):
         M = json.loads((snap / "manifest.json").read_text(encoding="utf-8"))
     except Exception as e:
         R.add("K1", "FAIL", f"manifest.json unreadable: {e}")
+        print(R.text())
+        return 1
+    shape_ = manifest_shape_faults(M)
+    if shape_:
+        # V2f: a manifest of another shape fails here by name, never a traceback further down
+        R.add("K1", "FAIL", f"manifest shape: {len(shape_)} part(s) of the wrong JSON kind, the folder is not checked further", shape_)
         print(R.text())
         return 1
     # 0.6, the pre-witness stage (12 Nov 2026, SPEC 14): grading.kind "pre-witness" declares the auditor's part alone, no primary

@@ -276,8 +276,8 @@ class T6T8T9Server(_Server):
 
     def test_t9_healthz_names_the_version_and_the_unchanged_prompts(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.16-dev")  # 0.1.8-dev when written; the version pin follows the cut
-        self.assertEqual(h["version"], "0.1.16-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.17-dev")  # 0.1.8-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.17-dev")
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)
         self.assertEqual(h["questions_sha256"], QUESTIONS_SHA_BEFORE)
 
