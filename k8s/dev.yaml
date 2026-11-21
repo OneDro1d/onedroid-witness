@@ -79,7 +79,13 @@ spec:
         - name: witness
           image: IMAGE_PLACEHOLDER
           ports: [{containerPort: 8080}]
+          # E2E-SIG3 (21 Nov 2026): receipts and results are signed (namespace onedroid-resp) with this ed25519 key, published under
+          # "service" on GET /keys. Secret witness-resp-signing-key (keys "key", "key.pub"), made from a key generated off-cluster and
+          # never printed. Store-key checking of callers stays off until WITNESS_KEY_SOURCE=store + WITNESS_STORE_KEYS_URL are set.
+          env:
+            - {name: WITNESS_RESP_SIGNING_KEY, value: /etc/onedroid-witness-resp/key}
           volumeMounts:
+            - {name: resp-signing-key, mountPath: /etc/onedroid-witness-resp, readOnly: true}
             - {name: config, mountPath: /etc/onedroid-witness, readOnly: true}
             - {name: openrouter, mountPath: /etc/onedroid-witness/openrouter, readOnly: true}
             - {name: data, mountPath: /var/lib/onedroid-witness}
@@ -93,6 +99,8 @@ spec:
             requests: {cpu: 100m, memory: 128Mi}
             limits: {cpu: "1", memory: 512Mi}
       volumes:
+        - name: resp-signing-key
+          secret: {secretName: witness-resp-signing-key, defaultMode: 0440}
         - name: config
           configMap: {name: onedroid-witness-config}
         - name: openrouter
