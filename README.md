@@ -67,6 +67,17 @@ string or a list of ids), `max_cost_usd` (a finite number), `published_url`) ans
 A sources-signed publisher (the format's `sign.py --role sources`) leaves `manifest.sources.sig` out of the request: `signatures.json` carries
 the entry, and the service refuses that file by name (0.1.10, the ninth re-gate's S15).
 
+### Signed responses (E2E-SIG3)
+Environment: `WITNESS_RESP_SIGNING_KEY` (path of an unencrypted OpenSSH ed25519 key, mounted read-only; unset: receipts and results carry
+`"signature": null` and `"unsigned": "no signing key configured"`; unusable: the server refuses to start), `WITNESS_KEY_SOURCE=store` with
+`WITNESS_STORE_KEYS_URL` (callers sign the request with a store key of scope `witness`: headers `X-Store-Key`, `X-Store-Time`,
+`X-Store-Signature`, signed line `onedroid-req/1 onedroid-witness POST /witness sha256:<body> <time>`), `WITNESS_REQUIRE_KEY=1` (refuse an
+unsigned request with 401 before anything is written). A 202 carries `receipt` and `signature`; the caller's signature is kept in the job
+folder (`receipt.json`) and never logged. `GET /witness/{job_id}/result` answers `{result, signature}` once the job has ended (409 before,
+404 unknown); `result.json` is the canonical JSON that was signed. Both are signed under namespace `onedroid-resp` over the canonical JSON
+(sort_keys, separators `,` `:`, UTF-8); verify with `ssh-keygen -Y verify -n onedroid-resp` against the `ssh` line in `GET /keys` `service.keys`.
+The per-model keys and their `claims-snapshot` signatures are unchanged. The code is ported from onedroid-audit (see `respsign.py`'s header).
+
 ## Where it comes from
 Contract: the witness-service contract draft v6 and the measurements of 12 Nov 2026 (two probes, 36 models over a 74-claim snapshot), in the
 OneDroid business notepad. Built by the trilix-onedroid-business session for mission M-20261112-EVIDENCE-STEP1; gated by another session
