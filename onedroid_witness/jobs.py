@@ -103,8 +103,9 @@ class Worker(threading.Thread):
     """Runs jobs one at a time. `models_of(job)` resolves the requested model ids to the configured entries; `client`, `keystore`,
     `check`, `prices` as in answer.run; `private_mode` and `catalogue_lookup` as in request.check_published."""
 
-    def __init__(self, store, client, keystore, check, models_of, prices, private_mode=False, catalogue_lookup=None, service_name="onedroid-witness"):
+    def __init__(self, store, client, keystore, check, models_of, prices, private_mode=False, catalogue_lookup=None, service_name="onedroid-witness", finish=None):
         super().__init__(daemon=True, name="witness-worker")
+        self.finish = finish  # SIG3 R5: finish(jid, final_status), called before the final status is written; a failure there never fails the job
         self.store, self.client, self.keystore, self.check, self.models_of, self.prices = store, client, keystore, check, models_of, prices
         self.private_mode, self.catalogue_lookup, self.service_name = private_mode, catalogue_lookup, service_name
         self.q = queue.Queue()
@@ -134,6 +135,11 @@ class Worker(threading.Thread):
             status.update({"state": "refused", "reason": str(e)[:500], "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
         except Exception as e:  # a failure is recorded, never silent
             status.update({"state": "failed", "reason": f"{type(e).__name__}: {str(e)[:500]}", "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        if self.finish is not None:
+            try:
+                self.finish(jid, status)
+            except Exception:  # noqa: BLE001 - the result is an addition to the answer, not part of it
+                pass
         self.store.write_status(jid, status)
         return status
 

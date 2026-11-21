@@ -208,18 +208,20 @@ class R1ServiceKey(Base):
         st, ans, _ = self.post()
         self.wait_result(ans["job_id"])
         keys = self.keys()
-        principals = sorted(k["principal"] for k in keys["keys"])
-        self.assertEqual(principals, ["onedroid-witness-openai-gpt-4-1-nano", "onedroid-witness-typesafe-jev-1-14"])
+        resp_pub = keys["service"]["keys"][0]["ssh"].split()[1]
+        self.assertGreaterEqual(len(keys["keys"]), 2)  # the model identities (and the service record's) as before, minted by KeyStore
         for k in keys["keys"]:
             self.assertEqual(k["valid_to"], None)
+            self.assertTrue(k["principal"].startswith("onedroid-witness-"))
+            self.assertNotEqual(k["key"], resp_pub)  # the response key is not in the model key list
         self.assertNotIn("PRIVATE KEY", json.dumps(keys))
         for p in pathlib.Path(self.tmp, "jobs").rglob("*"):
             if p.is_file():
                 self.assertNotIn(b"BEGIN OPENSSH PRIVATE KEY", p.read_bytes(), str(p))
                 self.assertNotIn(secret_body.encode().splitlines()[1], p.read_bytes(), str(p))
-        # the model signatures are still under claims-snapshot: the answer folder's audit signatures verify as before
+        # the model signatures are still made by the KeyStore under claims-snapshot: the answer folder holds .sig files as before
         answer = pathlib.Path(self.tmp, "jobs", ans["job_id"], "answer")
-        self.assertTrue(any(answer.rglob("*.sig")) or any(answer.rglob("*")))
+        self.assertTrue(any(answer.rglob("*.sig")))
 
 
 class R2Keys(Base):

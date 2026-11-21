@@ -73,10 +73,13 @@ def cmd_serve(args):
     check, ledger, client, keystore, prices = build(cfg)
     store = JobStore(cfg.get("jobs_dir", "jobs"))
     known = {m["id"]: m for m in cfg["models"]}
-    worker = Worker(store, client, keystore, check, lambda ids: [known[i] for i in ids], prices, private_mode=bool(cfg.get("private_mode")))
+    from . import respsign
+    wiring = respsign.from_env(os.environ, store, __version__, private_mode=bool(cfg.get("private_mode")))  # E2E-SIG3: stops here when the key or key source is unusable
+    worker = Worker(store, client, keystore, check, lambda ids: [known[i] for i in ids], prices, private_mode=bool(cfg.get("private_mode")),
+                    finish=wiring.responder.finish)
     worker.start()
     from .server import serve
-    serve({"store": store, "worker": worker, "models_cfg": cfg["models"], "prices": prices, "ledger": ledger, "keystore": keystore,
+    serve({"responder": wiring.responder, "verifier": wiring.verifier, "require_key": wiring.require_key,"store": store, "worker": worker, "models_cfg": cfg["models"], "prices": prices, "ledger": ledger, "keystore": keystore,
            "private_mode": bool(cfg.get("private_mode")), "version": __version__,
            "profiles_served": tuple(cfg.get("profiles_served", request.PROFILES_SERVED)),
            "models_not_served": cfg.get("models_not_served", {})}, host=cfg.get("host", "0.0.0.0"), port=int(cfg.get("port", 8080)))

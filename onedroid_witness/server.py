@@ -23,7 +23,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import answer as answer_mod
-from . import prompts, render, request as request_mod
+from . import prompts, render, request as request_mod, respsign
+from .respsign import KeyServiceUnavailable
 from .checkpin import CHECK_PY_SHA256
 from .openrouter import RouterRefused, refuse_routers
 
@@ -89,9 +90,17 @@ def make_handler(cfg):
                 return self._json(200, {"models": out, "not_served": dict(cfg.get("models_not_served") or {}),
                                         "note": "a router, an alias or a free tier is never a model identity and is refused"})
             if path == "/keys":
-                return self._json(200, cfg["keystore"].keys_list())
+                doc = dict(cfg["keystore"].keys_list())
+                if cfg.get("responder") is not None:  # SIG3 R2: the model keys as before, plus the key the service signs receipts and results with
+                    doc["service"] = cfg["responder"].keys_doc()
+                return self._json(200, doc)
             if path.startswith("/witness/"):
                 rest = path[len("/witness/"):]
+                if rest.endswith("/result"):  # SIG3 R5
+                    if cfg.get("responder") is None:
+                        return self._json(404, {"error": "not found"})
+                    code, body = cfg["responder"].result_response(rest[:-len("/result")])
+                    return self._json(code, body)
                 if rest.endswith("/answer.tar"):
                     jid = rest[:-len("/answer.tar")]
                     st = cfg["store"].status(jid)
@@ -127,6 +136,20 @@ def make_handler(cfg):
                 return self._json(413, {"error": f"body must be 1 to {MAX_BODY} bytes"})
             ctype = self.headers.get("Content-Type", "")
             raw = self.rfile.read(length)
+            # SIG3 R3: the caller's signature is checked over the exact body bytes before anything is parsed or written
+            account = None
+            verifier = cfg.get("verifier")
+            if verifier is not None:
+                signed = any(self.headers.get(h) for h in ("X-Store-Key", "X-Store-Time", "X-Store-Signature"))
+                if signed or cfg.get("require_key"):
+                    try:
+                        account = verifier.verify_request("POST", "/witness", raw, self.headers)
+                    except KeyServiceUnavailable:
+                        return self._json(503, {"error": "the key service is not available; try again shortly"})
+                    if account is None:
+                        return self._json(401, {"error": "a valid signed request is required (X-Store-Key, X-Store-Time, X-Store-Signature)"})
+                    if respsign.SCOPE_WITNESS not in account["scopes"]:
+                        return self._json(403, {"error": "this key does not carry the witness scope"})
             try:
                 parts, params = _parse(ctype, raw, self.headers)
             except ValueError as e:
@@ -163,7 +186,7 @@ def make_handler(cfg):
             d = cfg["store"].incoming()
             kept = {"jid": None}
             try:
-                status, body = self._accept(d, parts, params, models, known, kept)
+                status, body = self._accept(d, parts, params, models, known, kept, raw, account)
             except Exception as e:  # P1's backstop: an exception the checks did not foresee still gets an answer; its text is not echoed
                 if kept["jid"] is None:
                     status, body = 500, {"error": f"the request could not be processed ({type(e).__name__}); nothing was kept"}
@@ -174,7 +197,7 @@ def make_handler(cfg):
                     cfg["store"].discard(d)
             return self._json(status, body)
 
-        def _accept(self, d, parts, params, models, known, kept):
+        def _accept(self, d, parts, params, models, known, kept, raw=b"", account=None):
             """Everything between incoming() and the answer: the parts written, checked (Request, the published copy), rendered for the
             estimate, the budget applied, then the folder adopted as a job. Returns (status, body); sets kept["jid"] once the folder is a
             job, so the caller's finally knows what to discard."""
@@ -224,9 +247,12 @@ def make_handler(cfg):
             kept["jid"] = jid
             cfg["store"].write_status(jid, {"job_id": jid, "state": "queued", "claims": len(req.audit), "profile": req.profile, "models": models, "models_run_planned": planned,
                                             "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total, "max_cost_usd": max_cost})
+            body = {"job_id": jid, "status_url": f"/witness/{jid}", "claims": len(req.audit), "profile": req.profile, "models_run_planned": planned,
+                    "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total}
+            if cfg.get("responder") is not None:  # SIG3 R4: the signed receipt exists before the worker can see the job
+                body.update(cfg["responder"].issue_receipt(jid, raw, account))
             cfg["worker"].submit(jid)
-            return 202, {"job_id": jid, "status_url": f"/witness/{jid}", "claims": len(req.audit), "profile": req.profile, "models_run_planned": planned,
-                         "models_skipped": skipped, "estimate_usd": per_model, "estimate_total_usd": total}
+            return 202, body
 
     return Handler
 
