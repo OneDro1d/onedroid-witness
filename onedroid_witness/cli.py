@@ -79,7 +79,7 @@ def cmd_serve(args):
                     finish=wiring.responder.finish)
     worker.start()
     from .server import serve
-    serve({"responder": wiring.responder, "verifier": wiring.verifier, "require_key": wiring.require_key,"store": store, "worker": worker, "models_cfg": cfg["models"], "prices": prices, "ledger": ledger, "keystore": keystore,
+    serve({"responder": wiring.responder, "verifier": wiring.verifier, "require_key": wiring.require_key, "caller_verifier": wiring.caller_verifier, "store": store, "worker": worker, "models_cfg": cfg["models"], "prices": prices, "ledger": ledger, "keystore": keystore,
            "private_mode": bool(cfg.get("private_mode")), "version": __version__,
            "profiles_served": tuple(cfg.get("profiles_served", request.PROFILES_SERVED)),
            "models_not_served": cfg.get("models_not_served", {})}, host=cfg.get("host", "0.0.0.0"), port=int(cfg.get("port", 8080)))

@@ -30,7 +30,9 @@ A `sources` entry is a non-manifest entry: kept in order, its manifest.sources.s
 One principal, one key (the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31): an answer whose `allowed_signers` fragment would leave any
 principal with two distinct keys, against the snapshot's existing lines or inside the fragment itself, is refused before anything is written.
 One auditor (the one-auditor cut, 13 Nov 2026, NEXT-REVISION 32): a parent whose signatures.json holds more than one auditor, sources or
-manifest entry, or an auditor entry whose signature file is not audit.jsonl.sig, is refused before anything is written."""
+manifest entry, or an auditor entry whose signature file is not audit.jsonl.sig, is refused before anything is written.
+0.7 (14 Nov 2026): the manifest's `links` is kept byte-identical (checked after the write; a change aborts), and the sources signature
+it recognises is over check.sources_digest (six sections on 0.7, links too); a witness header's `bound` stays at the five sections."""
 import hashlib, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -87,7 +89,7 @@ def sources_signed(snap, M):
         sigs = json.loads((snap / "signatures.json").read_text(encoding="utf-8"))
     except Exception:
         return False
-    digest = check.bound_digest(M)
+    digest = check.sources_digest(M)  # 0.7: six sections, links too; before 0.7 exactly check.bound_digest(M)
     line = check.signed_line("sources", "manifest.json", digest)
     for e in sigs if isinstance(sigs, list) else []:
         if not (isinstance(e, dict) and check.entry_shape_fault(e) is None and e.get("role") == "sources" and e.get("file") == "manifest.json" and e.get("sha256") == digest and e.get("line") == line):
@@ -175,6 +177,15 @@ def main(argv):
         if fault_:
             problems.append("the answer's " + check.shape_fault_line(i_, fault_))
 
+    # 0.9 (SPEC 17): the document profile names no primary and no majority; an entry marked primary is refused by that line, before any write.
+    # A witness of kind script is a witness of that profile only.
+    is_doc = g.get("profile") == check.DOCUMENT_PROFILE and check.fmt_at_least(M, "0.9")
+    if is_doc:
+        for e_ in entries:
+            if e_.get("primary"):
+                print(f"refused, nothing written: entry {e_.get('name')!r} is marked primary, and the document profile names no primary: "
+                      "the result is the auditor's claimed verdicts and each witness's agreement with them", file=sys.stderr)
+                return 1
     names = {w.get("name") for w in g["witnesses"]}
     files_have = {w.get("file") for w in g["witnesses"]}
     auditor_signed = sources_signed(snap, M)  # the sources cut: a bound mismatch against sections the auditor signed says so
@@ -243,7 +254,7 @@ def main(argv):
                         elif bv != want[section]:
                             problems.append(f"entry {n!r}: bound {section!r} sha256 {bv[:12]}… differs from this snapshot's {want[section][:12]}…: the witness read a manifest whose {section} is not this snapshot's"
                                             + ("; the auditor signed these sections" if auditor_signed else ""))
-        if e.get("kind") not in (None, "human", "agent", "model"):
+        if e.get("kind") not in ((None, "human", "agent", "model", "script") if is_doc else (None, "human", "agent", "model")):
             problems.append(f"entry {n!r}: kind {e.get('kind')!r}")
     files_new = {e.get("file") for e in entries}
     for se in sig_entries:
@@ -309,6 +320,7 @@ def main(argv):
         print("refused, nothing written:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1
 
+    links_before = json.dumps(M.get("links"), sort_keys=True)
     before = {f: check.sha256(snap / f) for f in UNTOUCHED if (snap / f).exists()}  # a pre-witness folder has no claims.jsonl (gate of 1e, 13 Nov 2026)
     for w in g["witnesses"]:
         before[w["file"]] = check.sha256(snap / w["file"]) if w.get("file") and (snap / w["file"]).exists() else None
@@ -338,6 +350,10 @@ def main(argv):
     after = {f: (check.sha256(snap / f) if (snap / f).exists() else None) for f in before}
     if before != after:
         print("ABORT: a file that must not change did change: " + ", ".join(k for k in before if before[k] != after[k]), file=sys.stderr)
+        return 1
+    # 0.7 (14 Nov 2026): `links` is written at first publication only; an insertion never adds, removes or reorders a link
+    if json.dumps(json.loads((snap / "manifest.json").read_text(encoding="utf-8")).get("links"), sort_keys=True) != links_before:
+        print("ABORT: the manifest's links changed during the insertion", file=sys.stderr)
         return 1
     untouched = [f for f in UNTOUCHED if f in before]
     print(f"added {len(entries)} witness(es): {', '.join(sorted(new_names))}; {len(new_lines)} allowed_signers line(s), {len(extra)} extra file(s); "

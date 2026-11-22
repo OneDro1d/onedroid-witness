@@ -82,9 +82,12 @@ def chat_answer(text, finish, row):
     return body, True
 
 
-def decision_answer(answers, row):
+def decision_answer(answers, row, proofs_allowed=None):
     """A decision model's typed answers to a row body (3e.4): the verdict from the choice, the candidate by argmax of the yes-probabilities
-    on the needed side, the note written here from the probabilities, confidence from the choice confidence."""
+    on the needed side, the note written here from the probabilities, confidence from the choice confidence. `proofs_allowed` (0.1.21, R4c,
+    the document profile): the FOR indices an EVIDENCED may rest on (the artefact proofs); the argmax runs over those alone, and with none
+    asked about the row is UNDECIDED. A decision model names no candidate itself, so this is the service's candidate rule, not a change to
+    the model's answer."""
     if not isinstance(answers, dict) or not isinstance(answers.get("verdict"), dict):
         return _undecided("decision answer not in the expected shape: no verdict question answered")
     v = answers["verdict"]
@@ -110,7 +113,9 @@ def decision_answer(answers, row):
     ntxt = "; ".join([f"FOR[{i}] {x:.2f}" for i, x in enumerate(pn) if x is not None] + [f"AGAINST[{i}] {x:.2f}" for i, x in enumerate(cn) if x is not None])
     note = f"decision model, no text: verdict probabilities {ptxt}, confidence {conf}" + (f"; candidate yes-probabilities {ntxt}" if ntxt else "")
     if word == "EVIDENCED":
-        known = [(x, i) for i, x in enumerate(pn) if x is not None]
+        known = [(x, i) for i, x in enumerate(pn) if x is not None and (proofs_allowed is None or i in proofs_allowed)]
+        if not known and proofs_allowed is not None:
+            return _undecided("the model chose EVIDENCED and the row has no artefact FOR candidate it was asked about (a restatement never evidences a claim in the document profile): " + note)
         if not known:
             return _undecided("the model chose EVIDENCED and the row has no FOR candidate it was asked about: " + note)
         best = max(known)[1]
@@ -162,6 +167,43 @@ def vocabulary_rule(hits):
         return None
     return {"verdict": "UNDECIDED", "on": dict(UND),
             "note": "the evidence addresses the witness: " + "; ".join(hits) + " (a text that names a verdict is not evidence of a claim; a reader decides this row)"}
+
+
+# ---- the document profile (0.1.21, R4c; claims-snapshot 0.9, SPEC 17) ----
+DOCUMENT_VERDICTS = ("EVIDENCED", "CONTRADICTED", "NO EVIDENCE PUBLISHED", "UNDECIDED")  # the three verdicts and UNDECIDED (check.py K11)
+
+
+def artefact_proofs(row):
+    """The FOR indices whose candidate the auditor marked artefact: the only proofs that can evidence a document claim."""
+    return {i for i, c in enumerate(row.get("proofs") or []) if isinstance(c, dict) and c.get("kind") == "artefact"}
+
+
+def restatement_rule(row):
+    """R4c-3: a document claim whose candidates include no proof of kind artefact and no counter is NO EVIDENCE PUBLISHED by rule, before
+    any model call, at no cost: nothing in it can evidence or contradict the claim. The body, or None when the row goes to the models."""
+    proofs = row.get("proofs") or []
+    if row.get("counter") or artefact_proofs(row):
+        return None
+    n = sum(1 for c in proofs if isinstance(c, dict) and c.get("kind") == "restatement")
+    what = (f"its {n} FOR candidate(s) are restatements, which never evidence a claim" if n else "it has no candidate at all")
+    return {"verdict": "NO EVIDENCE PUBLISHED", "on": dict(UND),
+            "note": f"settled by the restatement rule before any model call: the auditor named no artefact proof and no counter ({what}); no model was asked and nothing was spent"}
+
+
+def document_rules(body, row):
+    """R4c-4: rules on a document row that stand above any model's answer and above a pass-through. A verdict outside the profile's
+    vocabulary (EVIDENCE AVAILABLE ON REQUEST, WITHDRAWN: SPEC 17 has neither) is UNDECIDED naming it; an EVIDENCED whose on.proofs names
+    no artefact proof (a restatement alone) is UNDECIDED naming the indices and keeping the model's note. Never a near-miss normalisation:
+    an index is never dropped, a verdict never changed into another verdict."""
+    v = body.get("verdict")
+    if v not in DOCUMENT_VERDICTS:
+        return {"verdict": "UNDECIDED", "on": dict(UND), "note": f"{v} is not a document-profile verdict (the three verdicts and UNDECIDED, SPEC 17): " + str(body.get("note") or "")}
+    if v == "EVIDENCED":
+        named = [i for i in (body.get("on") or {}).get("proofs", []) if isinstance(i, int)]
+        if not any(i in artefact_proofs(row) for i in named):
+            return {"verdict": "UNDECIDED", "on": dict(UND),
+                    "note": f"the model answered EVIDENCED on restatement proof(s) only (proofs {named}); in the document profile only an artefact evidences a claim; the model said: " + str(body.get("note") or "")}
+    return body
 
 
 def passthrough(row):

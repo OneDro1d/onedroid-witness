@@ -17,20 +17,21 @@ Standard-library Python plus `ssh-keygen`. No framework, no dependency, so a str
 - A decision model returns probabilities and no text; the service writes the note from the probabilities, names the best-scoring candidate, and says so in the header.
 - The prompts and the decision questions are part of the contract: their sha256 is in every witness header and in `service.json`.
 - A daily spend cap and a per-request estimate bound the cost; a request whose estimate crosses the bound is refused before any model is called; a partial run names the models it skipped and why.
-- The public service takes published parts only (a catalogue record, or a public https URL whose `audit.jsonl` matches byte for byte, fetched under SSRF rules). Private mode is the same code run by the caller with the caller's own key.
+- The public service takes published parts only (a catalogue record, or a public https URL whose `audit.jsonl` matches byte for byte, fetched under SSRF rules), and an unpublished document part only from a caller verified against `WITNESS_CALLER_KEYS_URL` (below). Private mode is the same code run by the caller with the caller's own key.
 - The signature proves "the service says model X answered", never that a model signed. `GET /keys` lists every key the service has ever used with its validity window and never deletes one.
 
 ## Run it
 ```
-python3 -m unittest discover -s tests            # 42 tests, offline, recorded answers; needs ssh-keygen
+python3 -m unittest discover -s tests            # offline, recorded answers; needs ssh-keygen
 python3 -m onedroid_witness.cli run --config config.json <snapshot folder> <answer folder>   # private mode, one shot
 python3 -m onedroid_witness.cli serve --config config.json                                   # the service
 ```
 Configuration: `{"models": [{"id", "kind": "chat|decision", "max_tokens"}], "daily_cap_usd", "keys_dir", "jobs_dir", "ledger_path",
 "check_py", "openrouter_key_file" (or `OPENROUTER_API_KEY`), "private_mode", "host", "port", "profiles_served", "models_not_served"}`. `vendor/check.py` is the
-public checker at the hash the service pins (`onedroid_witness/checkpin.py`); the service refuses to start on any other. `profiles_served`
-defaults to cited-sources, agent-work and test-run: publisher-surfaces is refused by name until the format carries a candidate kind
-(restatement or artefact) from the auditor and a gate passes on it (NEXT-REVISION 23 of the format). For an agent-work or test-run claim the
+public checker at the hash the service pins (`onedroid_witness/checkpin.py`: ff304606…, claims-snapshot 0.9 with the document profile,
+OneDro1d/onedroid-claims PR #35 head a5ce040; `vendor/sign.py` and `vendor/add_witness.py` are the same head's); the service refuses to start on
+any other. `profiles_served` defaults to cited-sources, agent-work, test-run and document: publisher-surfaces is refused by name until the format carries a candidate kind
+(restatement or artefact) from the auditor and a gate passes on it (NEXT-REVISION 23 of the format); the document profile is where it does. For an agent-work or test-run claim the
 request carries the files the manifest names under `sources/` and `sessions/` (each hash-checked against its manifest entry, a part no entry
 names refused by name); every pointer of the claim's `evidence` list is resolved from them the way `check.py` resolves it (the pointed file
 line with its neighbours, the handed-in output, each artefact by name and hash, the session record row) and rendered to the models, a pointer
@@ -59,6 +60,37 @@ in `service.json`. A `published_url` on a
 gist needs the gist's revision URL (`raw/<revision>/audit.jsonl`): a raw gist URL names one blob under any file name, and the refusal
 says so. `GET /healthz` lists the profiles served and, for each not served, why, and the models not served with the reason.
 
+## The document profile (claims-snapshot 0.9, SPEC 17; 0.1.21, R4c)
+A `document` request is a 0.9 pre-witness folder, the auditor's part: `manifest.json`, `audit.jsonl` with its signature, `allowed_signers`,
+`signatures.json`, every page the manifest lists (a part named by its `pages[].file`, e.g. `page.md`, hash-checked against the entry; a page
+no entry names, a part named like a fixed part or a job file, and a page that is not UTF-8 are refused by name) and the source copies under
+`sources/`. The format's own rules run first, from the pinned checker (`fmt_at_least` 0.9, `document_faults`, `document_audit_faults`): a
+folder the checker would fail is refused by its line. Per claim the models read the claim text, the lines where the document makes it, and
+each candidate FOR and AGAINST with its index, its kind in words (artefact, or restatement: says the claim again and never evidences it),
+where it comes from (the document's page, or the external source with its number, url, copy status, saved file and `fetched_at`), its quote,
+and the lines around the quote in that page or copy (found after the format's typographic fold; a hash-only source shows its quote alone).
+The models never see the auditor's `claimed` verdict or note, a candidate's note, `consulted` or `searched`: the witness reads the evidence,
+not the auditor's conclusion. Rules above any model, in order: the row's own pass-through (a promise; ON REQUEST and WITHDRAWN, which SPEC 17
+does not have, are UNDECIDED); the **restatement rule**: a claim with no artefact proof and no counter is NO EVIDENCE PUBLISHED with a note
+saying so, before any model call, at no cost; the vocabulary rule, which here also reads the lines shown around each quote. A model's
+answer: EVIDENCED stands only when `on.proofs` names an artefact (a restatement alone is UNDECIDED naming the indices, the model's note kept;
+an index is never dropped); a decision model's EVIDENCED names the best-scoring artefact proof; an index that does not exist, ON REQUEST or
+WITHDRAWN is UNDECIDED. The chat EVIDENCED still needs a decision model's agreement on the row. Each witness entry carries `agreement`
+`{with: auditor, decided, same, pct}` as K12 recomputes it. The estimate counts only the claims sent to models (a folder settled by rule
+costs 0); the daily cap and `max_cost_usd` apply as before. Inserted with `vendor/add_witness.py`, the answer passes `vendor/check.py`
+(K13 verifies each model witness's signature and, with `--keys` holding the service's keys in the `keys/model-keys.jsonl` shape, binds its
+principal to the model for `started_at`). Fixtures: `fixtures/README-document-fixtures.md`; tests: `tests/test_r4c_document.py`.
+
+**Unpublished document parts (R4c-5).** Public mode takes published parts only, as before, and a published document part takes the same
+path (catalogue record or `published_url`, the manifest bound section by section). A document part with no `published_url` and no catalogue
+record is accepted ONLY from a caller whose request signature (headers `X-Store-Key`, `X-Store-Time`, `X-Store-Signature`, signed line
+`onedroid-req/1 onedroid-witness POST /witness sha256:<body> <time>`, namespace `onedroid-req`) verifies against the key list at
+`WITNESS_CALLER_KEYS_URL` (the audit service's `GET /audit/v1/keys`, `{service, namespace, keys: [{key_id, public_key, ssh}]}`; on dev
+`http://onedroid-audit.audit-dev.svc.cluster.local/audit/v1/keys`; read the way onedroid-w1 reads `W1_CALLER_KEYS_URL`, `respsign.CallerKeys`).
+No `WITNESS_CALLER_KEYS_URL`: such a part is refused by name (422, nothing kept); unsigned: 422 by name; a signature that does not verify:
+401. The SIG3 receipt names the verified caller (`key_id`, `owner` = the list's `service`, `key_source: caller`, `key_list`), and
+`service.json` records it under `published.unpublished_from_verified_caller`. Nothing is fetched for such a part.
+
 ## HTTP surface
 `POST /witness` (multipart or JSON: `manifest.json`, `audit.jsonl`, `audit.jsonl.sig`, `allowed_signers`, `signatures.json`, the audited
 text, and any file the manifest names under `sources/` or `sessions/` as a part named by that path; fields `models` (a comma-separated
@@ -77,6 +109,8 @@ folder (`receipt.json`) and never logged. `GET /witness/{job_id}/result` answers
 404 unknown); `result.json` is the canonical JSON that was signed. Both are signed under namespace `onedroid-resp` over the canonical JSON
 (sort_keys, separators `,` `:`, UTF-8); verify with `ssh-keygen -Y verify -n onedroid-resp` against the `ssh` line in `GET /keys` `service.keys`.
 The per-model keys and their `claims-snapshot` signatures are unchanged. The code is ported from onedroid-audit (see `respsign.py`'s header).
+`WITNESS_CALLER_KEYS_URL` (0.1.21, R4c-5; an http(s) URL, else the server refuses to start) adds the caller key list beside the store's:
+a signed request is verified against the store list first, then the caller list; see the document profile above for what it admits.
 
 ## Where it comes from
 Contract: the witness-service contract draft v6 and the measurements of 12 Nov 2026 (two probes, 36 models over a 74-claim snapshot), in the

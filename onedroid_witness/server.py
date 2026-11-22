@@ -136,19 +136,28 @@ def make_handler(cfg):
                 return self._json(413, {"error": f"body must be 1 to {MAX_BODY} bytes"})
             ctype = self.headers.get("Content-Type", "")
             raw = self.rfile.read(length)
-            # SIG3 R3: the caller's signature is checked over the exact body bytes before anything is parsed or written
+            # SIG3 R3: the caller's signature is checked over the exact body bytes before anything is parsed or written. 0.1.21 (R4c-5): the
+            # same headers verify against the store key list (WITNESS_KEY_SOURCE=store) or, failing that, the caller key list
+            # (WITNESS_CALLER_KEYS_URL, the audit service's keys, respsign.CallerKeys); a signed request neither list verifies is 401
             account = None
-            verifier = cfg.get("verifier")
-            if verifier is not None:
+            verifiers = [v for v in (cfg.get("verifier"), cfg.get("caller_verifier")) if v is not None]
+            if verifiers:
                 signed = any(self.headers.get(h) for h in ("X-Store-Key", "X-Store-Time", "X-Store-Signature"))
                 if signed or cfg.get("require_key"):
-                    try:
-                        account = verifier.verify_request("POST", "/witness", raw, self.headers)
-                    except KeyServiceUnavailable:
+                    unavailable = False
+                    for verifier in verifiers:
+                        try:
+                            account = verifier.verify_request("POST", "/witness", raw, self.headers)
+                        except KeyServiceUnavailable:
+                            unavailable = True
+                            continue
+                        if account is not None:
+                            break
+                    if account is None and unavailable:
                         return self._json(503, {"error": "the key service is not available; try again shortly"})
                     if account is None:
                         return self._json(401, {"error": "a valid signed request is required (X-Store-Key, X-Store-Time, X-Store-Signature)"})
-                    if respsign.SCOPE_WITNESS not in account["scopes"]:
+                    if account.get("key_source") != respsign.CALLER_KEY_SOURCE and respsign.SCOPE_WITNESS not in account["scopes"]:
                         return self._json(403, {"error": "this key does not carry the witness scope"})
             try:
                 parts, params = _parse(ctype, raw, self.headers)
@@ -204,22 +213,29 @@ def make_handler(cfg):
             for name, data in parts.items():  # a carried part's name is a checked relative path under sources/ or sessions/ (S-1, _parse)
                 (d / name).parent.mkdir(parents=True, exist_ok=True)
                 (d / name).write_bytes(data)
+            unpublished_caller = None
             try:
                 req = request_mod.Request(d, private_mode=cfg["private_mode"], profiles_served=cfg.get("profiles_served", request_mod.PROFILES_SERVED))
                 if not cfg["private_mode"]:
-                    # 0.1.6 (H1): the manifest is bound to the published snapshot here too; `fetch` is injectable for tests only (the
-                    # production configuration has no `fetch` key). The worker re-runs the same check before the models run.
-                    request_mod.check_published(req, params.get("published_url"), cfg.get("catalogue_lookup"), fetch=cfg.get("fetch", request_mod.fetch_published))
+                    if req.is_document and _unpublished(req, params, cfg.get("catalogue_lookup")):
+                        # 0.1.21 (R4c-5): an unpublished document part (no published_url, no catalogue record) comes only from a caller whose
+                        # signature verified against the caller key list (the audit service's keys); else it is refused by name, nothing kept
+                        if cfg.get("caller_verifier") is None:
+                            return 422, {"error": UNPUBLISHED_NO_CALLER_KEYS}
+                        if account is None or account.get("key_source") != respsign.CALLER_KEY_SOURCE:
+                            return 422, {"error": UNPUBLISHED_NOT_VERIFIED}
+                        unpublished_caller = respsign.unpublished_caller(account)
+                    else:
+                        # 0.1.6 (H1): the manifest is bound to the published snapshot here too; `fetch` is injectable for tests only (the
+                        # production configuration has no `fetch` key). The worker re-runs the same check before the models run.
+                        request_mod.check_published(req, params.get("published_url"), cfg.get("catalogue_lookup"), fetch=cfg.get("fetch", request_mod.fetch_published))
             except request_mod.Refused as e:
                 return 422, {"error": str(e)}
             except Exception as e:  # re-gate N3: a part that does not read answers 422 and leaves no bytes, whatever raised
                 return 422, {"error": f"the parts do not read ({type(e).__name__}); nothing was kept"}
             models_cfg = [known[m] for m in models]
-            render_mod = __import__("onedroid_witness.render", fromlist=["render"])
-            by_url = render_mod.source_index(req.manifest)
-            evidence = render_mod.evidence_index(req.manifest, req.root)
-            rendered_chars = sum(len(render_mod.render(r, req.page, by_url, evidence)) for r in req.audit)
-            per_model, total = answer_mod.estimate(models_cfg, cfg["prices"], rendered_chars, len(req.audit), len(prompts.chat_prompt(req.profile)))
+            # the estimate (0.1.21, R4c-7: answer.estimate_request; for a document only the claims sent to the models count)
+            per_model, total = answer_mod.estimate_request(req, models_cfg, cfg["prices"])
             try:
                 max_cost = float(params["max_cost_usd"]) if params.get("max_cost_usd") not in (None, "") else None
             except (ValueError, TypeError):
@@ -242,7 +258,10 @@ def make_handler(cfg):
             if not planned:
                 return 422, {"error": "the estimate alone crosses max_cost_usd or the day's remaining cap for every model asked", "estimate_usd": per_model, "estimate_total_usd": total,
                              "max_cost_usd": max_cost, "daily_cap_remaining_usd": round(remaining, 4)}
-            (d / "params.json").write_text(json.dumps({"models": models, "max_cost_usd": max_cost, "published_url": params.get("published_url")}), encoding="utf-8")
+            job_params = {"models": models, "max_cost_usd": max_cost, "published_url": params.get("published_url")}
+            if unpublished_caller is not None:  # R4c-5: the worker takes the unpublished document part on this record, written by the server alone
+                job_params["unpublished_caller"] = unpublished_caller
+            (d / "params.json").write_text(json.dumps(job_params), encoding="utf-8")
             jid = cfg["store"].adopt(d)
             kept["jid"] = jid
             cfg["store"].write_status(jid, {"job_id": jid, "state": "queued", "claims": len(req.audit), "profile": req.profile, "models": models, "models_run_planned": planned,
@@ -257,6 +276,21 @@ def make_handler(cfg):
     return Handler
 
 
+UNPUBLISHED_NO_CALLER_KEYS = ("an unpublished document part (no published_url, no catalogue record) is accepted only from a verified caller, and "
+                              "this service has no caller key list (WITNESS_CALLER_KEYS_URL is not set): name the published_url of its audit.jsonl; nothing was kept")
+UNPUBLISHED_NOT_VERIFIED = ("an unpublished document part (no published_url, no catalogue record) is accepted only with a caller signature "
+                            "(X-Store-Key, X-Store-Time, X-Store-Signature over onedroid-req/1 onedroid-witness POST /witness) that verifies against the "
+                            "caller key list at WITNESS_CALLER_KEYS_URL; this request carries none that does: sign it with the audit service's key or "
+                            "name the published_url of its audit.jsonl; nothing was kept")
+
+
+def _unpublished(req, params, catalogue_lookup):
+    """R4c-5: a request names no published copy: no published_url and no catalogue record for its audit.jsonl."""
+    if params.get("published_url"):
+        return False
+    return not (catalogue_lookup is not None and catalogue_lookup(req.audit_sha256))
+
+
 def _no_constant(name):
     raise ValueError(f"{name} is not a JSON number")
 
@@ -264,19 +298,38 @@ def _no_constant(name):
 SOURCES_SIG_REFUSAL = "part manifest.sources.sig is not accepted: the sources signature travels in signatures.json; leave the file out of the request"
 
 
-def _check_part_name(name):
+def _check_part_name(name, pending=None):
     """A part name the request takes: one of PARTS_ALLOWED or a carried path (request.is_carried_part). 0.1.10 (the ninth re-gate's S15): a
     sources-signed publisher's `manifest.sources.sig` is refused by name with the reason (its signatures.json entry is what travels); every
-    other unknown name keeps the old refusal."""
+    other unknown name keeps the old refusal. 0.1.21 (R4c): with `pending` (a list), an unknown name is kept there instead, for
+    _check_pending: a document's pages are named by its manifest (pages[].file), which is only read once every part is in."""
     if name == "manifest.sources.sig":
         raise ValueError(SOURCES_SIG_REFUSAL)
     if name not in PARTS_ALLOWED and not request_mod.is_carried_part(name):
-        raise ValueError(f"part {name} is not accepted")
+        if pending is None:
+            raise ValueError(f"part {name} is not accepted")
+        pending.append(name)
+
+
+def _check_pending(pending, parts):
+    """0.1.21 (R4c): the parts whose name is none of the fixed or carried names are accepted only as the pages a document manifest names
+    (request.document_page_names: grading.profile document, pages[].file, never a fixed part or a job file); the first other one is refused
+    by the old line, as before."""
+    if not pending:
+        return
+    try:
+        manifest = json.loads(parts.get("manifest.json", b"").decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        manifest = None
+    pages = request_mod.document_page_names(manifest)
+    for name in pending:
+        if name not in pages:
+            raise ValueError(f"part {name} is not accepted")
 
 
 def _parse(ctype, raw, headers):
     """multipart/form-data (files by field name) or JSON {parts: {name: text}, models, max_cost_usd, published_url}."""
-    parts, params = {}, {}
+    parts, params, pending = {}, {}, []
     if ctype.startswith("application/json"):
         try:
             body = json.loads(raw.decode("utf-8"), parse_constant=_no_constant)
@@ -287,7 +340,7 @@ def _parse(ctype, raw, headers):
         if body.get("parts") is not None and not isinstance(body["parts"], dict):
             raise ValueError("parts is not an object of name to text")
         for name, text in (body.get("parts") or {}).items():
-            _check_part_name(name)
+            _check_part_name(name, pending)
             if isinstance(text, str):
                 parts[name] = text.encode("utf-8")
             elif isinstance(text, list) and all(isinstance(b, int) and 0 <= b < 256 for b in text):
@@ -309,6 +362,7 @@ def _parse(ctype, raw, headers):
             else:
                 # fourth re-gate G1 (13 Nov 2026): a number for models reached do_POST's split and closed the connection with no answer
                 raise ValueError(f"{k} is neither a string nor a list of strings")
+        _check_pending(pending, parts)
         return parts, params
     if ctype.startswith("multipart/form-data"):
         # the cgi module is gone from Python 3.13; the email parser reads multipart bodies with a constructed header
@@ -323,10 +377,11 @@ def _parse(ctype, raw, headers):
             if part.get_filename() is not None or name in PARTS_ALLOWED:
                 # S-1, D1: beside the fixed parts, a file part named by a normalised relative path under sources/ or sessions/ is a carried
                 # file (checked against the manifest in Request); any other unknown name is refused as before (manifest.sources.sig by name, 0.1.10)
-                _check_part_name(name)
+                _check_part_name(name, pending)
                 parts[name] = data
             else:
                 params[name] = data.decode("utf-8", "replace").strip()
+        _check_pending(pending, parts)
         return parts, params
     raise ValueError("send multipart/form-data or application/json")
 

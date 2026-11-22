@@ -30,6 +30,54 @@ def estimate(models_cfg, prices, rendered_chars, n_claims, chat_system_chars):
     return out, round(total, 5)
 
 
+def document_plan(request):
+    """0.1.21 (R4c): for a document Request, per claim id: the text the models read (render.render_document), the vocabulary hits on it
+    (render.document_vocabulary_hits) and the pass-through body, or None when the claim goes to the models. In this order, the first that
+    applies: the row's own pass-through (on request, withdrawn, a promise; ON REQUEST and WITHDRAWN become UNDECIDED, SPEC 17 has
+    neither), the restatement rule (R4c-3: no artefact proof and no counter, NO EVIDENCE PUBLISHED at no cost), the vocabulary rule."""
+    didx = render.document_index(request)
+    rendered, hits, pass_through = {}, {}, {}
+    for r in request.audit:
+        rendered[r["id"]] = render.render_document(r, didx)
+        hits[r["id"]] = render.document_vocabulary_hits(r, didx)
+        pt = normalise.passthrough(r)
+        pass_through[r["id"]] = (normalise.document_rules(pt, r) if pt is not None else None) or normalise.restatement_rule(r) or normalise.vocabulary_rule(hits[r["id"]])
+    return {"rendered": rendered, "hits": hits, "pass_through": pass_through}
+
+
+def estimate_request(request, models_cfg, prices):
+    """The per-request estimate the server gives before a job exists and the run records: (per model, total). R4c-7: for a document the
+    claims settled before any model call (document_plan) cost nothing, so it counts only the claims sent to the models, and a request with
+    none is 0 for every model. Every other profile: unchanged (every row rendered and counted)."""
+    if request.profile == "document":
+        plan = document_plan(request)
+        sent = [r["id"] for r in request.audit if plan["pass_through"][r["id"]] is None]
+        if not sent:
+            return {m["id"]: 0 for m in models_cfg}, 0
+        return estimate(models_cfg, prices, sum(len(plan["rendered"][i]) for i in sent), len(sent), len(prompts.chat_prompt(request.profile)))
+    by_url = render.source_index(request.manifest)
+    evidence = render.evidence_index(request.manifest, request.root)
+    rendered_chars = sum(len(render.render(r, request.page, by_url, evidence)) for r in request.audit)
+    return estimate(models_cfg, prices, rendered_chars, len(request.audit), len(prompts.chat_prompt(request.profile)))
+
+
+def document_agreement(check, audit, rows):
+    """SPEC 17 agreement, as K12 recomputes it: over the checkable claims (checkable true or absent, kind not promise) whose `claimed`
+    verdict is one of the three, the rows this witness decided (one of the three, first row per id), `same` the ones carrying the auditor's
+    claimed verdict, `pct` same over decided rounded half to even, null when nothing was decided. The auditor's verdict is read here, after
+    the models answered, for the record; no model ever sees it."""
+    import fractions
+    cv = {a.get("id"): a["claimed"]["verdict"] for a in audit if bool(a.get("checkable", True)) and a.get("kind") != "promise"
+          and isinstance(a.get("claimed"), dict) and a["claimed"].get("verdict") in check.DOCUMENT_VERDICTS}
+    dec, seen = [], set()
+    for r in rows:
+        if r.get("id") in cv and r.get("verdict") in check.DOCUMENT_VERDICTS and r["id"] not in seen:
+            seen.add(r["id"])
+            dec.append(r)
+    same = sum(1 for r in dec if r["verdict"] == cv[r["id"]])
+    return {"with": "auditor", "decided": len(dec), "same": same, "pct": None if not dec else int(round(fractions.Fraction(100 * same, len(dec))))}
+
+
 def _score(check, audit, rows, name):
     merged = [m for m in check.merge_rows(audit, rows, name) if m.get("verdict") != "UNDECIDED"]
     s = check.evidence_score(merged)
@@ -47,7 +95,12 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     prompt_sha = prompts.chat_prompt_sha256(profile)
     questions_sha = prompts.decision_questions_sha256(profile)
     evidence = render.evidence_index(request.manifest, request.root)  # S-1: the carried files the evidence pointers resolve from
-    rendered = {r["id"]: render.render(r, request.page, by_url, evidence) for r in request.audit}
+    is_doc = profile == "document"  # 0.1.21 (R4c): claims-snapshot 0.9, SPEC 17
+    if is_doc:
+        plan = document_plan(request)
+        rendered = plan["rendered"]
+    else:
+        rendered = {r["id"]: render.render(r, request.page, by_url, evidence) for r in request.audit}
     copy_none = {r["id"]: render.all_copy_none(r, by_url) for r in request.audit}
     copy_none_idx = {r["id"]: render.copy_none_indices(r, by_url) for r in request.audit}
     unreadable_idx = {r["id"]: render.unreadable_indices(r, evidence, request.root) for r in request.audit}
@@ -55,18 +108,26 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
     prices = prices or {}
     # 0.1.8 (seventh re-gate H2, V1): a row whose evidence text names a witness verdict is decided UNDECIDED by rule for EVERY model with
     # no model call: the passthrough path below writes the body as the row for each model
-    vocab_hits = {r["id"]: render.witness_vocabulary_hits(r, evidence, by_url) for r in request.audit}
-    pass_through = {r["id"]: normalise.passthrough(r) or normalise.vocabulary_rule(vocab_hits[r["id"]]) for r in request.audit}
+    if is_doc:  # R4c-3: the restatement rule settles a claim with no artefact proof and no counter before any call (document_plan)
+        vocab_hits, pass_through = plan["hits"], plan["pass_through"]
+    else:
+        vocab_hits = {r["id"]: render.witness_vocabulary_hits(r, evidence, by_url) for r in request.audit}
+        pass_through = {r["id"]: normalise.passthrough(r) or normalise.vocabulary_rule(vocab_hits[r["id"]]) for r in request.audit}
+    sent = [r["id"] for r in request.audit if pass_through[r["id"]] is None]
     asked = [m["id"] for m in models_cfg]
     for m in models_cfg:
         refuse_routers(m["id"])
-    est_per_model, est_total = estimate(models_cfg, prices or {}, sum(len(t) for t in rendered.values()), len(request.audit), len(system_prompt))
+    if is_doc:  # R4c-7: the estimate counts only the claims sent to the models (estimate_request, the server's figure)
+        est_per_model, est_total = estimate_request(request, models_cfg, prices)
+    else:
+        est_per_model, est_total = estimate(models_cfg, prices or {}, sum(len(t) for t in rendered.values()), len(request.audit), len(system_prompt))
     # 0.1.6 (fifth re-gate H1): what the models read, recorded in service.json and in every witness header (so the witness signature covers
     # it): the request manifest's sha256 and the sha256 of every carried file, by manifest path, keys sorted ({} when nothing was carried);
     # 0.1.7 (sixth re-gate J1): plus "page.txt" when the request carried a page (the models read its lines on every row with a location)
     carried = {p: hashlib.sha256(b).hexdigest() for p, b in request.carried.items()}
     if request.page_sha256:
         carried["page.txt"] = request.page_sha256
+    carried.update(request.page_hashes)  # 0.1.21 (R4c): a document's pages by their manifest file (K11's carried inventory names pages[].file)
     carried = dict(sorted(carried.items()))
     # 0.1.8 (seventh re-gate U1, B1): the sha256 of each bound manifest section in canonical JSON (request.BOUND_MANIFEST_SECTIONS, an
     # absent section hashes "null"), so a witness header says which subject, sources, pages, profile and session records it was written
@@ -131,8 +192,10 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
                 if kind == "chat":
                     body, ok = normalise.chat_answer(res.get("text"), res.get("finish"), r)
                 else:
-                    body, ok = normalise.decision_answer(res.get("answers"), r)
+                    body, ok = normalise.decision_answer(res.get("answers"), r, proofs_allowed=normalise.artefact_proofs(r) if is_doc else None)
                 body = normalise.apply_row_rules(body, r, copy_none[r["id"]], copy_none_idx[r["id"]], unreadable_idx[r["id"]], all_unreadable[r["id"]])
+                if is_doc:  # R4c-4: EVIDENCED only on an artefact, the profile's vocabulary only
+                    body = normalise.document_rules(body, r)
                 cost += res.get("cost_usd") or 0
                 pt += res.get("prompt_tokens") or 0
                 ct += res.get("completion_tokens") or 0
@@ -208,6 +271,8 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         n_und = sum(1 for x in rows if x["verdict"] == "UNDECIDED")
         entries_m.append({"name": name, "kind": "model", "model": versioned, "method": "classify", "signer": f"{principal} <{fp}>", "file": f"witness/{name}.jsonl",
                           "sha256": wsha, "primary": False, "score": _score(check, request.audit, rows, name), "missing_claims": 0, "undecided": n_und})
+        if is_doc:  # SPEC 17: every witness entry of a document record carries its agreement with the auditor's claimed verdicts (K12)
+            entries_m[-1]["agreement"] = document_agreement(check, request.audit, rows)
         entries_s.append({"role": "witness", "file": f"witness/{name}.jsonl", "sha256": wsha, "line": line, "signer": {"name": principal, "key_id": fp, "kind": ktype},
                           "signed_at": now(), "signature": f"witness/{name}.jsonl.sig", "commit": None})
         decided = [x for x in rows if x["verdict"] not in ("UNDECIDED", "EVIDENCE AVAILABLE ON REQUEST", "WITHDRAWN")]
@@ -215,11 +280,13 @@ def run(request, models_cfg, client, keystore, check, answer_dir, prices=None, i
         service["models_run"].append(model)
         service["per_model"][model] = {"kind": kind, "served": served, "model_versioned": versioned, "providers": providers, "provider_order": provider_order,
                                        "fallback_served": fallback_served, "max_tokens": max_tokens if kind == "chat" else None, "temperature": 0 if kind == "chat" else None,
-                                       "calls": len(request.audit), "cost_usd": round(cost, 5), "prompt_tokens": pt, "completion_tokens": ct,
+                                       "calls": len(sent) if is_doc else len(request.audit), "cost_usd": round(cost, 5), "prompt_tokens": pt, "completion_tokens": ct,
                                        "latency_s_median": sorted(lat)[len(lat) // 2] if lat else None, "errors": errors, "undecided": n_und,
                                        "verdicts": {v: sum(1 for x in rows if x["verdict"] == v) for v in VERDICTS},
                                        "agrees_with_primary": f"{agree} of {len(decided)} decided" if primary_verdict else None, "score": entries_m[-1]["score"],
                                        "plant_regression": m.get("plant_regression")}  # 0.1.8 (M2): the served model's plant record from the configuration, None when absent
+        if is_doc:
+            service["per_model"][model]["agreement"] = entries_m[-1]["agreement"]
         per_model_rows[name] = {x["id"]: x for x in rows}
     (answer / "allowed_signers").write_text("\n".join(signers) + ("\n" if signers else ""), encoding="utf-8")
     (answer / "manifest-entry.json").write_text(json.dumps(entries_m, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

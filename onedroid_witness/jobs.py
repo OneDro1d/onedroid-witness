@@ -123,7 +123,12 @@ class Worker(threading.Thread):
         try:
             params = json.loads((d / "request" / "params.json").read_text(encoding="utf-8")) if (d / "request" / "params.json").exists() else {}
             req = request_mod.Request(d / "request", private_mode=self.private_mode)
-            published = request_mod.check_published(req, params.get("published_url"), self.catalogue_lookup)
+            if not self.private_mode and req.is_document and params.get("unpublished_caller") and not params.get("published_url"):
+                # 0.1.21 (R4c-5): the server took this unpublished document part from a verified caller (params.json is the server's own
+                # record; a page part can never take that name, request.NOT_PAGE_NAMES); nothing is fetched, the record says who sent it
+                published = {"mode": "public", "published": None, "unpublished_from_verified_caller": params["unpublished_caller"]}
+            else:
+                published = request_mod.check_published(req, params.get("published_url"), self.catalogue_lookup)
             models = self.models_of(params.get("models") or [])
             svc = answer_mod.run(req, models, self.client, self.keystore, self.check, d / "answer", prices=self.prices,
                                  max_cost_usd=params.get("max_cost_usd"), private_mode=self.private_mode, published=published, service_name=self.service_name)

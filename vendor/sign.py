@@ -16,6 +16,8 @@ where a manifest signature cannot. It needs the key that signed audit.jsonl (an 
 audit.jsonl.sig, read with check.sshsig_public_key, never a name in allowed_signers: the auditor-key cut, 13 Nov 2026, NEXT-REVISION 31;
 audit.jsonl.sig alone, never another auditor entry's file: the one-auditor cut of the same day, NEXT-REVISION 32, so an auditor entry
 whose signature file is another name is refused), else it refuses and writes nothing; like --role manifest it does not rewrite the manifest.
+0.7 (14 Nov 2026): on a claims-snapshot/0.7 or later manifest the sources digest covers SIX sections, the five plus `links`
+(check.sources_digest); on 0.6 and earlier it is the five-section bound digest, byte for byte as before.
 Every role (the auditor-key cut): when allowed_signers already lists --identity with a DIFFERENT key it refuses before writing (one principal,
 one key; a new key is a new principal).
 The private key never enters the snapshot; keep it out of the folder."""
@@ -110,7 +112,7 @@ def main(argv):
         if given != a_key:
             print("the sources role is the auditor's: use the key that signed audit.jsonl", file=sys.stderr)
             return 1
-        h = check.bound_digest(M)
+        h = check.sources_digest(M)  # 0.7: six sections, links too; before 0.7 exactly check.bound_digest(M)
         sig_rel = "manifest.sources.sig"
     else:
         h = check.sha256(fp)

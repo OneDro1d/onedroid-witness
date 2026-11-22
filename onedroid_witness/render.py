@@ -548,6 +548,141 @@ def render(row, page, by_url, evidence=None):
     return neutralise_fence_lines("\n".join(out), DATA_FENCE)
 
 
+# ---- the document profile (0.1.21, R4c; claims-snapshot 0.9, SPEC 17) ----
+DOCUMENT_AROUND = 1  # the lines shown before and after the line(s) a quote stands on
+DOCUMENT_QUOTE_SPAN = 3  # a quote is looked for on one line, then across two and three consecutive lines
+
+
+def document_index(req):
+    """What render_document needs from a checked document Request: the pages' text by manifest file, the source copies' text by manifest
+    file (the carried files, decoded), and the sources by url. Nothing of the auditor's `claimed` is in it."""
+    sources = [s for s in (req.manifest.get("sources") or []) if isinstance(s, dict)]
+    copies = {f: b.decode("utf-8", "replace") for f, b in req.carried.items()}
+    by_url = {}
+    for s in sources:
+        if isinstance(s.get("url"), str):
+            by_url.setdefault(s["url"], []).append(s)
+    return {"pages": dict(req.pages), "copies": copies, "by_url": by_url}
+
+
+def _document_norm(t):
+    """The checker's own comparison (check.document_norm: markers and end punctuation out, whitespace collapsed, lower case, then the
+    sixteen-character typographic fold of SPEC 17), from the pinned vendored checker, never a copy."""
+    from .request import vendored_check
+    return vendored_check().document_norm(t)
+
+
+def quote_lines(text, quote):
+    """(first, last) 1-based line numbers of the first place the quote stands in the text after the format's fold: one line, else two or
+    three consecutive lines joined by a space; None when it is not found."""
+    q = _document_norm(str(quote or ""))
+    if not q:
+        return None
+    lines = text.splitlines()
+    normed = [_document_norm(l) for l in lines]
+    for span in range(1, DOCUMENT_QUOTE_SPAN + 1):
+        for i in range(0, len(lines) - span + 1):
+            if q in (normed[i] if span == 1 else _document_norm(" ".join(lines[i:i + span]))):
+                return i + 1, i + span
+    return None
+
+
+def _document_source(c, didx):
+    """For a candidate: (what to say about where it comes from, the file whose text is shown or None, why no text is shown or None)."""
+    where, f = c.get("where"), c.get("file")
+    if where == "document":
+        if f in didx["pages"]:
+            return f"in the document, {one_line(f, 200)}", f, None
+        return f"in the document, {one_line(str(f), 200)} (a page this record does not hold)", None, "the page is not in this record"
+    held = didx["by_url"].get(c.get("url")) or []
+    if len(held) != 1:
+        return f"at an external source {one_line(str(c.get('url')), 300)} (not one source of this record)", None, "no single source of this record holds that url"
+    s = held[0]
+    copy = s.get("copy")
+    head = (f"at an external source [{one_line(str(s.get('n')), 20)}] {one_line(str(s.get('url')), 300)} (copy: {one_line(str(copy), 40)}"
+            + (f", saved as {one_line(str(s.get('file')), 200)}" if s.get("file") else "") + f", fetched_at {one_line(str(s.get('fetched_at')), 40)})")
+    if copy == "text" and s.get("file") in didx["copies"]:
+        return head, s["file"], None
+    if copy == "hash-only":
+        return head, None, "a hash-only source: its text is not shown, only the quote"
+    return head, None, "its saved copy was not sent with this request"
+
+
+def _document_candidate(i, c, didx):
+    """One candidate as the models read it: index, kind (artefact or restatement, said in words), where it comes from, the quote, and the
+    lines around the quote in the page or the source copy. The candidate's own `note`, if any, is the auditor's and is not shown."""
+    kind = c.get("kind")
+    kind_text = {"artefact": "artefact (the thing the claim is about, or an independent record of it)",
+                 "restatement": "restatement (says the claim again; it never evidences it)"}.get(kind, f"kind {one_line(str(kind), 40)}")
+    head, f, why = _document_source(c, didx)
+    out = [f'[{i}] {kind_text}, {head}: quote "{one_line(str(c.get("quote")))}"']
+    if f is None:
+        out.append(f"  ({why})")
+        return out
+    text = didx["pages"][f] if c.get("where") == "document" else didx["copies"][f]
+    hit = quote_lines(text, c.get("quote"))
+    if hit is None:
+        out.append(f"  (the quote is not found in {one_line(f, 200)} after the format's fold)")
+        return out
+    lines = text.splitlines()
+    out.append(f"  around the quote in {one_line(f, 200)}:")
+    for n in range(max(1, hit[0] - DOCUMENT_AROUND), min(len(lines), hit[1] + DOCUMENT_AROUND) + 1):
+        out.append(f"  line {n}: {one_line(lines[n - 1], LINE_WIDTH)}")
+    return out
+
+
+def render_document(row, didx):
+    """0.1.21 (R4c): a document claim as the models read it: id, kind, the claim text, the lines where the document makes it (its
+    location), then each candidate FOR and AGAINST (index, artefact or restatement, where: the document's page or the external source with
+    its copy status, the quote, and the lines around the quote in that copy). Never the auditor's `claimed` verdict or note, nor a
+    candidate's note, nor consulted or searched: the witness reads the evidence, not the auditor's conclusion. Every caller text passes
+    one_line and the fence rules, as in render()."""
+    out = [f"claim id: {one_line(row['id'])}", f"kind: {one_line(row.get('kind'))}", f"claim text: {one_line(row['text'])}", "",
+           "where the document makes the claim (the lines around it):"]
+    loc_lines = []
+    for loc in row.get("location") or []:
+        if not isinstance(loc, dict):
+            continue
+        f = loc.get("file") if loc.get("file") in didx["pages"] else (next(iter(didx["pages"])) if len(didx["pages"]) == 1 and loc.get("file") is None else None)
+        n = loc.get("line")
+        if f is None or not isinstance(n, int) or isinstance(n, bool):
+            continue
+        lines = didx["pages"][f].splitlines()
+        if 1 <= n <= len(lines):
+            for k in range(max(1, n - 1), min(len(lines), n + 1) + 1):
+                loc_lines.append(f"{one_line(f, 200)} line {k}: {one_line(lines[k - 1], LINE_WIDTH)}")
+    out += loc_lines or ["(no location)"]
+    for name, side in (("FOR", "proofs"), ("AGAINST", "counter")):
+        items = [c for c in (row.get(side) or [])]
+        out += ["", f"candidates {name} ({len(items)}), indexed from 0:"]
+        for i, c in enumerate(items):
+            out += _document_candidate(i, c if isinstance(c, dict) else {}, didx)
+        if not items:
+            out.append("(none)")
+    from .prompts import DATA_FENCE
+    return neutralise_fence_lines("\n".join(out), DATA_FENCE)
+
+
+def document_vocabulary_hits(row, didx):
+    """0.1.21 (R4c): the vocabulary rule of 0.1.8 to 0.1.11 on a document row, widened as SPEC 14 allows: every candidate's quote (as
+    witness_vocabulary_hits reads it) AND the lines around the quote that render_document shows, because those lines are evidence text a
+    model reads, as a readable pointer's lines are. The claim text and the claim's own location lines are not scanned, as the page context
+    is not. One string per hit, in index order (proofs then counter, indexed as one list)."""
+    out = []
+    for i, c in enumerate((row.get("proofs") or []) + (row.get("counter") or [])):
+        if not isinstance(c, dict):
+            continue
+        hit = _vocabulary_match(str(c.get("quote"))) if c.get("quote") is not None else None
+        if hit:
+            out.append(f"candidate [{i}] from {c.get('url') or c.get('file')} {_holds(*hit)}")
+            continue
+        around = "\n".join(l for l in _document_candidate(i, c, didx)[1:] if l.startswith("  line "))
+        hit = _vocabulary_match(around) if around else None
+        if hit:
+            out.append(f"candidate [{i}] from {c.get('url') or c.get('file')}: the text around its quote {_holds(*hit)}")
+    return out
+
+
 def all_copy_none(row, by_url):
     """True when every candidate of the row is a source the auditor fetched and did not save (section 14: never EVIDENCED)."""
     cands = (row.get("proofs") or []) + (row.get("counter") or [])

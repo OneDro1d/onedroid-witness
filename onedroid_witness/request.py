@@ -32,7 +32,8 @@ def sha256_bytes(b):
     return hashlib.sha256(b).hexdigest()
 
 
-PROFILES = ("cited-sources", "publisher-surfaces", "agent-work", "test-run")  # check.py PROFILES; the prompts module names the same four
+PROFILES = ("cited-sources", "publisher-surfaces", "agent-work", "test-run", "document")  # check.py PROFILES; the prompts module names the same five
+DOCUMENT_PROFILE = "document"  # 0.1.21 (R4c): claims-snapshot 0.9, SPEC 17
 # The profiles the SERVICE runs model witnesses on (second re-gate N1, 13 Nov 2026): publisher-surfaces is out until the format carries a
 # candidate kind (restatement | artefact) from the auditor and a gate passes on it (NEXT-REVISION 23). With the publisher relation rendered
 # and named in the prompt, chat models still answered EVIDENCED on 3 of 6 restatements on the publisher's own surface, and no row rule can
@@ -43,15 +44,38 @@ PROFILES = ("cited-sources", "publisher-surfaces", "agent-work", "test-run")  # 
 # service item S-1 (13 Nov 2026): a request carries the files the manifest lists under sources[].file and grading.sessions[].file, each
 # hash-checked (_check_carried), render.py resolves every pointer of an `evidence` row from them, a pointer that cannot be read is said so by
 # name and never carries a verdict (normalise.apply_row_rules), and `on` indexes the row's `evidence` list (SPEC 4b, check.py 872-890).
-PROFILES_SERVED = ("cited-sources", "agent-work", "test-run")
+# 0.1.21 (R4c): the document profile (claims-snapshot 0.9, SPEC 17) is served: there the auditor DOES mark every candidate artefact or
+# restatement, a claim with no artefact proof and no counter is settled before any model call (normalise.restatement_rule), and a model's
+# EVIDENCED stands only on an artefact (normalise.document_rules).
+PROFILES_SERVED = ("cited-sources", "agent-work", "test-run", "document")
 PROFILES_NOT_SERVED_WHY = {"publisher-surfaces": "model witnesses do not apply the restatement rule reliably; out of scope until the auditor marks each candidate "
                                                  "restatement or artefact (NEXT-REVISION 23) and a gate passes on it"}
+# the names a document page part can never take (R4c): the fixed parts and the job folder's own files
+NOT_PAGE_NAMES = frozenset(("manifest.json", "audit.jsonl", "audit.jsonl.sig", "allowed_signers", "signatures.json", "run.json", "claims.jsonl",
+                            "params.json", "receipt.json", "result.json", "result.sig", "status.json", "manifest.sources.sig", "manifest.json.sig",
+                            "anchors.json", "CHECK.json", "CHECK.txt"))
 
 
 def is_carried_part(name):
     """A part name the request accepts beside the fixed parts: a normalised relative path (no leading /, no `..` component, no backslash,
     no NUL) under sources/ or sessions/ with at least one more component (S-1, D1). Any other unknown name stays refused."""
     return safe_relative(name) and name.startswith(CARRIED_PREFIXES) and "/" in name.rstrip("/") and not name.endswith("/")
+
+
+def is_document_page_part(name):
+    """0.1.21 (R4c): a name a document page part may take: a normalised relative path that is none of the fixed parts or the job's own
+    files and is not under sources/ or sessions/ (those are carried parts, checked against the manifest's sources)."""
+    return safe_relative(name) and name not in NOT_PAGE_NAMES and not name.startswith(CARRIED_PREFIXES) and not name.endswith("/")
+
+
+def document_page_names(manifest):
+    """The page files a document manifest names (pages[].file) that a request may carry; an empty set for any other profile."""
+    if not isinstance(manifest, dict):
+        return set()
+    g = manifest.get("grading") if isinstance(manifest.get("grading"), dict) else {}
+    if g.get("profile") != DOCUMENT_PROFILE or not isinstance(manifest.get("pages"), list):
+        return set()
+    return {p["file"] for p in manifest["pages"] if isinstance(p, dict) and isinstance(p.get("file"), str) and is_document_page_part(p["file"])}
 
 # check.py's K9 patterns (the format's own rule): a credential-shaped string in any part is refused before any model call (gate D10)
 SECRET_PATTERNS = [
@@ -193,12 +217,17 @@ class Request:
         if self.profile == "test-run" and tuple(ids) != TEST_RUN_ROWS:  # S-2, before any model call; the ids named (0.1.6, the first ten)
             raise Refused(f"a test-run auditor part has exactly the three rows C-001, C-002, C-003 (SPEC 13); this one has {len(ids)} row(s): "
                           + ", ".join(str(i) for i in ids[:10]))
-        self.page = self._text_optional("page.txt") or ""
+        self.is_document = self.profile == DOCUMENT_PROFILE
+        self.pages, self.page_hashes = {}, {}  # 0.1.21 (R4c): a document's pages by manifest file, their text and the sha256 of the bytes received
+        self.page = "" if self.is_document else (self._text_optional("page.txt") or "")
         self.page_sha256 = None  # 0.1.7 (sixth re-gate J1): the sha256 of the page.txt BYTES as received, None when absent
         refuse_credentials("audit.jsonl", self.audit_bytes.decode("utf-8", "replace"))
         refuse_credentials("page.txt", self.page)
         refuse_credentials("manifest.json", json.dumps(self.manifest, ensure_ascii=False))
-        self._check_page()  # after the credential rule (gate D10 keeps the first word on a planted page), before the carried files
+        if self.is_document:
+            self._check_document()  # the format's own document rules, then every page named, sent and hash-checked (R4c)
+        else:
+            self._check_page()  # after the credential rule (gate D10 keeps the first word on a planted page), before the carried files
         self._check_manifest_hash()
         self._check_auditor_signature(verify_signature)
         self.carried = {}  # manifest path -> bytes, the files this request carries for the evidence pointers (S-1)
@@ -230,6 +259,45 @@ class Request:
             raise Refused("part page.txt is named by no page of the manifest")
         if entry.get("sha256") and entry["sha256"] != self.page_sha256:
             raise Refused("part page.txt sha256 differs from the manifest's")
+
+    def _check_document(self):
+        """0.1.21 (R4c, SPEC 17): a claims-snapshot 0.9 document folder before any model runs. The format's own rules first, by the vendored
+        checker's functions (never a copy): the profile exists from 0.9 (check.fmt_at_least), K1's document_faults on the manifest (subject,
+        pages, the pre-witness stage, no primary) and K11's document_audit_faults on the auditor's rows (every candidate's where, kind and
+        quote, an external candidate's one source, every checkable row's `claimed`); the first fault is said by name, and how many more.
+        Then every page the manifest lists: its file a name a request can carry, sent, its bytes' sha256 the entry's, UTF-8 text (a page is
+        the document's text as extracted, SPEC 17), no credential-shaped string; kept in self.pages and self.page_hashes. A page.txt that
+        no page names is refused by name. The auditor's `claimed` is read here only to be checked; nothing a model sees carries it."""
+        chk = vendored_check()
+        if not chk.fmt_at_least(self.manifest, "0.9"):
+            raise Refused(f"the document profile exists from claims-snapshot/0.9; this manifest's format is {str(self.manifest.get('format'))[:40]!r} (K1)")
+        for label, faults in (("the request's manifest", chk.document_faults(self.manifest)), ("audit.jsonl", chk.document_audit_faults(self.audit, self.manifest)[0])):
+            if faults:
+                more = f" (and {len(faults) - 1} more)" if len(faults) > 1 else ""
+                raise Refused(f"{label}: {faults[0]}{more}: the format's checker refuses this document folder (" + ("K1" if label != "audit.jsonl" else "K11") + ")")
+        names = set()
+        for i, e in enumerate(self.manifest.get("pages") or []):
+            f = e.get("file")
+            if not isinstance(f, str) or not is_document_page_part(f):
+                raise Refused(f"the manifest's pages[{i}].file {str(f)[:80]!r} is not a name a request can carry (a relative path, not a fixed part, not under sources/ or sessions/)")
+            if not (isinstance(e.get("sha256"), str) and len(e["sha256"]) == 64):
+                raise Refused(f"the manifest's page {f} names no sha256: a page the models read is held to its hash")
+            p = self.root / f
+            if not p.is_file():
+                raise Refused(f"part {f} is named by the manifest's pages and was not sent")
+            b = p.read_bytes()
+            h = sha256_bytes(b)
+            if h != e["sha256"]:
+                raise Refused(f"part {f} sha256 differs from the manifest's")
+            try:
+                text = b.decode("utf-8")
+            except UnicodeDecodeError as ex:
+                raise Refused(f"part {f} is not UTF-8 text (byte {ex.start}); a page is the document's text as extracted")
+            refuse_credentials(f, text)
+            self.pages[f], self.page_hashes[f] = text, h
+            names.add(f)
+        if (self.root / "page.txt").is_file() and "page.txt" not in names:
+            raise Refused("part page.txt is named by no page of the manifest")
 
     def _check_carried(self):
         """S-1, D1: every file under sources/ or sessions/ of the folder is a carried part. One that no manifest entry (sources[].file,

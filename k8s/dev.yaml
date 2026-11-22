@@ -84,6 +84,8 @@ spec:
           # never printed. Store-key checking of callers stays off until WITNESS_KEY_SOURCE=store + WITNESS_STORE_KEYS_URL are set.
           env:
             - {name: WITNESS_RESP_SIGNING_KEY, value: /etc/onedroid-witness-resp/key}
+            # R4c-5 (22 Nov 2026): an unpublished document part is taken only from a caller verified against the audit service's keys
+            - {name: WITNESS_CALLER_KEYS_URL, value: "http://onedroid-audit.audit-dev.svc.cluster.local/audit/v1/keys"}
           volumeMounts:
             - {name: resp-signing-key, mountPath: /etc/onedroid-witness-resp, readOnly: true}
             - {name: config, mountPath: /etc/onedroid-witness, readOnly: true}

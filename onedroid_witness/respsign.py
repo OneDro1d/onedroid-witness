@@ -150,7 +150,7 @@ class StoreKeys:
             doc = json.loads(self.fetch())
             if not isinstance(doc, dict) or not isinstance(doc.get("keys"), list):
                 raise ValueError("not a key list")
-            keys = self._parse(doc["keys"])
+            keys = self._keys_of(doc)
         except Exception as exc:  # noqa: BLE001 - any failure is "the list is not there"
             self.last_fail = now
             if callable(getattr(exc, "close", None)):
@@ -159,6 +159,10 @@ class StoreKeys:
             return False
         self.keys, self.fetched_at, self.last_fail = keys, now, None
         return True
+
+    def _keys_of(self, doc):
+        """The usable keys of a fetched list document (0.1.21: a hook, so CallerKeys reads the audit service's shape)."""
+        return self._parse(doc["keys"])
 
     def _ignore(self, kid, why):
         if kid not in self.reported:
@@ -251,13 +255,70 @@ class StoreKeys:
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+CALLER_KEY_SOURCE = "caller"  # 0.1.21 (R4c-5): an account verified against WITNESS_CALLER_KEYS_URL
+
+
+class CallerKeys(StoreKeys):
+    """0.1.21 (R4c-5): the caller key list, the way onedroid-w1's CallerKeys reads W1_CALLER_KEYS_URL: a GET URL answering the audit
+    service's GET /audit/v1/keys shape {"service", "namespace", "keys": [{key_id, public_key (std base64 of the raw 32 bytes), ssh}]}.
+    The fetch, cache, stale and unknown-key rules, the time window and the ssh-keygen check are StoreKeys' (the same headers X-Store-Key,
+    X-Store-Time, X-Store-Signature, the same signed line `onedroid-req/1 onedroid-witness POST /witness sha256:<body> <time>`, namespace
+    onedroid-req); only the list's shape differs: no owner and no scopes per key, the caller named by the list's `service`. An account
+    from here carries key_source "caller" and the list's URL; it is the only account that may hand in an unpublished document part."""
+
+    def _keys_of(self, doc):
+        name = doc.get("service")
+        owner = name if isinstance(name, str) and STORE_OWNER.fullmatch(name) else "caller"
+        out, seen, dupes = {}, set(), set()
+        for e in doc["keys"]:
+            if not isinstance(e, dict) or not isinstance(e.get("key_id"), str) or not STORE_KID.fullmatch(e["key_id"]):
+                self._ignore("-", "an entry without a usable key_id")
+                continue
+            kid = e["key_id"]
+            if kid in seen:
+                dupes.add(kid)
+            seen.add(kid)
+            if "state" in e and e["state"] != "active":
+                continue
+            pub = e.get("public_key")
+            try:
+                raw = base64.b64decode(pub, validate=True) if isinstance(pub, str) else b""
+            except ValueError:
+                raw = b""
+            if len(raw) != 32:
+                self._ignore(kid, "no usable 32-byte public key")
+                continue
+            out[kid] = {"owner": owner, "scopes": [], "raw": raw}
+        for kid in dupes:
+            if out.pop(kid, None) is not None:
+                self._ignore(kid, "listed twice")
+        return out
+
+    def verify_request(self, method, path, body, headers):
+        account = super().verify_request(method, path, body, headers)
+        if account is not None:
+            account["key_source"], account["key_list"] = CALLER_KEY_SOURCE, self.url
+        return account
+
+
+def unpublished_caller(account):
+    """R4c-5: the verified caller an unpublished document part came from, as params.json and service.json record it (no signature)."""
+    return {"key_id": account["key_id"], "owner": account["account"], "key_source": account.get("key_source"), "key_list": account.get("key_list"),
+            "signed_line_sha256": sha256_hex(account["signed_line"].encode("utf-8")) if isinstance(account.get("signed_line"), str) else None}
+
+
 def caller_record(account):
     """SIG1 R3 (store mode): who submitted, as the job folder keeps it. The signature is a proof of submission, not a secret; it is
-    never logged."""
+    never logged. 0.1.21 (R4c-5): an account from the caller key list also carries key_source and key_list, so the receipt names which
+    list verified it."""
     if account is None:
         return None
-    return {"key_id": account["key_id"], "owner": account["account"], "signed_line": account.get("signed_line"),
-            "signature": account.get("signature"), "time": account.get("signed_time")}
+    out = {"key_id": account["key_id"], "owner": account["account"], "signed_line": account.get("signed_line"),
+           "signature": account.get("signature"), "time": account.get("signed_time")}
+    for k in ("key_source", "key_list"):
+        if k in account:
+            out[k] = account[k]
+    return out
 
 
 def receipt_caller(caller):
@@ -374,12 +435,14 @@ class Responder:
         return 200, out
 
 
-Wiring = collections.namedtuple("Wiring", "responder verifier require_key")
+Wiring = collections.namedtuple("Wiring", "responder verifier require_key caller_verifier", defaults=(None,))
 
 
-def from_env(env, store, version, private_mode=False, fetch=None, log=None):
+def from_env(env, store, version, private_mode=False, fetch=None, log=None, caller_fetch=None):
     """R1 and R3 from the environment: WITNESS_RESP_SIGNING_KEY, WITNESS_KEY_SOURCE ("store" or unset), WITNESS_STORE_KEYS_URL,
-    WITNESS_REQUIRE_KEY ("1"). Anything unusable stops the server (SystemExit). `fetch` is for tests only."""
+    WITNESS_REQUIRE_KEY ("1"); 0.1.21 (R4c-5) WITNESS_CALLER_KEYS_URL (the audit service's key list; unset: no caller verifier, and an
+    unpublished document part is refused by name). Anything unusable stops the server (SystemExit). `fetch` and `caller_fetch` are for
+    tests only."""
     log = log or (lambda line: print(line, flush=True))
     signer = load_signer(env)
     require = (env.get("WITNESS_REQUIRE_KEY") or "") == "1"
@@ -397,4 +460,13 @@ def from_env(env, store, version, private_mode=False, fetch=None, log=None):
         verifier = StoreKeys(url, log=log, fetch=fetch)
     elif require:
         raise SystemExit("WITNESS_REQUIRE_KEY=1 needs WITNESS_KEY_SOURCE=store")
-    return Wiring(Responder(store, signer, version, private_mode=private_mode, log=log), verifier, require)
+    caller_verifier = None
+    caller_url = (env.get("WITNESS_CALLER_KEYS_URL") or "").strip()
+    if caller_url:
+        parts = urllib.parse.urlsplit(caller_url)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise SystemExit("WITNESS_CALLER_KEYS_URL: an http(s) URL")
+        if shutil.which("ssh-keygen") is None:
+            raise SystemExit("WITNESS_CALLER_KEYS_URL: ssh-keygen (openssh-client) is not installed")
+        caller_verifier = CallerKeys(caller_url, log=log, fetch=caller_fetch)
+    return Wiring(Responder(store, signer, version, private_mode=private_mode, log=log), verifier, require, caller_verifier)
