@@ -50,11 +50,14 @@ FENCE_RUN = re.compile("[" + re.escape("".join(sorted(render.FENCE_CHARS))) + "]
 PROMPT_SHA_BEFORE = {"cited-sources": "13b7493b8549422962361380a28c266c2e065184e632403d07f08f809b372cdc",
                      "publisher-surfaces": "2debd668e9056ec93c34401b16d9e721881fad0c5e72b11f41723d65552a932e",
                      "agent-work": "ea715ab8b30b82e0556b8a7b406eaf4848d31a21a8fff47cf2649e1d415f598c",
-                     "test-run": "f2eadc1ec121f6c7fa47bae266c8011760764d581044e5a8609c8ad6cb57073c"}
+                     "test-run": "f2eadc1ec121f6c7fa47bae266c8011760764d581044e5a8609c8ad6cb57073c",
+                     # 0.1.21 (R4c, 22 Nov 2026): the document profile's prompt, new; the four above stay byte-identical
+                     "document": "87965273e35adb681b71a550a44b8fc3189c3b4fe108d1070fe469b6cdc72dd3"}
 QUESTIONS_SHA_BEFORE = {"cited-sources": "29fac32f25c5d744e6ef3d97a5a440b32cc736e0354617db344a887d0b6a2cda",
                         "publisher-surfaces": "dbaadf8b4c2fff24f6f3b055f766070cea5a83e0add1cfe7b6545af9bed5635e",
                         "agent-work": "6e8ed1af7fc9971c2217bde22ef16f55ca2f4af1411c5017925d9ddefc649357",
-                        "test-run": "55c94bf021549400666302b24500e9031c12991463276828fea353991453f3d2"}
+                        "test-run": "55c94bf021549400666302b24500e9031c12991463276828fea353991453f3d2",
+                        "document": "8312316825f60c2844dd5d58ed8582d6ddfdcfefa3cb42caad9e05bf3899a971"}
 
 
 def sha256(b):
@@ -222,10 +225,10 @@ class R1R3R11Public(_Server):
 
     def test_r11_healthz_names_the_version_the_profiles_and_the_unchanged_prompts(self):
         h = self._get("/healthz")
-        self.assertEqual(onedroid_witness.__version__, "0.1.20-dev")  # 0.1.6-dev when written; the version pin follows the cut
-        self.assertEqual(h["version"], "0.1.20-dev")
+        self.assertEqual(onedroid_witness.__version__, "0.1.21-dev")  # 0.1.6-dev when written; the version pin follows the cut
+        self.assertEqual(h["version"], "0.1.21-dev")
         self.assertEqual(h["mode"], "public")
-        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
+        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run", "document"])
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)
         self.assertEqual(h["questions_sha256"], QUESTIONS_SHA_BEFORE)
 

@@ -1,0 +1,30 @@
+[
+ {
+  "role": "auditor",
+  "file": "audit.jsonl",
+  "sha256": "da72d694455fe67f0bd4472298cce74888d05755153413d277f5c73456db4362",
+  "line": "claims-snapshot/0.4 auditor audit.jsonl sha256:da72d694455fe67f0bd4472298cce74888d05755153413d277f5c73456db4362",
+  "signer": {
+   "name": "example-auditor",
+   "key_id": "SHA256:3xPMMzRFv6DnKZkLiurAhaw605WxbtSikUgT2ldkNjk",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-22T01:01:19Z",
+  "signature": "audit.jsonl.sig",
+  "commit": null
+ },
+ {
+  "role": "sources",
+  "file": "manifest.json",
+  "sha256": "1efcbf4bb95dd247218be7a82a3d458a51bdf2081fa0cecb291a69e736e7c3a2",
+  "line": "claims-snapshot/0.4 sources manifest.json sha256:1efcbf4bb95dd247218be7a82a3d458a51bdf2081fa0cecb291a69e736e7c3a2",
+  "signer": {
+   "name": "example-auditor",
+   "key_id": "SHA256:3xPMMzRFv6DnKZkLiurAhaw605WxbtSikUgT2ldkNjk",
+   "kind": "ssh-ed25519"
+  },
+  "signed_at": "2026-11-22T01:01:19Z",
+  "signature": "manifest.sources.sig",
+  "commit": null
+ }
+]

@@ -114,7 +114,7 @@ class PublisherSurfacesScope(ServerRules):
         h = json.loads(c.getresponse().read())
         # third re-gate F1 took agent-work and test-run out until the evidence they decide on is carried to the models; service item S-1
         # (13 Nov 2026, tests/test_s1_evidence.py) carries and renders it, so the three profiles are served and publisher-surfaces alone is out
-        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
+        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run", "document"])
         self.assertEqual(list(h["profiles_not_served"]), ["publisher-surfaces"])
         self.assertIn("NEXT-REVISION 23", h["profiles_not_served"]["publisher-surfaces"])
 

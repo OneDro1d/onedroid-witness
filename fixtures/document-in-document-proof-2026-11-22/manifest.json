@@ -1,0 +1,67 @@
+{
+ "format": "claims-snapshot/0.9",
+ "subject": {
+  "kind": "document",
+  "title": "The Example Widget: a product note (an example)",
+  "media_type": "text/markdown",
+  "sha256": "b6e5d613205412a06813cbedd9ce579a2e5a832146cdf70365258c8632e3a418",
+  "url": "https://example.org/widget-note.md",
+  "commit": null
+ },
+ "taken_at": "2026-11-22T09:00:00Z",
+ "pages": [
+  {
+   "file": "page.md",
+   "sha256": "b6e5d613205412a06813cbedd9ce579a2e5a832146cdf70365258c8632e3a418",
+   "lines": 7,
+   "fetched_at": "2026-11-22T09:00:00Z",
+   "note": "the text of the document, one block per line",
+   "media_type": "text/markdown",
+   "member": null,
+   "extractor": null
+  }
+ ],
+ "sources": [],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "document",
+  "graded_at": "2026-11-22T09:00:00Z",
+  "auditor": {
+   "file": "audit.jsonl",
+   "sha256": "a4d7f6c769824985f40ad39cfd0918d21223fb47767261eb923a700378050a75",
+   "name": "example-document-auditor",
+   "note": "An example with invented content, not a real audit. an example folder, signed with throwaway keys made for it and discarded",
+   "kind": "model",
+   "model": "example-auditor-model-2026-11-01",
+   "score": {
+    "coverage_pct": 33,
+    "contradiction_pct": 33,
+    "band": "D"
+   },
+   "counts": {
+    "evidenced": 1,
+    "no_evidence": 1,
+    "contradicted": 1,
+    "contradicted_high": 1
+   },
+   "signer": "example-auditor <SHA256:TEj4xn8rHooz7gveCGk1dw0khA+zPyPm23/UgUSXpbI>"
+  },
+  "witnesses": [],
+  "sessions": [],
+  "rounds": [
+   {
+    "date": "2026-11-22",
+    "what": "an example folder, signed with throwaway keys made for it and discarded; the content is invented (an example document about an example product at example.org)"
+   }
+  ]
+ },
+ "counts": {
+  "claims": 3,
+  "checkable": 3
+ },
+ "files": {
+  "audit.jsonl": "a4d7f6c769824985f40ad39cfd0918d21223fb47767261eb923a700378050a75",
+  "keys/model-keys.jsonl": "7c418ddee5420e1c1d712aff10605f6a8694be212253987a2970e60b0925fcb7",
+  "page.md": "b6e5d613205412a06813cbedd9ce579a2e5a832146cdf70365258c8632e3a418"
+ }
+}

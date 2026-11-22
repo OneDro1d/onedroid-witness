@@ -1,0 +1,2 @@
+Example Labs certificate page (an invented example page at example.org, not a real source).
+Example Labs certifies the Example Widget, model EW-1, in 2026: the Example Widget is certified by Example Labs.

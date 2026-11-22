@@ -1,0 +1,80 @@
+{
+ "format": "claims-snapshot/0.9",
+ "subject": {
+  "kind": "document",
+  "title": "The Example Widget: a product note (an example)",
+  "media_type": "text/markdown",
+  "sha256": "87f1aff6463701a0db854893fa483fa0232c0e5942b6515689f4230cb6af9647",
+  "url": "https://example.org/widget-note.md",
+  "commit": null
+ },
+ "taken_at": "2026-11-22T09:00:00Z",
+ "pages": [
+  {
+   "file": "page.md",
+   "sha256": "87f1aff6463701a0db854893fa483fa0232c0e5942b6515689f4230cb6af9647",
+   "lines": 6,
+   "fetched_at": "2026-11-22T09:00:00Z",
+   "note": "the text of the document, one block per line",
+   "media_type": "text/markdown",
+   "member": null,
+   "extractor": null
+  }
+ ],
+ "sources": [
+  {
+   "n": 1,
+   "url": "https://example.org/labs/certificate.html",
+   "file": "sources/001.txt",
+   "sha256": "e39726c72eed9b7d428ca78051006c4f726e6161789d01319ee21d6548353088",
+   "copy": "text",
+   "fetched_at": "2026-11-22T08:50:00Z",
+   "status": 200,
+   "text_copy_of": "html",
+   "note": "An example with invented content, not a real audit: an invented page, saved as text"
+  }
+ ],
+ "grading": {
+  "kind": "pre-witness",
+  "profile": "document",
+  "graded_at": "2026-11-22T09:00:00Z",
+  "auditor": {
+   "file": "audit.jsonl",
+   "sha256": "da72d694455fe67f0bd4472298cce74888d05755153413d277f5c73456db4362",
+   "name": "example-document-auditor",
+   "note": "An example with invented content, not a real audit. an example folder, signed with throwaway keys made for it and discarded",
+   "kind": "model",
+   "model": "example-auditor-model-2026-11-01",
+   "score": {
+    "coverage_pct": 33,
+    "contradiction_pct": 33,
+    "band": "D"
+   },
+   "counts": {
+    "evidenced": 1,
+    "no_evidence": 1,
+    "contradicted": 1,
+    "contradicted_high": 1
+   },
+   "signer": "example-auditor <SHA256:3xPMMzRFv6DnKZkLiurAhaw605WxbtSikUgT2ldkNjk>"
+  },
+  "witnesses": [],
+  "sessions": [],
+  "rounds": [
+   {
+    "date": "2026-11-22",
+    "what": "an example folder, signed with throwaway keys made for it and discarded; the content is invented (an example document about an example product at example.org)"
+   }
+  ]
+ },
+ "counts": {
+  "claims": 3,
+  "checkable": 3
+ },
+ "files": {
+  "audit.jsonl": "da72d694455fe67f0bd4472298cce74888d05755153413d277f5c73456db4362",
+  "keys/model-keys.jsonl": "331cc5569065056885dfb2012c683a14d372527bd098bd95a7393a5261119280",
+  "page.md": "87f1aff6463701a0db854893fa483fa0232c0e5942b6515689f4230cb6af9647",
+  "sources/001.txt": "e39726c72eed9b7d428ca78051006c4f726e6161789d01319ee21d6548353088"
+ }
+}

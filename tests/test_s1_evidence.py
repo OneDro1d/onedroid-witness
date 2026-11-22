@@ -436,9 +436,9 @@ class E6E7E9Http(ServerRules):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
         c.request("GET", "/healthz")
         h = json.loads(c.getresponse().read())
-        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run"])
+        self.assertEqual(h["profiles_served"], ["cited-sources", "agent-work", "test-run", "document"])
         self.assertEqual(list(h["profiles_not_served"]), ["publisher-surfaces"])
-        self.assertEqual(request.PROFILES_SERVED, ("cited-sources", "agent-work", "test-run"))
+        self.assertEqual(request.PROFILES_SERVED, ("cited-sources", "agent-work", "test-run", "document"))  # 0.1.21 (R4c): document joins
         self.assertEqual(list(request.PROFILES_NOT_SERVED_WHY), ["publisher-surfaces"])
 
 

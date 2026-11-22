@@ -36,7 +36,7 @@ from test_server import multipart  # noqa: E402
 FX = ROOT / "fixtures"
 AW14 = FX / "snapshot-aw14-regate9-2026-11-13"
 REC_AW14 = FX / "recordings" / "aw14-regate9"
-VERSION = "0.1.20-dev"  # 0.1.10-dev when written; the version pin follows the cut
+VERSION = "0.1.21-dev"  # 0.1.10-dev when written; the version pin follows the cut
 # the brief's one constant string (render.VOCABULARY_RULE_TEXT), spelt here so a drift in the code is seen
 RULE_TEXT = ("upper-case whole words after format characters, combining marks and the listed invisible letters are stripped (an invisible letter is "
              "also tried as a space), a closed table of look-alike capitals is folded to Latin before and after compatibility forms are normalised "
@@ -286,7 +286,7 @@ class V5Healthz(_Server):
         self.assertEqual(h["vocabulary_rule"], RULE_TEXT)
         self.assertEqual(h["prompt_sha256"], PROMPT_SHA_BEFORE)
         self.assertEqual(h["questions_sha256"], QUESTIONS_SHA_BEFORE)
-        self.assertEqual(len(h["prompt_sha256"]), 4)
+        self.assertEqual(len(h["prompt_sha256"]), 5)  # 0.1.21 (R4c): the document prompt joins the four
         src = (ROOT / "onedroid_witness" / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("0.1.10: the ninth re-gate's measurement", src)
 
