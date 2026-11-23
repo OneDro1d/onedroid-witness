@@ -86,6 +86,11 @@ spec:
             - {name: WITNESS_RESP_SIGNING_KEY, value: /etc/onedroid-witness-resp/key}
             # R4c-5 (22 Nov 2026): an unpublished document part is taken only from a caller verified against the audit service's keys
             - {name: WITNESS_CALLER_KEYS_URL, value: "http://onedroid-audit.audit-dev.svc.cluster.local/audit/v1/keys"}
+            # M-20261123-EVIDENCE-SITE (23 Nov 2026, set live with kubectl set env): the BFF signs its paid witness calls with its
+            # service store key (sk_6cb37cb4f33ebb52, scopes audit+witness); without the store list that signature verified
+            # against no list and the witness answered 401. Anonymous published-parts calls are unchanged (no WITNESS_REQUIRE_KEY).
+            - {name: WITNESS_KEY_SOURCE, value: store}
+            - {name: WITNESS_STORE_KEYS_URL, value: "http://store-gateway.evidence-dev.svc.cluster.local/stores/v1/public/keys"}
           volumeMounts:
             - {name: resp-signing-key, mountPath: /etc/onedroid-witness-resp, readOnly: true}
             - {name: config, mountPath: /etc/onedroid-witness, readOnly: true}
