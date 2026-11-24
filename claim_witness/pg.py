@@ -1,15 +1,50 @@
 """Postgres storage (BD7, psycopg 3). Migrations are the plain SQL files in claim_witness/migrations/, applied in file-name
-order once each and recorded in schema_migrations. One autocommit connection behind a lock, reopened when it breaks."""
+order once each and recorded in schema_migrations. One autocommit connection behind a lock, reopened when it breaks.
+
+At start (storage.from_env) the first connection is retried with bounded backoff (connect_with_retry): on a fresh deploy the
+API and the signer may start before claim-pg resolves. Each attempt is logged without the DSN; after the bound the process
+exits."""
 import json
 import pathlib
+import sys
 import threading
+import time
 
 import psycopg
 
-from .storage import JOB_FIELDS, OUTCOMES, OUTPUT_FIELDS, Conflict, Storage
+from .storage import JOB_FIELDS, OBS_FIELDS, OUTCOMES, OUTPUT_FIELDS, Conflict, Storage
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
 MIGRATION_LOCK = 0x636C6169  # "clai": the advisory lock key the migration holds
+
+
+def _why(e, dsn):
+    text = str(e).strip().splitlines()[0] if str(e).strip() else ""
+    text = text.replace(dsn, "<dsn>")
+    if "password" in text.lower():
+        text = "authentication or connection error"
+    return f"{type(e).__name__}: {text[:160]}"
+
+
+def connect_with_retry(dsn, max_wait_s=120, log=None, sleep=time.sleep, clock=time.monotonic, connect=None, max_delay_s=15):
+    """A connection, retrying OperationalError with doubling waits (1 s up to max_delay_s) for at most max_wait_s in total,
+    one log line per failed attempt; then SystemExit."""
+    log = log or (lambda line: print(line, file=sys.stderr, flush=True))
+    connect = connect or psycopg.connect
+    start, delay, n = clock(), 1.0, 0
+    while True:
+        n += 1
+        try:
+            return connect(dsn, autocommit=True)
+        except psycopg.OperationalError as e:
+            left = max_wait_s - (clock() - start)
+            if left <= 0:
+                log(f"postgres: attempt {n} failed ({_why(e, dsn)}); giving up after {max_wait_s} s")
+                raise SystemExit(f"postgres is not reachable after {max_wait_s} s") from None
+            wait = min(delay, max_delay_s, left)
+            log(f"postgres: attempt {n} failed ({_why(e, dsn)}); retrying in {wait:g} s")
+            sleep(wait)
+            delay *= 2
 
 
 class PostgresStorage(Storage):
@@ -161,9 +196,62 @@ class PostgresStorage(Storage):
             rows = self._q(f"SELECT {cols} FROM judge_outputs WHERE record_id = %s ORDER BY id", (record_id,), fetch="all")
         return [dict(zip(OUTPUT_FIELDS, r)) for r in rows]
 
-    def purge(self, jobs_before, nonces_before, attempts_before, outputs_expired_at=None):
+    def purge(self, jobs_before, nonces_before, attempts_before, outputs_expired_at=None, observations_before=None):
         self._q("DELETE FROM jobs WHERE created_at < %s", (int(jobs_before),))
         self._q("DELETE FROM nonces WHERE at < %s", (int(nonces_before),))
         self._q("DELETE FROM attempts WHERE at < %s", (int(attempts_before),))
         if outputs_expired_at is not None:
             self._q("DELETE FROM judge_outputs WHERE expires_at < %s", (int(outputs_expired_at),))
+        if observations_before is not None:
+            self._q("DELETE FROM observations WHERE created_at < %s AND NOT kept", (int(observations_before),))
+            self._q("DELETE FROM fresh_observations WHERE day < %s", (int(observations_before) // 86400 - 2,))
+
+    _OBS_SELECT = "SELECT id, account, visibility, lookup_tag, fetched_at, created_at, envelope, body_box, signer, kept FROM observations"
+
+    @staticmethod
+    def _obs(row):
+        if row is None:
+            return None
+        o = dict(zip(OBS_FIELDS, row))
+        o["envelope"] = json.loads(o["envelope"])
+        o["body_box"] = bytes(o["body_box"]) if o["body_box"] is not None else None
+        return o
+
+    def put_observation(self, row, files):
+        with self.lock:
+            c = self._c()
+            try:
+                with c.transaction():
+                    c.execute("INSERT INTO observations (id, account, visibility, lookup_tag, fetched_at, created_at, envelope, body_box, "
+                              "signer, kept) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                              (row["id"], row["account"], row["visibility"], row["lookup_tag"], int(row["fetched_at"]),
+                               int(row["created_at"]), json.dumps(row["envelope"]), row.get("body_box"), row["signer"],
+                               bool(row.get("kept"))))
+                    for name, data in files.items():
+                        c.execute("INSERT INTO observation_files (observation_id, name, data) VALUES (%s, %s, %s)",
+                                  (row["id"], name, bytes(data)))
+            except psycopg.errors.UniqueViolation:
+                raise Conflict("observation exists") from None
+
+    def get_observation(self, obs_id):
+        return self._obs(self._q(self._OBS_SELECT + " WHERE id = %s", (obs_id,), fetch="one"))
+
+    def get_observation_files(self, obs_id):
+        return {r[0]: bytes(r[1]) for r in self._q("SELECT name, data FROM observation_files WHERE observation_id = %s",
+                                                   (obs_id,), fetch="all")}
+
+    def find_observation(self, tags, since):
+        tags = list(tags)
+        if not tags:
+            return None
+        return self._obs(self._q(self._OBS_SELECT + " WHERE lookup_tag = ANY(%s) AND fetched_at >= %s "
+                                 "ORDER BY fetched_at DESC, created_at DESC LIMIT 1", (tags, int(since)), fetch="one"))
+
+    def bump_fresh(self, account, day):
+        return self._q("INSERT INTO fresh_observations (account, day, n) VALUES (%s, %s, 1) "
+                       "ON CONFLICT (account, day) DO UPDATE SET n = fresh_observations.n + 1 RETURNING n",
+                       (account, int(day)), fetch="one")[0]
+
+    def fresh_count(self, account, day):
+        r = self._q("SELECT n FROM fresh_observations WHERE account = %s AND day = %s", (account, int(day)), fetch="one")
+        return int(r[0]) if r else 0

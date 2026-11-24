@@ -257,9 +257,11 @@ class Refusals(Base):
         self.refused(judge_request(evidence=[{"slot": "evidence", "kind": "url", "url": "https://x.example/"}]), 422,
                      "wrong-evidence-slots")
 
-    def test_observation_evidence_not_served_until_b2b(self):
+    def test_observation_evidence_by_unknown_id_is_observation_not_found(self):
+        # integration (README decision 62): B6 refused observation evidence "until B2b"; joined, an observation is served
+        # and an id this witness does not hold is B2b's 422 observation-not-found, nothing signed
         self.refused(judge_request(evidence=[{"slot": "evidence", "kind": "observation", "id": "0" * 64}]), 422,
-                     "wrong-evidence-slots")
+                     "observation-not-found")
 
     def test_models_option_validated(self):
         for bad in ({"count": 4}, {"count": 2, "require": 3}, {"count": 1.0}, {"count": True}, {"count": 2, "require": 0}):

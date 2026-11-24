@@ -5,6 +5,9 @@ style): one JSON answer per request, one log line per request with no bodies and
                                   its sha256)
     GET  /v1/jobs/{id}            job status (the caller's own jobs only)
     POST /v1/agent-keys           register an agent's Ed25519 public key for the calling account
+    POST /v1/observe              fetch a URL and sign an observation, with no claim (B2b)
+    GET  /v1/observations/{id}    an observation's envelope and file names: public ones open, private ones to their account
+    GET  /v1/observations/{id}/files/{name}   one file's bytes, same rule
     GET  /v1/methods              the method registry, the methods tarball's code_sha256, the judge's models and the price list
     GET  /v1/price                the price list in credits (BD3) with each model run's price
     GET  /.well-known/witness.json
@@ -13,7 +16,9 @@ style): one JSON answer per request, one log line per request with no bodies and
 
 Auth (BD8) for the first three: `Authorization: Bearer <dev key>` (WITNESS_DEV_KEYS_FILE, each key mapped to an account; any
 X-Witness-Account header is ignored), or the BFF's onedroid-req/1 signature (X-Store-Key, X-Store-Time, X-Store-Signature,
-verified against the key list at WITNESS_CALLER_KEYS_URL) plus X-Witness-Account naming the account. The other routes are open.
+verified against the key list at WITNESS_CALLER_KEYS_URL) plus X-Witness-Account naming the account; POST /v1/observe the
+same. GET /v1/observations authenticates when credentials are sent (to read the account's private ones). The other routes
+are open.
 """
 import email.parser
 import email.policy
@@ -28,6 +33,8 @@ from .service import WitnessError
 ACCOUNT = re.compile(r"^[A-Za-z0-9_.:@-]{1,128}$")
 JOB_PATH = re.compile(r"^/v1/jobs/([A-Za-z0-9_-]{1,64})$")
 KEYLIST_PATH = re.compile(r"^/v1/key-lists/([0-9]{1,9})$")
+OBS_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})$")
+OBS_FILE_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})/files/([A-Za-z0-9][A-Za-z0-9._-]{0,63})$")
 
 
 class DevKeys:
@@ -141,6 +148,20 @@ def make_handler(witness, auth):
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_bytes(self, code, data):
+            self.send_response(code)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _maybe_account(self, path):
+            if self.headers.get("Authorization") or self.headers.get("X-Store-Signature"):
+                return auth.account("GET", path, b"", self.headers)
+            return None
+
         def _error(self, e):
             self._send(e.status, e.body(), e.headers)
 
@@ -173,6 +194,14 @@ def make_handler(witness, auth):
                     return self._send(200, witness.key_list(int(m.group(1))))
                 if path.startswith("/v1/key-lists/"):
                     raise WitnessError(404, "not-found", "no such key list")
+                m = OBS_PATH.match(path)
+                if m:
+                    return self._send(200, witness.observation_view(self._maybe_account(path), m.group(1)))
+                m = OBS_FILE_PATH.match(path)
+                if m:
+                    return self._send_bytes(200, witness.observation_file(self._maybe_account(path), m.group(1), m.group(2)))
+                if path.startswith("/v1/observations/"):
+                    raise WitnessError(404, "not-found", "no such observation")
                 m = JOB_PATH.match(path)
                 if m or path.startswith("/v1/jobs/"):
                     acct = auth.account("GET", path, b"", self.headers)
@@ -186,13 +215,16 @@ def make_handler(witness, auth):
         def do_POST(self):
             path = self.path.split("?", 1)[0]
             try:
-                if path not in ("/v1/witness", "/v1/agent-keys"):
+                if path not in ("/v1/witness", "/v1/agent-keys", "/v1/observe"):
                     self._read_body()
                     raise WitnessError(404, "not-found", f"no route POST {path}")
                 raw = self._read_body()
                 acct = auth.account("POST", path, raw, self.headers)
                 if path == "/v1/agent-keys":
                     return self._send(200, witness.register_agent_key(acct, _json(raw)))
+                if path == "/v1/observe":
+                    status, out, headers = witness.observe(acct, _json(raw))
+                    return self._send(status, out, headers)
                 body, parts = parse_body(self.headers.get("Content-Type"), raw)
                 status, out, headers = witness.submit(acct, body, parts, self.headers.get("Idempotency-Key"))
                 self._send(status, out, headers)

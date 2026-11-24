@@ -13,6 +13,12 @@ RUN CGO_ENABLED=0 go build -mod=vendor -trimpath -o /out/redact-copy . && /out/r
 
 # python3.12: the minor version is part of every record's method.runtime (SPEC §9.2); change it only with a method version.
 FROM python:3.12-slim
+# tesseract-ocr + the English model: match.screenshot's OCR (B2b). Its code_sha256 is this image's digest, which the
+# orchestrator passes in WITNESS_IMAGE_DIGEST at deploy (SPEC §9.4).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+ && rm -rf /var/lib/apt/lists/* \
+ && tesseract --version
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin witness
 WORKDIR /app
 COPY --chmod=0644 requirements-claim.txt ./
@@ -21,6 +27,7 @@ RUN pip install --no-cache-dir --only-binary :all: -r requirements-claim.txt
 COPY --chmod=0755 claim_witness/ ./claim_witness/
 COPY --from=redact-copy --chmod=0755 /out/redact-copy /app/bin/redact-copy
 ENV WITNESS_REDACT_BIN=/app/bin/redact-copy \
+    WITNESS_TESSERACT_BIN=/usr/bin/tesseract \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 USER 10001

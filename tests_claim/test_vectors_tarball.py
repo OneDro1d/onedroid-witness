@@ -37,8 +37,21 @@ class Vectors(unittest.TestCase):
         for kind in ("jcs", "canon1", "claim_id", "record_id", "commitments", "templates", "envelope"):
             self.assertTrue(doc.get(kind), kind)
         methods = {t["method"] for t in doc["templates"]}
-        self.assertEqual(methods, {"match.exact", "quote.in-source", "tests.pass"})
+        self.assertEqual(methods, {"match.exact", "quote.in-source", "tests.pass", "page.live", "match.text", "match.screenshot"})
         self.assertEqual({t["assertion"] for t in doc["templates"]}, {True, False})
+        for mid in ("page.live", "match.text", "match.screenshot"):
+            self.assertEqual({t["assertion"] for t in doc["templates"] if t["method"] == mid}, {True, False}, mid)
+
+    def test_vectors_carry_thresholds_and_an_observation(self):
+        doc = json.loads(VECTORS.read_text())
+        self.assertEqual(doc["thresholds"]["match.text"], {"T_bp": 9700, "F_bp": 9600})
+        self.assertEqual(set(doc["thresholds"]["match.screenshot"]), {"T_bp", "F_bp"})
+        self.assertTrue(doc["observation"])
+        findings = {(t["method"], t["finding"], t["reason"]) for t in doc["templates"]}
+        for want in (("match.text", "match", "match"), ("match.text", "differs", "differs"), ("match.text", None, "undecided"),
+                     ("page.live", "live", "live"), ("page.live", "not-live", "not-live"),
+                     ("match.screenshot", "consistent", "consistent"), ("match.screenshot", "differs", "differs")):
+            self.assertIn(want, findings)
 
     def test_vectors_cover_judge_supports(self):
         """B6: judge.supports templates (with the "Asserted false: " prefix), the prompt's sha256, the model input and the

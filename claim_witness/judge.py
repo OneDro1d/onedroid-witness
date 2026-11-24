@@ -211,6 +211,16 @@ class Backend:
         return out
 
 
+def item_of(entry):
+    """{"visible", "hidden"} of one evidence entry: an object (bytes, media_type), or an observation as the witness hands it
+    to a method ({"kind": "observation", "files": {name: bytes}}). ValueError when the text is not UTF-8."""
+    if isinstance(entry, dict) and entry.get("kind") == "observation":
+        files = entry.get("files") or {}
+        return js.item_from_observation(files.get("text.canonical.txt", b""), files.get("hidden-nodes.json"))
+    data, media_type = entry
+    return js.item_from_object(data, media_type)
+
+
 class Judge:
     def __init__(self, backend, models):
         self.backend, self.models = backend, list(models)
@@ -218,18 +228,25 @@ class Judge:
     def __repr__(self):
         return f"Judge({self.backend!r}, models={[m.id for m in self.models]})"
 
+    def no_run(self, statement, reason, n_items, count, require):
+        """A judgment that called no model: unreadable evidence, or (integration) an observation the Evidence-trust rule
+        refuses (`evidence-untrusted`)."""
+        detail = {"evidence_items": n_items, "visible_chars": 0, "input_tokens_est": 0, "injection_hard": 0,
+                  "injection_soft": 0, "models": count, "require": require, "models_run": 0, "agreeing": 0}
+        return {"finding": None, "reason": reason, "detail": detail, "vars": {"statement": statement}, "model_runs": [],
+                "raw": [], "judgment": self._judgment([], [], {"count": count, "require": require, "agreeing": 0,
+                                                               "finding": None}, [], None)}
+
     def run(self, statement, assertion, objects, count, require):
-        """One judgment over objects [(bytes, media_type)]: {finding, reason, detail, vars, judgment, raw, model_runs}. `raw`
-        holds each run's (spec, text, provider, served_model) for the caller to keep or discard; nothing is stored here."""
+        """One judgment over evidence entries, each an object (bytes, media_type) or an observation as method evidence
+        ({"kind": "observation", "files": {...}}: its text.canonical.txt and hidden-nodes.json, SPEC §5.2):
+        {finding, reason, detail, vars, judgment, raw, model_runs}. `raw` holds each run's (spec, text, provider,
+        served_model) for the caller to keep or discard; nothing is stored here."""
         vars_ = {"statement": statement}
         try:
-            items = [js.item_from_object(d, mt) for d, mt in objects]
+            items = [item_of(o) for o in objects]
         except ValueError:
-            detail = {"evidence_items": len(objects), "visible_chars": 0, "input_tokens_est": 0, "injection_hard": 0,
-                      "injection_soft": 0, "models": count, "require": require, "models_run": 0, "agreeing": 0}
-            return {"finding": None, "reason": "unreadable", "detail": detail, "vars": vars_, "model_runs": [], "raw": [],
-                    "judgment": self._judgment([], [], {"count": count, "require": require, "agreeing": 0, "finding": None},
-                                               [], None)}
+            return self.no_run(statement, "unreadable", len(objects), count, require)
         prep = js.prepare(statement, assertion, items)
         selected, results = [], []
         if prep["stop"] is None:
