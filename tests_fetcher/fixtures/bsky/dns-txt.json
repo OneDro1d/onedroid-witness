@@ -1,0 +1,5 @@
+{
+ "_comment": "TXT answers recorded 24 Nov 2026 from 1.1.1.1 (dig +short TXT <name> @1.1.1.1); the other files here were fetched the same day: plc.directory DID documents, the PDS's com.atproto.sync.getRecord CAR for at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j (https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j)",
+ "_atproto.bsky.app": ["did=did:plc:z72i7hdynmk6r22z27h6tvur"],
+ "_atproto.atproto.com": ["did=did:plc:ewvi7nxzyoun6zhxrhs64oiz"]
+}
