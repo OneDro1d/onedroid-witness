@@ -6,7 +6,7 @@ Covers: judge.supports over an observation by id and by envelope (SPEC §2.2, §
 text.canonical.txt and the hidden nodes come from its hidden-nodes.json; the hidden-node injection flag fires from an
 observation's hidden-nodes.json (§5.5); a quote that points into hidden text is not verified; the Evidence-trust rule
 (untrusted -> evidence-untrusted unless accept_untrusted, no model call); url evidence stays refused; a private claim over
-the account's own private observation; one price object per answer; one methods library (1.3.0) with /v1/methods and
+the account's own private observation; one price object per answer; one methods library (1.4.0) with /v1/methods and
 /v1/price."""
 import hashlib
 import io
@@ -272,8 +272,8 @@ class OneLibraryOnePriceList(Base):
     def test_methods_and_price_routes(self):
         code, reg, _ = self.s.call("GET", "/v1/methods", key=None)
         self.assertEqual(code, 200)
-        self.assertEqual(reg["library"]["version"], "1.3.0")
-        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.3.0.tar.gz")
+        self.assertEqual(reg["library"]["version"], "1.4.0")
+        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.4.0.tar.gz")
         by_id = {m["id"]: m for m in reg["methods"]}
         self.assertEqual(set(by_id), {"match.exact", "quote.in-source", "tests.pass", "judge.supports", "page.live", "match.text",
                                       "match.screenshot"})

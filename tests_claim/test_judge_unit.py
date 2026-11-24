@@ -95,8 +95,10 @@ class Prompt(unittest.TestCase):
 
     def test_library_version_bumped_for_the_new_method(self):
         from claim_witness import methods, tarball
-        self.assertEqual(methods.LIBRARY_VERSION, "1.3.0")  # BD13 changed judge.supports' code (README decision 63)
-        self.assertEqual(tarball.tarball_name(), "witness-methods-1.3.0.tar.gz")
+        # BD13 changed judge.supports' code (README decision 63: 1.3.0); match.screenshot's calibrated T/F changed the
+        # tarball again (decision 64: 1.4.0)
+        self.assertEqual(methods.LIBRARY_VERSION, "1.4.0")
+        self.assertEqual(tarball.tarball_name(), "witness-methods-1.4.0.tar.gz")
 
     def test_prompt_names_the_vocabulary_and_the_output_shape(self):
         t = js.prompt_text()
