@@ -69,6 +69,30 @@ class Vectors(unittest.TestCase):
         for c in j["decide"]:
             self.assertRegex(c["input_sha256"], r"^[0-9a-f]{64}$")
 
+    def test_vectors_replay_bd13_quotes_verified_by_text(self):
+        """BD13: the vectors replay the B6-31 answer (end one past, the right text) as a contradiction recorded with the
+        witness's offsets, a datamarked text that verifies, and a text found only in a hidden node that does not."""
+        from claim_witness.methods import judge_supports
+        cases = json.loads(VECTORS.read_text())["judge"]["decide"]
+
+        def quotes_of(c):
+            objs = [judge_supports.first_object(o) for o in c["outputs"] if o]
+            return [q for o in objs if o for q in (o.get("quotes") or []) if isinstance(q, dict)]
+
+        off = [c for c in cases if any(q.get("text") == "city library is closed on Sundays" and q.get("end") == 38
+                                       for q in quotes_of(c))]
+        self.assertTrue(off, "no B6-31 off-by-one vector")
+        self.assertEqual((off[0]["finding"], off[0]["outcome"]), ("judged-contradicted", "NOT_SUPPORTED"))
+        self.assertEqual(off[0]["runs"][0]["quotes"], [{"source": 0, "start": 4, "end": 37}])
+        marked = [c for c in cases if any("ˆ" in (q.get("text") or "") for q in quotes_of(c))]
+        self.assertTrue(marked, "no datamarked-text vector")
+        self.assertIsNotNone(marked[0]["finding"])
+        hidden = [c for c in cases if c["items"][0]["hidden"] and any(
+            q.get("text") and q["text"] in c["items"][0]["hidden"][0] and q["text"] not in c["items"][0]["visible"]
+            for q in quotes_of(c))]
+        self.assertTrue(hidden, "no hidden-only-text vector")
+        self.assertEqual((hidden[0]["finding"], hidden[0]["reason"]), (None, "undecided"))
+
     def test_a_changed_judge_vector_fails_the_check(self):
         doc = json.loads(VECTORS.read_text())
         doc["judge"]["decide"][0]["reason"] = "judged-silent" if doc["judge"]["decide"][0]["reason"] != "judged-silent" else "undecided"

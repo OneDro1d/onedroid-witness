@@ -144,6 +144,36 @@ class JudgeOverObservation(Base):
         self.assertEqual((run["quotes"], run["rejected"], run["note"]), ([], 2, "no-verified-quote"))
         self.assertEqual(out["price"]["credits"], 11, "the run was made, so it is priced")
 
+    def test_bd13_quote_with_end_one_past_verifies_with_the_witness_offsets(self):
+        obs = self.observe()
+        visible = self.text_canonical(obs["observation_id"])
+        i = visible.find("two-year warranty")
+        q = {"source": 0, "start": i, "end": i + len("two-year warranty") + 1, "text": "two-yearˆwarranty"}
+        self.fake.script("acme/judge-1", fm.answer("judged-supports", [q]))
+        p, _ = self.ok([{"slot": "evidence", "kind": "observation", "id": obs["observation_id"]}])
+        self.assertEqual((p["finding"], p["outcome"]), ("judged-supports", "SUPPORTED"))
+        self.assertEqual(p["judgment"]["runs"][0]["quotes"], [{"source": 0, "start": i, "end": i + len("two-year warranty")}])
+
+    def test_bd13_text_only_in_a_hidden_node_of_an_observation_is_not_verified(self):
+        obs = self.observe()
+        q = {"source": 0, "start": 0, "end": len("lifetime support"), "text": "lifetime support"}
+        self.fake.script("acme/judge-1", fm.answer("judged-supports", [q]))
+        p, _ = self.ok([{"slot": "evidence", "kind": "observation", "id": obs["observation_id"]}])
+        run = p["judgment"]["runs"][0]
+        self.assertEqual((p["finding"], p["reason"]), (None, "undecided"))
+        self.assertEqual((run["quotes"], run["rejected"], run["note"]), ([], 1, "no-verified-quote"))
+
+    def test_bd13_text_only_in_a_hidden_node_of_an_html_object_is_not_verified(self):
+        q = {"source": 0, "start": 0, "end": len("lifetime support"), "text": "lifetime support"}
+        self.fake.script("acme/judge-1", fm.answer("judged-supports", [q]))
+        markup = ("<html><body><h1>Acme Widgets</h1><p>" + VISIBLE_P + "</p><div style=\"display:none\">" + HIDDEN_P
+                  + "</div></body></html>").encode()
+        self.assertNotIn("lifetime support", fm.visible_of(markup, "text/html"))
+        p, _ = self.ok([obj_item("evidence", markup, "text/html", "page.html")])
+        run = p["judgment"]["runs"][0]
+        self.assertEqual((p["finding"], p["reason"]), (None, "undecided"))
+        self.assertEqual((run["quotes"], run["rejected"], run["note"]), ([], 1, "no-verified-quote"))
+
     def test_private_claim_over_the_accounts_private_observation(self):
         obs = self.observe("private")
         visible = self.text_canonical(obs["observation_id"], key="dev-key-a-0123456789abcdef")
