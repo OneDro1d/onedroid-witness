@@ -224,7 +224,7 @@ class Background(WireBase):
         out = self.kept()
         self.seal_all()
         self.kept()
-        self.s.witness.sealer.tick()
+        self.seal_all()  # the second record's batch closes a tick later
         self.assertEqual(len(self.srv.calls("POST", "claimant")), 1)
         self.assertEqual(len(self.srv.calls("POST", "object")), 2)
         self.assertTrue(self.chain_row(out["record_id"])["claimant_id"])
