@@ -388,3 +388,6 @@ Decisions for `capture: post` (slice B5a; tests `tests_fetcher/test_post.py`, fi
 - `capture: post` covers Bluesky only. A post whose author rotated keys after the latest commit can show `failed`
   until the PDS writes a new commit; a deleted post is `not-available` (getRecord no longer has it).
 - The platform part trusts plc.directory's answer for did:plc (it does not replay the PLC operation log).
+- bsky.app is a heavy script-rendered page (about 8 MB archived): its page capture took 9 to 14 s on the build host when
+  idle, and hit the 15 s page wall time twice while the host ran a full test suite (then the post capture is `timeout`).
+  If that shows on dev, raise `FETCHER_TIMEOUT_S` for the fetcher (the witness's client waits 45 s).
