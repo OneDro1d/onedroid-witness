@@ -3,11 +3,16 @@
 HttpNotary is the onedroid-audit client (onedroid-audit/notary.py, SITE-21) with this witness's settings:
 
     POST {WITNESS_NOTARY_URL}/notary/v1/seals   Authorization: Bearer <token from WITNESS_NOTARY_TOKEN_FILE>
-         {"profile": "hash/1", "key": "<H(signed batch header) hex>", "payload": "<std base64 of {"over":"sha256:<hex>"}>"}
+         {"profile": "hash/1", "key": "<H(signed batch header) hex>",
+          "payload": "<std base64 of {"label":"claim-witness/batch/1","over":"sha256:<hex>"}>"}
          200 every chain landed; 202 not yet (the same request repeated resumes it); 409 key_conflict
 
     result: {"status": "landed" | "failed" | "off", "profile", "over", "key",
              "anchors": [{chain, state, tx_hash, block, block_time, explorer_url, final}], "reason": null | "<code>: <text>"}
+
+`final: false` on a landed chain (base-sepolia answers it at write time) means the transaction is written but not yet final on
+that chain: status stays "landed" (a transaction exists), all_final() is false, and the sealer keeps the batch pending and asks
+again, with the same key and the same bytes, on each tick until no anchor says false.
 
 The key is the hash itself, so a repeat (a retry after a 202 or a later sealer tick) is the same request and armarium answers
 the same transactions. A 202, 429, 5xx or no answer is repeated with the same bytes, at most MAX_ATTEMPTS times inside
@@ -27,6 +32,7 @@ import urllib.parse
 import urllib.request
 
 PROFILE = "hash/1"
+LABEL = "claim-witness/batch/1"  # hash/1's optional label: ^[A-Za-z0-9][A-Za-z0-9.:/_-]{0,63}$
 SEALS_PATH = "/notary/v1/seals"
 DEFAULT_TIMEOUT_S = 60.0
 MAX_ATTEMPTS = 10
@@ -115,6 +121,14 @@ def from_env(env):
     return HttpNotary(cfg) if cfg else None
 
 
+def all_final(result):
+    """True when `result` landed and no anchor says final:false (an anchor without the field is not held back)."""
+    if not isinstance(result, dict) or result.get("status") != "landed":
+        return False
+    anchors = result.get("anchors") or []
+    return bool(anchors) and all(a.get("final") is not False for a in anchors)
+
+
 def _anchor(e):
     e = e if isinstance(e, dict) else {}
     ref = e.get("ref") if isinstance(e.get("ref"), dict) else {}
@@ -160,7 +174,7 @@ class HttpNotary(NotaryClient):
         except ValueError as e:
             out["reason"] = f"token: {e}"
             return out
-        payload = json.dumps({"over": over}, separators=(",", ":")).encode("ascii")
+        payload = json.dumps({"label": LABEL, "over": over}, separators=(",", ":")).encode("ascii")
         body = json.dumps({"profile": PROFILE, "key": key, "payload": base64.b64encode(payload).decode("ascii")},
                           separators=(",", ":")).encode("ascii")
         headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json", "Accept": "application/json"}

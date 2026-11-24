@@ -11,7 +11,7 @@
            (match.screenshot). B3: WITNESS_BATCH_INTERVAL_S (3600), WITNESS_BATCH_MAX_LEAVES (100000), WITNESS_SEALER
            (1; 0 runs no sealer in this process), WITNESS_SEALER_POLL_S (30), WITNESS_NOTARY_URL, WITNESS_NOTARY_TOKEN_FILE,
            WITNESS_NOTARY_CA_FILE, WITNESS_NOTARY_TIMEOUT_S (no token file: batches are closed but never anchored),
-           ARMARIUM_URL, ARMARIUM_TOKEN_FILE, ARMARIUM_CA_FILE, ARMARIUM_CHAIN (no URL: nothing is written to n-dim),
+           ARMARIUM_URL, ARMARIUM_TOKEN_FILE, ARMARIUM_CA_FILE, ARMARIUM_CASE (no URL: nothing is written to n-dim),
            NDIM_STORE_EVIDENCE (0), WITNESS_LINK_BASE (https://evidence.onedroid.ai), WITNESS_OPERATOR_ACCOUNTS (comma list).
   signer   the signer sidecar (`signer serve`) and the operator key-list commands (`signer keylist init|rotate|show`); see
            claim_witness/signer.py.
@@ -43,7 +43,7 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
 
     from . import api, dns, fetcher, judge, ndim, notary, service
     log = lambda line: print(line, flush=True)  # noqa: E731
-    armarium, chain = ndim.from_env(env)
+    armarium, case = ndim.from_env(env)
     cfg = service.Config(witness_id=env.get("WITNESS_ID") or "witness:onedroid", attempt_key=attempt_key, master_key=master_key,
                          redact_bin=(env.get("WITNESS_REDACT_BIN") or "").strip() or None,
                          rate_per_minute=int(env.get("WITNESS_RATE_PER_MINUTE") or 60),
@@ -55,7 +55,7 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
                          image_digest=(env.get("WITNESS_IMAGE_DIGEST") or "").strip() or None,
                          tesseract_bin=(env.get("WITNESS_TESSERACT_BIN") or "").strip() or shutil.which("tesseract"),
                          host_fetches_per_minute=int(env.get("WITNESS_HOST_FETCHES_PER_MINUTE") or 6),
-                         notary=notary.from_env(env), armarium=armarium, ndim_chain=chain,
+                         notary=notary.from_env(env), armarium=armarium, ndim_case=case,
                          ndim_store_evidence=(env.get("NDIM_STORE_EVIDENCE") or "0").strip() == "1",
                          batch_interval_s=int(env.get("WITNESS_BATCH_INTERVAL_S") or 3600),
                          batch_max_leaves=int(env.get("WITNESS_BATCH_MAX_LEAVES") or 100000),
@@ -66,7 +66,7 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
           f"match.screenshot {'ready' if cfg.image_digest and cfg.tesseract_bin else 'unavailable (needs WITNESS_IMAGE_DIGEST and tesseract)'}",
           flush=True)
     print(f"claim-witness: notary {'configured' if cfg.notary else 'not configured (batches close, never anchored)'}; "
-          f"n-dim {('chain ' + chain) if armarium else 'not configured (nothing is written)'}"
+          f"n-dim {('claimant chain per owner under case ' + case) if armarium else 'not configured (nothing is written)'}"
           f"{' with kept evidence' if armarium and cfg.ndim_store_evidence else ''}", flush=True)
     witness = service.Witness(storage, signer_client, cfg)
     if (env.get("WITNESS_SEALER") or "1").strip() != "0":

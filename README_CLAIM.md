@@ -401,7 +401,8 @@ bytes stay on the chain", and only when armarium reported the key deleted.
 - **Owner delete**, `DELETE /v1/records/{id}`, private records only (a public record is 422 `use-takedown`). The witness
   deletes the wrapped data key, the encrypted body and salt, the kept evidence and the evidence key, the owner index rows,
   the share tokens, the stored job answers of that record, and the account's private observations the record relied on.
-  It writes a tombstone version of the record's n-dim object. The answer lists each of these with counts (`deleted`), and
+  It DELETEs every version of the record's n-dim object at armarium (one DELETE per version, B3W; no tombstone version is
+  written). The answer lists each of these with counts (`deleted`), and
   what stays (`kept`): the signed envelope (commitments only) and its seal, still served and verifiable; the signing-log row
   and the batch leaf; the attempt tag (an HMAC, 30 days); copies readers already took and the owner's own disclosure. After
   it `GET /v1/records/{id}` answers the envelope and the seal with `deleted_at`. Deleting again gives the same `deleted_at`.
@@ -451,23 +452,25 @@ SPEC §7.1, §7.2. `claim_witness/sealer.py`, `merkle.py`; a thread of the API p
 
 ## n-dim
 
-BD4, SPEC §7.5. `claim_witness/ndim.py`: an `ArmariumClient` interface (create object, put version, delete = the DELETED
-marker of a version, get) and `HttpArmarium` over armarium's `POST /chain/{name}/object` and `GET/PUT/DELETE
-/chain/{name}/object/{id}?block=`. Settings `ARMARIUM_URL` (https), `ARMARIUM_TOKEN_FILE` (an object:write and object:read
-token bound to the chain), `ARMARIUM_CA_FILE`, `ARMARIUM_CHAIN`. `ndim.chain_for(account, chain)` is the one place a per-owner
-claimant chain (armarium's recommended model) would be picked; today every owner writes to `ARMARIUM_CHAIN`.
+BD4, SPEC §7.5, wired to armarium's real object service in B3W. `claim_witness/ndim.py`: an `ArmariumClient` interface
+(create claimant, create object, put version, delete one version's key, get) and `HttpArmarium` over armarium's
+`POST /chain/{case}/claimant`, `POST /chain/{cid}/object` and `GET/PUT/DELETE /chain/{cid}/object/{id}`. Settings
+`ARMARIUM_URL` (https), `ARMARIUM_TOKEN_FILE` (a token bound to the case: object:read, object:write, lifecycle), `ARMARIUM_CA_FILE`
+(the object service's CA, not the notary's), `ARMARIUM_CASE` (the 32-hex case). Each owner has their own claimant chain under
+the case; it is created in the background and stored in `ndim_chains` (migration 005). See "Builder decisions, B3W".
 
 - The sealer writes each kept record's object once its batch has closed: `{kind: "claim-witness/record/1", record_id,
   envelope, seal}`. A private envelope holds commitments only.
-- An owner delete puts a tombstone version `{kind: "claim-witness/record-tombstone/1", record_id, deleted_at}` after it; the
-  earlier version stays on the chain and holds commitments only.
+- An owner delete sends armarium's DELETE for every version of the record's object, each with its own id and tail block; the
+  encrypted bytes (commitments only) stay on the chain, each version's key is deleted. We write no tombstone version.
 - `NDIM_STORE_EVIDENCE=1` (default 0, BD4 option C) also writes one evidence object per record with kept evidence:
   `{kind: "claim-witness/evidence/1", record_id, box_b64}`, the box being AES-256-GCM under the evidence key, so armarium
   sees ciphertext only (and encrypts it again). An evidence or owner delete sends the object's DELETE; see "Delete" for what
   the answer says.
 - With `ARMARIUM_URL` unset (or its token file not mounted) nothing is written, and `GET /v1/records/{id}` says
-  `ndim.state: "not-configured"`. The record view never claims a write that did not happen: `pending`, `written`,
-  `tombstoned`, with the object id and the last error code of a failed attempt (retried each tick).
+  `ndim.state: "not-configured"`. The record view never claims a write that did not happen: `pending`, `written`, `deleted`
+  (with armarium's `dek`), `not-written` (deleted before it was written) or `failed`, with the object id and the last error of a
+  failed attempt (retried with backoff).
 - armarium's facts (24 Nov): an object DELETE removes the version's key only on a claimant chain created with ARMARIUM_KMS
   (`dek: "deleted"`); on a legacy (service-owned) chain the key stays under the shared KEK (`dek: "on-chain"`).
 
@@ -545,8 +548,8 @@ delete the files afterwards. Values on hosted come from Key Vault `kv-pww-poland
 | `claim-witness-master-key` | `key` | api, `/etc/claim-witness/master/key` | base64 of 32 random bytes, wraps stored job answers (BD1) |
 | `claim-witness-dev-keys` | `dev-keys.json` | api, `/etc/claim-witness/dev-keys/` | `{"<api key, 16+ chars>": "<account id>", ...}` (dev only, BD8) |
 | `claim-fetcher-secret` | `secret` | api, `/etc/claim-witness/fetcher/secret` (and the claim-fetcher Deployment) | the fetcher's shared secret (B2a creates it) |
-| `claim-witness-notary-token` | `token` | api, `/etc/claim-witness/notary/token` (optional) | armarium's notary token (`anchor:write`, profile `hash/1`), B3 |
-| `claim-witness-armarium-token` | `token` | api, `/etc/claim-witness/armarium/token` (optional) | armarium object token (`object:write`, `object:read`, bound to `ARMARIUM_CHAIN`), B3 |
+| `armarium-claim-witness` | `token` | api, `/etc/claim-witness/notary/token` (optional) | armarium's notary token (`anchor:write` + read, profile `hash/1`, chains lab-qbft and base-sepolia), B3W; armarium renews it |
+| `armarium-claim-witness-objects` | `token` | api, `/etc/claim-witness/armarium-objects/token` (optional) | armarium object token (object:read, object:write, lifecycle, read; bound to case `1e59334fee73fc758f793ce01c3cdd00`), B3W; armarium renews it |
 | `claim-pg-credentials` | `username`, `password`, `database`, `url` | claim-pg (first three), api and signer (`url`) | `url` = `postgresql://<username>:<password>@claim-pg.witness-dev.svc.cluster.local:5432/<database>` |
 
 ```
@@ -565,10 +568,10 @@ kubectl -n witness-dev create secret generic claim-pg-credentials --from-literal
 shred -u signing.key attempt.key master.key pg.password url.txt dev-keys.json
 ```
 
-B3 (the orchestrator, when armarium mints the tokens; until then the pod runs with the notary off and n-dim not configured):
-set `NOTARY_URL_PLACEHOLDER` and `ARMARIUM_URL_PLACEHOLDER` in the manifest, then
-`kubectl -n witness-dev create secret generic claim-witness-notary-token --from-file=token=notary.token`, the same for
-`claim-witness-armarium-token`, and ConfigMap `armarium-ca` (key `ca.crt`) for armarium's private CA.
+B3W: armarium made the two token Secrets and the two CA ConfigMaps in `witness-dev` itself (`armarium-claim-witness`,
+`armarium-claim-witness-objects`, `armarium-ca` for the notary, `armarium-objects-ca` for the object service); the manifest names
+them and writes both URLs in (they are not secrets). All four volumes are optional: without a token file the notary is off and
+n-dim says `not-configured`. Tokens expire 2026-12-24; armarium renews them.
 
 On its first start, with no key list in the database, the signer signs key list 1 itself (`WITNESS_SIGNER_BOOTSTRAP=1`, dev
 only). Otherwise run `kubectl exec ... -c signer -- python3 -m claim_witness signer keylist init --key-file <seed file>
@@ -902,8 +905,8 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
 92. **Owner delete is for private records**; a public record's content is public, so it is taken down instead. Jobs are
     found by a new `jobs.record_id` column. The account's private observations the record relied on are deleted too.
     Deleting twice answers the first `deleted_at`.
-93. **Tombstones**: the record object gets a tombstone *version* (BD1), not armarium's DELETE, because its envelope holds
-    commitments only and stays served. The evidence object gets armarium's DELETE, and the answer repeats armarium's `dek`.
+93. **Tombstones** (superseded by B3W 111): B3 wrote a tombstone *version* on the record object (BD1) and used armarium's
+    DELETE for the evidence object only. Armarium's real service says not to write our own tombstone; every version is DELETEd.
 94. **The record object is written after its batch closes**, so it carries the seal; failures keep the state and are
     retried each tick. It is written by the sealer only (keep does not call armarium); an owner delete writes its tombstone at
     once and leaves a failure to the sealer.
@@ -914,7 +917,7 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
 97. **The bundle's keys.json is the latest key list** (the one in force now), because it carries revocations made after the
     record; `keys-seal.json` is its own seal. Observations relied on are included when the reader may see them.
 98. **Optional volumes**: a token or CA file that is not mounted means off (notary off, n-dim `not-configured`, system
-    trust), not a crash. A placeholder URL with a mounted token fails the start, loudly.
+    trust), not a crash. (B3W: the manifest has no placeholder URLs any more.)
 99. **FileStorage** (the laptop CLI) does not persist the B3 tables; `dev` mode on memory or Postgres has them all.
 100. **Not changed**: `claim_witness/judge.py` and `claim_witness/methods/` (so the methods tarball and every `code_sha256`
     are unchanged; `vectors.json` gained the `seal` section only, 150 lines added and none changed).
@@ -929,3 +932,56 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     still be written to a database that has not run 004 yet (that test writes into the B6-era dev schema).
 104. **Migration 004** is all `ADD COLUMN IF NOT EXISTS` / `CREATE ... IF NOT EXISTS`, so the dev database (001 to 003
     recorded) gains 004 alone and keeps its rows.
+
+### Builder decisions, B3W
+
+B3 was built against fakes; armarium's real notary and object service (24 Nov 2026, armarium PR #78, loom-armarium's record)
+differ from what it assumed. Wired in branch v1/claim-wire. `claim_witness/methods/` is not touched, so every `code_sha256` is
+unchanged.
+
+105. **One claimant chain per owner** under the claim-witness case (`ARMARIUM_CASE`), as armarium recommends: the object
+     service deletes keys only on claimant chains, and one chain per owner keeps an owner's data apart. ARMARIUM_CHAIN is gone.
+     `ndim.ensure_chain` makes it with `POST /chain/{case}/claimant` and stores it durably in `ndim_chains` (migration 005,
+     both storage backends), keyed by `owner_tag`.
+106. **The create never blocks a request.** The first create can take 6 minutes (a disk and a node pod). `keep` writes the record
+     with n-dim `pending` and calls armarium never. A second sealer thread, `ndim`, creates the chain and then writes the
+     pending objects, so the notary and batch closing are not held up. `ndim_sync` (also run inline by an owner delete) never
+     makes a chain: it waits for the thread.
+107. **Retry, backoff and failure with a reason.** A transient failure (no answer, 5xx, 409) keeps its progress and backs off
+     30 s doubling to 1 h; after 12 in a row the step is `failed` with the last reason. A 401 or 403 is a configuration error
+     (`ArmariumConfigError`): `failed` at once, reason starting "configuration:", never retried. `failed` is cleared once when
+     the sealer starts, so an operator who fixed the Secret restarts the pod. The record view says `failed` with `last_error`.
+     A claimant create that timed out may have made a chain nobody records: an orphan, costing a disk until a person deletes it.
+108. **from, to and ruleSet** are opaque to armarium for this use (it takes ids and addresses). Each is an HMAC-SHA256 of the
+     account under a key derived from the master key (HKDF `claim-witness/ndim-owner/1`), with its own label per value, cut to 32
+     or 40 hex. They are stable per owner, so a re-run derives the same request, and they carry no account: armarium cannot
+     recover the account from them, and nothing ties the values to each other or to `owner_tag` (HMAC with its own label), which
+     is the only thing stored. Rotating the master key would orphan the table, as it would the wrapped data keys.
+109. **Real field names.** POST answers `correlation_id` and `block`; PUT answers `new_correlation_id`, `new_block` and
+     `original_id` (a NEW version id per PUT); DELETE answers `dek`, `residual` and `message` with no block; the claimant create
+     answers 201 with `id`, which can start with a digit. Reads, PUT and DELETE name a version by its own id. The record keeps a
+     `versions` list `{id, block, dek, residual}` per object.
+110. **DELETE per version** (`?block=<that version's tail>`): the key is per version, so an owner delete of a record with N
+     versions is N DELETEs; each version's `dek` is stored as it answers, a 409 `incomplete` is retried (the same DELETE), and the
+     record is `deleted` only when every version is. Its `dek` is `deleted` only when all are; the words "the key is deleted;
+     the encrypted bytes stay on the chain" are used only then. A record deleted before it was written is `not-written` and
+     nothing is sent. Deleting a whole claimant chain needs a person's token and stays a person-approved step.
+111. **No tombstone version** (supersedes decision 93): armarium says not to write our own. The `tombstoned` state is now
+     `deleted`.
+112. **Notary body**: `{"profile": "hash/1", "key", "payload"}` with the payload the base64 of `{"label": "claim-witness/batch/1",
+     "over": "sha256:<hex>"}` (`label` is optional in hash/1; its pattern is checked by the profile). The key is still the header
+     hash. **`final: false`** (base-sepolia at write time) means landed but not yet final on that chain: the result stays
+     `landed` (a transaction exists and verifies), the batch stays `pending`, and each tick sends the same request again until
+     no anchor says false (`notary.all_final`; an anchor with no `final` field is not held back). So the seal view is
+     `pending` with the anchors, then `anchored`.
+113. **Two CAs.** The notary's is ConfigMap `armarium-ca` (homelab CA); the object service's is `armarium-objects-ca`
+     (raptor-dev-internal-ca): two mounts, `WITNESS_NOTARY_CA_FILE` and `ARMARIUM_CA_FILE`. The Secrets are `armarium-claim-witness`
+     (notary) and `armarium-claim-witness-objects`. Volumes stay optional; the placeholders are gone but `IMAGE_PLACEHOLDER` and
+     `IMAGE_DIGEST_PLACEHOLDER`, which the orchestrator fills.
+114. **Tests.** RED first (`tests_claim/test_wire_*.py` and `fake_armarium_real.py`, an HTTPS fake of the real answers: slow first
+     create, a digit-first claimant id, 410 after DELETE, 401, 403, the notary's final:false). Changes to older tests are in their
+     own commits named "test change for B3W". `tools/e2e_keep_seal.py` uses the real-shaped fakes. The Postgres variants of
+     the keep suite and the migration-list test (now pinning `005_ndim_chains.sql`) skip where no Postgres is installed.
+115. **Live smoke**: `tools/live_armarium_smoke.py`, run from a short-lived pod in witness-dev (the tokens are only there):
+     1 claimant create for a throwaway owner, POST, PUT, GET, DELETE, GET (410), 1 notary seal (at most 2 requests) and its verify.
+     It prints no token. The throwaway claimant chain stays.

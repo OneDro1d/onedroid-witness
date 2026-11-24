@@ -14,7 +14,8 @@ match them. Share tokens are capabilities for one record: "wst_" + 32 random byt
 Owner delete (private records): the wrapped data key, the encrypted body and salt, the kept evidence and its key, the
 index rows, the share tokens, the stored job answers and the account's private observations the record relied on are
 deleted; the envelope (commitments only), the signing-log row, the batch leaf and the seal stay, so the record still proves
-that something was witnessed at that time. The n-dim object gets a tombstone version. Wording rule (Michal, armarium item 3):
+that something was witnessed at that time. Each version of the n-dim object is DELETEd at armarium (B3W: its key per version;
+we write no tombstone version). Wording rule (Michal, armarium item 3):
 answers state what the witness deleted and what stays; where n-dim holds bytes they say "the key is deleted; the encrypted
 bytes stay on the chain" only when armarium reported that the key was deleted."""
 import base64
@@ -26,6 +27,7 @@ import json
 import os
 import re
 import tarfile
+import threading
 import time
 import unicodedata
 
@@ -43,7 +45,6 @@ DEFAULT_SHARE_DAYS = 30
 MAX_SHARE_DAYS = 365
 MAX_EVIDENCE_DAYS = 3650
 RECORD_KIND = "claim-witness/record/1"
-TOMBSTONE_KIND = "claim-witness/record-tombstone/1"
 EVIDENCE_KIND = "claim-witness/evidence/1"
 KEY_DELETED = "the key is deleted; the encrypted bytes stay on the chain"
 
@@ -95,6 +96,9 @@ class Records:
         mk = witness.cfg.master_key
         self.kek = crypto.hkdf_sha256(mk, b"claim-witness/kek/1")
         self.index_key = crypto.hkdf_sha256(mk, b"claim-witness/owner-index/1")
+        self.ndim_key = crypto.hkdf_sha256(mk, b"claim-witness/ndim-owner/1")  # owner_tag and the claimant request values
+        self._ndim_lock = threading.RLock()  # one ndim_sync at a time (the n-dim thread and an owner's delete)
+        self._chain_lock = threading.Lock()  # one claimant create at a time (it can take minutes)
 
     @property
     def st(self):
@@ -224,8 +228,8 @@ class Records:
         dk = os.urandom(32)
         rb = rid.encode()
         arm = self.w.cfg.armarium is not None
-        nd = {"chain": ndim.chain_for(account, self.w.cfg.ndim_chain) if arm else None,
-              "record": {"state": "pending" if arm else "not-configured"}, "evidence": None}
+        # the owner's claimant chain is created in the background (ndim_sync_all), never in this request
+        nd = {"chain": None, "record": {"state": "pending" if arm else "not-configured"}, "evidence": None}
         row = {"record_id": rid, "account": account, "visibility": vis, "method": pred["method"]["id"], "outcome": pred["outcome"],
                "witnessed_at": pred["witnessed_at"], "envelope": env, "wrapped_key": _box(self.kek, b"record-key|" + rb, dk),
                "body_box": None, "evidence_key_box": None, "evidence_expires_at": None, "evidence_deleted_at": None,
@@ -571,93 +575,194 @@ class Records:
 
     # ------------------------------------------------------------------------------------------------------- n-dim
 
+    def _owner_chain_row(self, account):
+        return self.st.get_ndim_chain(ndim.owner_params(self.ndim_key, account)["tag"])
+
     def ndim_view(self, row):
         n = row["ndim"] or {}
         rec = n.get("record") or {"state": "not-configured"}
         chain = n.get("chain")
+        state, error = rec["state"], n.get("error")
+        if self.w.cfg.armarium is not None and state in ("pending", "written") and not chain:
+            c = self._owner_chain_row(row["account"])
+            if c is not None and c["last_error"] and not error:
+                error = c["last_error"]
+            if c is not None and c["state"] == "failed":
+                n = dict(n, failed=True)
+        if n.get("failed"):
+            state = "failed"
         notes = {
             "not-configured": "n-dim is not configured on this witness (ARMARIUM_URL unset): nothing was written to a chain",
-            "pending": "not written yet: the sealer writes the envelope as an n-dim object once the record's batch is closed",
+            "pending": "not written yet: the sealer writes the envelope as an n-dim object, on the owner's own chain, once the "
+                       "record's batch is closed",
             "written": f"the envelope is an n-dim object on chain {chain}"
                        + (" (a private envelope holds commitments only)" if row["visibility"] == "private" else ""),
-            "tombstoned": f"a tombstone version follows the envelope's version on chain {chain}; that earlier version stays "
-                          "on the chain and holds commitments only",
+            "deleted": self._deleted_note(rec, chain),
+            "not-written": "the record was deleted before its envelope was written: nothing was written to a chain",
+            "failed": "writing to n-dim stopped and is not retried until the witness restarts: " + (error or "see last_error")
+                      + ("; no key was deleted" if rec["state"] == "written" and row["deleted_at"] is not None else ""),
         }
-        out = {"state": rec["state"], "chain": chain, "note": notes.get(rec["state"], rec["state"])}
+        out = {"state": state, "chain": chain, "note": notes.get(state, state)}
         if rec.get("object_id"):
             out["object_id"] = rec["object_id"]
-        if n.get("error"):
-            out["last_error"] = n["error"]
+        for k in ("dek", "residual"):
+            if rec.get(k) is not None:
+                out[k] = rec[k]
+        if error:
+            out["last_error"] = error
         ev = n.get("evidence")
         if ev:
-            e = {"state": ev["state"]}
+            e = {"state": "failed" if n.get("failed") and ev["state"] in ("pending", "written") else ev["state"]}
             for k in ("object_id", "dek", "residual"):
                 if ev.get(k) is not None:
                     e[k] = ev[k]
-            if ev["state"] == "written":
+            if e["state"] == "written":
                 e["note"] = (f"the kept evidence is an n-dim object on chain {chain}, encrypted under the evidence key before "
                              "armarium encrypts it again")
-            elif ev["state"] == "deleted":
-                e["note"] = KEY_DELETED if ev.get("dek") == "deleted" else (
-                    "armarium keeps this version's key on the chain under its shared key (a legacy chain), so the key was not "
-                    "deleted; the encrypted bytes stay on the chain")
-            elif ev["state"] == "not-written":
+            elif e["state"] == "deleted":
+                e["note"] = self._deleted_note(ev, chain).replace("the envelope", "the kept evidence")
+            elif e["state"] == "not-written":
                 e["note"] = "the kept evidence was never written to a chain"
             else:
-                e["note"] = notes.get(ev["state"], ev["state"]).replace("the envelope", "the kept evidence")
+                e["note"] = notes.get(e["state"], e["state"]).replace("the envelope", "the kept evidence")
             out["evidence"] = e
         return out
 
+    @staticmethod
+    def _deleted_note(obj, chain):
+        """The wording rule: "the key is deleted; the encrypted bytes stay on the chain" only when armarium said dek deleted."""
+        if obj.get("dek") == "deleted":
+            return KEY_DELETED
+        return ("armarium keeps a version's key on the chain under its shared key (a legacy chain), or did not say it deleted "
+                f"the key, so the key was not deleted; the encrypted bytes stay on the chain {chain}")
+
+    @staticmethod
+    def _gone(r):
+        return r["deleted_at"] is not None or r["evidence_deleted_at"] is not None
+
+    def _ndim_due(self, r, now):
+        """Does this kept record have n-dim work now (not failed, not backing off)?"""
+        n = r["ndim"] or {}
+        if n.get("failed") or n.get("next_try_at", 0) > now:
+            return False
+        rec, ev = (n.get("record") or {}).get("state"), (n.get("evidence") or {}).get("state")
+        return (rec == "pending" or (r["deleted_at"] is not None and rec == "written") or ev == "pending"
+                or (self._gone(r) and ev == "written"))
+
+    def _needs_chain(self, r):
+        n = r["ndim"] or {}
+        if n.get("chain"):
+            return False
+        rec, ev = (n.get("record") or {}).get("state"), (n.get("evidence") or {}).get("state")
+        return ((rec == "pending" and r["deleted_at"] is None and self.st.get_seal(r["record_id"]) is not None)
+                or (ev == "pending" and not self._gone(r)))
+
     def ndim_sync_all(self):
-        if self.w.cfg.armarium is None:
+        """The n-dim thread's step: make each owner's claimant chain (one create at a time; it can take minutes), then bring each
+        record's objects one step on. Never called from a request."""
+        arm, case = self.w.cfg.armarium, self.w.cfg.ndim_case
+        if arm is None:
             return
+        now = self.now()
+        due = [r for r in self.st.kept_list() if self._ndim_due(r, now)]
+        seen = set()
+        for r in due:
+            if r["account"] in seen or not self._needs_chain(r):
+                continue
+            seen.add(r["account"])
+            with self._chain_lock:
+                ndim.ensure_chain(self.st, arm, case, self.ndim_key, r["account"], self.now())
+        for r in due:
+            self.ndim_sync(r["record_id"])
+
+    def ndim_rearm(self):
+        """At sealer start: what failed (a configuration error, or too many failures) is tried again, once: the operator has
+        had the chance to fix the Secret and restart the pod."""
+        for c in self.st.ndim_chains():
+            if c["state"] == "failed":
+                self.st.update_ndim_chain(c["owner_tag"], state="pending", attempts=0, next_try_at=0, last_error=None)
         for r in self.st.kept_list():
             n = r["ndim"] or {}
-            rec, ev = (n.get("record") or {}).get("state"), (n.get("evidence") or {}).get("state")
-            gone_data = r["deleted_at"] is not None or r["evidence_deleted_at"] is not None
-            if rec == "pending" or (r["deleted_at"] is not None and rec == "written") or ev == "pending" \
-                    or (gone_data and ev == "written"):
-                self.ndim_sync(r["record_id"])
+            if n.get("failed"):
+                n = json.loads(json.dumps(n))
+                for k in ("failed", "attempts", "next_try_at", "error"):
+                    n.pop(k, None)
+                self.st.update_kept(r["record_id"], ndim=n)
+
+    def _delete_versions(self, arm, chain, obj):
+        """DELETE each version of an n-dim object that still has its key (every version has its own); stops at the first
+        failure, keeping the progress. True when every version is deleted, with obj's dek and residual."""
+        for v in obj["versions"]:
+            if v.get("dek") is None:
+                r = arm.delete_object(chain, v["id"], v["block"])
+                v.update(dek=r["dek"], residual=list(r["residual"]))
+        deks = {v["dek"] for v in obj["versions"]}
+        obj.update(state="deleted", dek="deleted" if deks == {"deleted"} else sorted(deks - {"deleted"})[0],
+                   residual=sorted({x for v in obj["versions"] for x in v["residual"]}))
+
+    @staticmethod
+    def _written(obj, r):
+        obj.update(state="written", object_id=r["id"], block=r["block"], versions=[{"id": r["id"], "block": r["block"]}])
 
     def ndim_sync(self, rid):
-        """One step of each object's life: record pending -> written (after its batch closed) -> tombstoned (after an owner
-        delete); evidence pending -> written -> deleted (after an evidence or owner delete). Failures stay for the next tick."""
+        """One step of each object's life: record pending -> written (after its batch closed, on the owner's chain) -> deleted
+        (after an owner delete: every version DELETEd); evidence pending -> written -> deleted (after an evidence or owner
+        delete). A record deleted before it was written is "not-written". Never makes a chain: it waits for ndim_sync_all.
+        A transient failure keeps the progress and backs off; a configuration error (401/403) or MAX_ATTEMPTS failures in a row
+        make the record "failed" with the reason, until the sealer restarts."""
         arm = self.w.cfg.armarium
         if arm is None:
             return
-        row = self.st.get_kept(rid)
-        if row is None:
-            return
-        n = json.loads(json.dumps(row["ndim"]))
-        chain, rec, ev = n.get("chain"), n["record"], n.get("evidence")
-        n.pop("error", None)
-        try:
-            if rec["state"] == "pending" and self.st.get_seal(rid) is not None:
-                r = arm.create_object(chain, {"kind": RECORD_KIND, "record_id": rid, "envelope": row["envelope"],
-                                              "seal": self.w.sealer.seal_view(rid)})
-                rec.update(state="written", object_id=r["id"], block=r["block"])
-            if row["deleted_at"] is not None and rec["state"] == "written":
-                r = arm.put_version(chain, rec["object_id"], rec["block"],
-                                    {"kind": TOMBSTONE_KIND, "record_id": rid, "deleted_at": iso(row["deleted_at"])})
-                rec.update(state="tombstoned", block=r["block"])
-            if ev:
-                gone = row["deleted_at"] is not None or row["evidence_deleted_at"] is not None
-                if ev["state"] == "pending" and gone:
-                    ev["state"] = "not-written"
-                elif ev["state"] == "pending":
-                    files = self._evidence_files(row)
-                    ek = self._evidence_key(row)
-                    if files and ek is not None:
-                        doc = jcs.canonical({"files": [{"sha256": s, "media_type": f["media_type"], "name": f["name"],
-                                                        "content_b64": base64.b64encode(f["data"]).decode()}
-                                                       for s, f in sorted(files.items())]})
-                        box = _box(ek, f"evidence-object|{rid}".encode(), doc)
-                        r = arm.create_object(chain, {"kind": EVIDENCE_KIND, "record_id": rid,
-                                                      "box_b64": base64.b64encode(box).decode()})
-                        ev.update(state="written", object_id=r["id"], block=r["block"])
-                if ev["state"] == "written" and gone:
-                    r = arm.delete_object(chain, ev["object_id"], ev["block"])
-                    ev.update(state="deleted", block=r["block"], dek=r["dek"], residual=list(r["residual"]))
-        except ndim.ArmariumError as e:
-            n["error"] = str(e)[:80]
-        self.st.update_kept(rid, ndim=n)
+        with self._ndim_lock:
+            row = self.st.get_kept(rid)
+            if row is None:
+                return
+            n = json.loads(json.dumps(row["ndim"]))
+            now = self.now()
+            if n.get("failed") or n.get("next_try_at", 0) > now:
+                return
+            rec, ev = n["record"], n.get("evidence")
+            gone = self._gone(row)
+            n.pop("error", None)
+            try:
+                if not n.get("chain") and self._needs_chain(row):
+                    cid = ndim.chain_for(self.st, self.ndim_key, row["account"])
+                    if cid is None:
+                        self.st.update_kept(rid, ndim=n)
+                        return  # the n-dim thread creates it
+                    n["chain"] = cid
+                chain = n.get("chain")
+                if rec["state"] == "pending" and row["deleted_at"] is not None:
+                    rec["state"] = "not-written"
+                if rec["state"] == "pending" and chain and self.st.get_seal(rid) is not None:
+                    self._written(rec, arm.create_object(chain, {"kind": RECORD_KIND, "record_id": rid, "envelope": row["envelope"],
+                                                                 "seal": self.w.sealer.seal_view(rid)}))
+                if row["deleted_at"] is not None and rec["state"] == "written":
+                    self._delete_versions(arm, chain, rec)
+                if ev:
+                    if ev["state"] == "pending" and gone:
+                        ev["state"] = "not-written"
+                    elif ev["state"] == "pending" and chain:
+                        files = self._evidence_files(row)
+                        ek = self._evidence_key(row)
+                        if files and ek is not None:
+                            doc = jcs.canonical({"files": [{"sha256": s, "media_type": f["media_type"], "name": f["name"],
+                                                            "content_b64": base64.b64encode(f["data"]).decode()}
+                                                           for s, f in sorted(files.items())]})
+                            box = _box(ek, f"evidence-object|{rid}".encode(), doc)
+                            self._written(ev, arm.create_object(chain, {"kind": EVIDENCE_KIND, "record_id": rid,
+                                                                        "box_b64": base64.b64encode(box).decode()}))
+                    if ev["state"] == "written" and gone:
+                        self._delete_versions(arm, chain, ev)
+                n.pop("attempts", None)
+                n.pop("next_try_at", None)
+            except ndim.ArmariumConfigError as e:
+                n.update(error=str(e)[:200], failed=True)
+            except ndim.ArmariumError as e:
+                attempts = n.get("attempts", 0) + 1
+                n.update(error=str(e)[:200], attempts=attempts)
+                if attempts >= ndim.MAX_ATTEMPTS:
+                    n["failed"] = True
+                else:
+                    n["next_try_at"] = int(now) + ndim._backoff(attempts)
+            self.st.update_kept(rid, ndim=n)

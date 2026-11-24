@@ -84,7 +84,7 @@ class Config:
                  judge=None, price=None, judge_output_ttl=DAY,
                  fetcher=None, resolvers=None, confirm_delay_s=60, sleep=time.sleep, free_observations_per_day=50,
                  observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY,
-                 notary=None, armarium=None, ndim_chain=None, ndim_store_evidence=False, batch_interval_s=3600,
+                 notary=None, armarium=None, ndim_case=None, ndim_store_evidence=False, batch_interval_s=3600,
                  batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
@@ -109,12 +109,12 @@ class Config:
         self.image_digest, self.tesseract_bin = ocr.parse_digest(image_digest), tesseract_bin
         self.host_fetches_per_minute, self.observation_ttl = int(host_fetches_per_minute), int(observation_ttl)
         # B3: the sealer (SPEC §7.2), the notary (a notary.NotaryClient, or None: batches close but never anchor), n-dim (an
-        # ndim.ArmariumClient and its chain, or None: nothing is written), and the kept-record settings
+        # ndim.ArmariumClient and the case its owners' claimant chains hang under, or None: nothing is written), and the kept-record settings
         if int(batch_interval_s) < 1 or int(batch_max_leaves) < 1:
             raise ValueError("batch_interval_s and batch_max_leaves: integers >= 1")
-        self.notary, self.armarium, self.ndim_chain = notary, armarium, ndim_chain
-        if armarium is not None and not ndim_chain:
-            raise ValueError("ndim_chain: the chain to write to is required with an armarium client")
+        self.notary, self.armarium, self.ndim_case = notary, armarium, ndim_case
+        if armarium is not None and not ndim_case:
+            raise ValueError("ndim_case: the case the owners' chains are created under is required with an armarium client")
         self.ndim_store_evidence = bool(ndim_store_evidence)
         self.batch_interval_s, self.batch_max_leaves = int(batch_interval_s), int(batch_max_leaves)
         self.sealer_poll_s, self.link_base = float(sealer_poll_s), str(link_base)

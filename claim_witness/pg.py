@@ -12,8 +12,8 @@ import time
 
 import psycopg
 
-from .storage import (BATCH_FIELDS, JOB_FIELDS, KEPT_FIELDS, OBS_FIELDS, OUTCOMES, OUTPUT_FIELDS, SHARE_FIELDS, Conflict,
-                      Storage)
+from .storage import (BATCH_FIELDS, JOB_FIELDS, KEPT_FIELDS, NDIM_CHAIN_FIELDS, OBS_FIELDS, OUTCOMES, OUTPUT_FIELDS,
+                      SHARE_FIELDS, Conflict, Storage)
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
 MIGRATION_LOCK = 0x636C6169  # "clai": the advisory lock key the migration holds
@@ -436,3 +436,29 @@ class PostgresStorage(Storage):
 
     def delete_jobs_for_record(self, record_id):
         return self._q("DELETE FROM jobs WHERE record_id = %s", (record_id,))
+
+    # ------------------------------------------------------------------------------------------------- B3W: n-dim chains
+
+    def get_ndim_chain(self, owner_tag):
+        r = self._q(f"SELECT {', '.join(NDIM_CHAIN_FIELDS)} FROM ndim_chains WHERE owner_tag = %s", (owner_tag,), fetch="one")
+        return dict(zip(NDIM_CHAIN_FIELDS, r)) if r else None
+
+    def put_ndim_chain(self, row):
+        try:
+            self._q(f"INSERT INTO ndim_chains ({', '.join(NDIM_CHAIN_FIELDS)}) "
+                    f"VALUES ({', '.join(['%s'] * len(NDIM_CHAIN_FIELDS))})", [row.get(k) for k in NDIM_CHAIN_FIELDS])
+        except psycopg.errors.UniqueViolation:
+            raise Conflict("chain exists") from None
+
+    def update_ndim_chain(self, owner_tag, **fields):
+        cols, args = [], []
+        for k, v in fields.items():
+            if k not in NDIM_CHAIN_FIELDS or k == "owner_tag":
+                raise KeyError(k)
+            cols.append(f"{k} = %s")
+            args.append(v)
+        self._q(f"UPDATE ndim_chains SET {', '.join(cols)} WHERE owner_tag = %s", (*args, owner_tag))
+
+    def ndim_chains(self):
+        return [dict(zip(NDIM_CHAIN_FIELDS, r)) for r in self._q(
+            f"SELECT {', '.join(NDIM_CHAIN_FIELDS)} FROM ndim_chains ORDER BY created_at, owner_tag", fetch="all")]

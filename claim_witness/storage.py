@@ -19,6 +19,9 @@ KEPT_FIELDS = ("record_id", "account", "visibility", "method", "outcome", "witne
                "evidence_key_box", "evidence_expires_at", "evidence_deleted_at", "kept_at", "deleted_at", "taken_down_at",
                "takedown_by", "ndim")
 SHARE_FIELDS = ("token_id", "token_hash", "record_id", "account", "evidence", "created_at", "expires_at", "revoked_at")
+# B3W: one n-dim claimant chain per owner, keyed by owner_tag = HMAC(key, account) (never the account itself)
+NDIM_CHAIN_FIELDS = ("owner_tag", "case_id", "claimant_id", "state", "attempts", "next_try_at", "last_error", "created_at",
+                     "updated_at")
 
 
 class Conflict(Exception):
@@ -82,6 +85,11 @@ class Storage:
     def update_share(self, token_id, **fields): raise NotImplementedError
     def delete_shares(self, record_id): raise NotImplementedError
     def delete_jobs_for_record(self, record_id): raise NotImplementedError
+    # B3W, n-dim: the claimant chain of each owner (state pending | ready | failed), created in the background with backoff
+    def get_ndim_chain(self, owner_tag): raise NotImplementedError
+    def put_ndim_chain(self, row): raise NotImplementedError
+    def update_ndim_chain(self, owner_tag, **fields): raise NotImplementedError
+    def ndim_chains(self): raise NotImplementedError
 
 
 OUTPUT_FIELDS = ("record_id", "model", "provider", "served_model", "raw", "created_at", "expires_at")
@@ -94,6 +102,7 @@ class MemoryStorage(Storage):
         self.outputs = []
         self.observations, self.obs_files, self.fresh = {}, {}, {}
         self.batch_rows, self.seal_rows, self.kept, self.kept_ev, self.index, self.shares = {}, {}, {}, {}, set(), {}
+        self.ndim_chain_rows = {}
 
     def _changed(self):
         pass
@@ -417,6 +426,30 @@ class MemoryStorage(Storage):
                 del self.jobs[k]
             self._changed()
             return len(gone)
+
+    def get_ndim_chain(self, owner_tag):
+        with self.lock:
+            r = self.ndim_chain_rows.get(owner_tag)
+            return dict(r) if r else None
+
+    def put_ndim_chain(self, row):
+        with self.lock:
+            if row["owner_tag"] in self.ndim_chain_rows:
+                raise Conflict("chain exists")
+            self.ndim_chain_rows[row["owner_tag"]] = {k: row.get(k) for k in NDIM_CHAIN_FIELDS}
+            self._changed()
+
+    def update_ndim_chain(self, owner_tag, **fields):
+        with self.lock:
+            for k in fields:
+                if k not in NDIM_CHAIN_FIELDS or k == "owner_tag":
+                    raise KeyError(k)
+            self.ndim_chain_rows[owner_tag].update(fields)
+            self._changed()
+
+    def ndim_chains(self):
+        with self.lock:
+            return [dict(r) for r in sorted(self.ndim_chain_rows.values(), key=lambda r: (r["created_at"], r["owner_tag"]))]
 
 
 class FileStorage(MemoryStorage):

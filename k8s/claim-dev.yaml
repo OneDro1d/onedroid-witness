@@ -124,19 +124,23 @@ spec:
             - {name: WITNESS_BATCH_MAX_LEAVES, value: "100000"}
             - {name: WITNESS_SEALER, value: "1"}
             - {name: WITNESS_SEALER_POLL_S, value: "30"}
-            # The armarium notary (hash/1). Token: Secret claim-witness-notary-token (key `token`); CA: ConfigMap armarium-ca
-            # (key `ca.crt`). Both volumes are optional: without the token file the notary is off and seals stay pending.
-            # The orchestrator sets NOTARY_URL_PLACEHOLDER (an https URL) when it creates the Secret.
-            - {name: WITNESS_NOTARY_URL, value: "NOTARY_URL_PLACEHOLDER"}
+            # The armarium notary (hash/1), homelab notary through the AKS bridge. Token: Secret armarium-claim-witness (key
+            # `token`, anchor:write + read, profile hash/1, chains lab-qbft and base-sepolia); CA: ConfigMap armarium-ca (key
+            # `ca.crt`, the homelab CA). Both volumes are optional: without the token file the notary is off and seals stay
+            # pending. The URL is not a secret.
+            - {name: WITNESS_NOTARY_URL, value: "https://armarium-notary.armarium-lab.svc.cluster.local:9000"}
             - {name: WITNESS_NOTARY_TOKEN_FILE, value: /etc/claim-witness/notary/token}
             - {name: WITNESS_NOTARY_CA_FILE, value: /etc/claim-witness/armarium-ca/ca.crt}
-            # n-dim (BD4) through armarium's /chain/{name}/object. Token: Secret claim-witness-armarium-token (key `token`, an
-            # object:write + object:read token bound to the chain). Without the token file nothing is written and every kept
-            # record says n-dim "not-configured". NDIM_STORE_EVIDENCE=1 also writes kept evidence ciphertext (BD4 option C).
-            - {name: ARMARIUM_URL, value: "ARMARIUM_URL_PLACEHOLDER"}
-            - {name: ARMARIUM_TOKEN_FILE, value: /etc/claim-witness/armarium/token}
-            - {name: ARMARIUM_CA_FILE, value: /etc/claim-witness/armarium-ca/ca.crt}
-            - {name: ARMARIUM_CHAIN, value: "claim-witness-dev"}
+            # n-dim (BD4) through armarium's object service on prov-poland-aks: one claimant chain per owner under the
+            # claim-witness case ARMARIUM_CASE. Token: Secret armarium-claim-witness-objects (key `token`, object:read +
+            # object:write + lifecycle + read, bound to that case, so it covers every claimant made under it); CA: ConfigMap
+            # armarium-objects-ca (key `ca.crt`, a DIFFERENT CA from the notary's). Without the token file nothing is written
+            # and every kept record says n-dim "not-configured". NDIM_STORE_EVIDENCE=1 also writes kept evidence ciphertext
+            # (BD4 option C).
+            - {name: ARMARIUM_URL, value: "https://armarium-objects.armarium-objects-dev.svc.cluster.local:9000"}
+            - {name: ARMARIUM_TOKEN_FILE, value: /etc/claim-witness/armarium-objects/token}
+            - {name: ARMARIUM_CA_FILE, value: /etc/claim-witness/armarium-objects-ca/ca.crt}
+            - {name: ARMARIUM_CASE, value: "1e59334fee73fc758f793ce01c3cdd00"}
             - {name: NDIM_STORE_EVIDENCE, value: "0"}
             - {name: WITNESS_LINK_BASE, value: "https://evidence.onedroid.ai"}
           volumeMounts:
@@ -148,8 +152,9 @@ spec:
             - {name: judge-models, mountPath: /etc/claim-witness/judge-models, readOnly: true}
             - {name: fetcher-secret, mountPath: /etc/claim-witness/fetcher, readOnly: true}
             - {name: notary-token, mountPath: /etc/claim-witness/notary, readOnly: true}
-            - {name: armarium-token, mountPath: /etc/claim-witness/armarium, readOnly: true}
+            - {name: armarium-token, mountPath: /etc/claim-witness/armarium-objects, readOnly: true}
             - {name: armarium-ca, mountPath: /etc/claim-witness/armarium-ca, readOnly: true}
+            - {name: armarium-objects-ca, mountPath: /etc/claim-witness/armarium-objects-ca, readOnly: true}
           readinessProbe:
             httpGet: {path: /healthz, port: 8080}
             initialDelaySeconds: 3
@@ -214,17 +219,17 @@ spec:
         # the fetcher's shared secret (the same Secret the claim-fetcher Deployment reads), key `secret`
         - name: fetcher-secret
           secret: {secretName: claim-fetcher-secret, defaultMode: 0440, items: [{key: secret, path: secret}]}
-        # B3, all optional (the pod starts without them): the notary's token, armarium's object token, armarium's private CA
+        # B3 and B3W, all optional (the pod starts without them): the notary's token and CA, the object service's token and CA
         - name: notary-token
           secret:
-            secretName: claim-witness-notary-token
+            secretName: armarium-claim-witness
             optional: true
             defaultMode: 0440
             items:
               - {key: token, path: token}
         - name: armarium-token
           secret:
-            secretName: claim-witness-armarium-token
+            secretName: armarium-claim-witness-objects
             optional: true
             defaultMode: 0440
             items:
@@ -232,6 +237,12 @@ spec:
         - name: armarium-ca
           configMap:
             name: armarium-ca
+            optional: true
+            items:
+              - {key: ca.crt, path: ca.crt}
+        - name: armarium-objects-ca
+          configMap:
+            name: armarium-objects-ca
             optional: true
             items:
               - {key: ca.crt, path: ca.crt}

@@ -4,7 +4,8 @@
   1. a public quote.in-source check (POST /v1/witness), with an agent signature;
   2. keep it with its evidence (POST /v1/records/{id}/keep);
   3. a batch close by the sealer, with the real notary client (claim_witness.notary.HttpNotary) against a local HTTPS fake of
-     POST /notary/v1/seals, and the real armarium client (ndim.HttpArmarium) against a local HTTPS fake of /chain/{name}/object;
+     POST /notary/v1/seals (final:false on base-sepolia until it finalizes), and the real armarium client (ndim.HttpArmarium)
+     against a local HTTPS fake of the object service (one claimant chain per owner, created in the background);
   4. GET /v1/records/{id}/seal: anchored;
   5. witness-verify on the record's bundle: PASS seal;
   6. the same with one path hash changed: FAIL seal.
@@ -25,7 +26,8 @@ sys.path.insert(0, str(ROOT))
 
 from claim_witness import ndim, notary, verify  # noqa: E402
 from tests_claim import helpers as h  # noqa: E402
-from tests_claim.fake_seal import HttpsArmarium, HttpsNotary, make_tls  # noqa: E402
+from tests_claim.fake_armarium_real import CASE, RealNotary, RealObjects  # noqa: E402
+from tests_claim.fake_seal import make_tls  # noqa: E402
 
 
 def say(text):
@@ -37,7 +39,7 @@ def main(argv):
     ap.add_argument("--postgres", action="store_true", help="run on a throwaway Postgres 16 (pgserver or initdb on PATH)")
     a = ap.parse_args(argv)
     tls = make_tls()
-    nsrv, asrv = HttpsNotary(tls), HttpsArmarium(tls)
+    nsrv, asrv = RealNotary(tls), RealObjects(tls)
     pg, storage = None, None
     if a.postgres:
         from tests_claim.test_storage import ThrowawayPostgres, pg_bin_dir
@@ -48,9 +50,9 @@ def main(argv):
     clock = h.Clock()
     n = notary.from_env({"WITNESS_NOTARY_URL": nsrv.url, "WITNESS_NOTARY_TOKEN_FILE": nsrv.token_file,
                          "WITNESS_NOTARY_CA_FILE": nsrv.ca_file})
-    arm, chain = ndim.from_env({"ARMARIUM_URL": asrv.url, "ARMARIUM_TOKEN_FILE": asrv.token_file, "ARMARIUM_CA_FILE": asrv.ca_file,
-                                "ARMARIUM_CHAIN": "claim-witness-dev"})
-    s = h.Stack(storage=storage, clock=clock, config_overrides={"notary": n, "armarium": arm, "ndim_chain": chain,
+    arm, case = ndim.from_env({"ARMARIUM_URL": asrv.url, "ARMARIUM_TOKEN_FILE": asrv.token_file, "ARMARIUM_CA_FILE": asrv.ca_file,
+                               "ARMARIUM_CASE": CASE})
+    s = h.Stack(storage=storage, clock=clock, config_overrides={"notary": n, "armarium": arm, "ndim_case": case,
                                                                 "batch_interval_s": 3600})
     try:
         say(f"storage: {'postgres 16' if a.postgres else 'memory'}; notary {nsrv.url} (HttpNotary); armarium {asrv.url} "
@@ -70,8 +72,10 @@ def main(argv):
                              "evidence": [{"sha256": h.sha(src), "content_b64": h.b64(src)}]})
         say(f"2. keep: {code} link {k['link']} evidence_key returned: {'evidence_key' in k}; ndim {k['ndim']['state']}")
         clock.advance(3601)
-        nsrv.block_time = h.iso(clock() + 6)  # the fake chain's block a few seconds after the close
         closed = s.witness.sealer.tick()
+        say("   first tick: base-sepolia answered final:false, so the seal is pending; the chain finalizes, the next tick asks again")
+        nsrv.finalize()
+        s.witness.sealer.tick()
         say(f"3. batch close (sealer tick after 3601 s): {closed}; notary requests: "
             f"{[r['path'] for r in nsrv.requests]}; armarium requests: {[(r['method'], r['path']) for r in asrv.requests]}")
         code, seal, _ = s.call("GET", f"/v1/records/{out['record_id']}/seal", key=None)

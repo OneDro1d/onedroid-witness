@@ -7,8 +7,10 @@ Each tick:
   2. per batch: the Merkle tree (merkle.py, RFC 9162), the header {witness, batch_id, root, size, opened_at, closed_at,
      interval_s, key_id} signed by the signer sidecar (predicateType batch-header/v1, PAE over the canonical header), the
      proofs written, then the notary: over = "sha256:" + H(canonical signed header), key = that hex (NotaryClient);
-  3. repeats the notary for batches whose seal has not landed (the same key, so the same request);
-  4. brings each kept record's n-dim object up to date (records.Records.ndim_sync).
+  3. repeats the notary for batches whose seal has not landed or is not final on every chain (the same key and bytes, so the
+     same request; B3W: the real notary answers final:false on base-sepolia at write time);
+  4. brings each kept record's n-dim object up to date (records.Records.ndim_sync_all). In start() this runs in its own
+     thread ("ndim"), because the first create of an owner's claimant chain can take minutes and must not hold up sealing.
 
 batch_id = H(canonical {witness, first_seq, last_seq, root}). opened_at is the time of the batch's first leaf, closed_at the
 tick's time. Without a notary a batch is closed and proved but never anchored (state "unanchored"; its seal stays pending)."""
@@ -51,8 +53,10 @@ class Sealer:
     def __init__(self, witness):
         self.w = witness
         self.lock = threading.Lock()
+        self.ndim_lock = threading.Lock()
         self._stop = threading.Event()
         self.thread = None
+        self.ndim_thread = None
 
     # ------------------------------------------------------------------------------------------------------- reads
 
@@ -66,16 +70,22 @@ class Sealer:
 
     # ------------------------------------------------------------------------------------------------------- the tick
 
-    def tick(self):
-        """Close what is due, repeat unlanded notary calls, sync n-dim. Returns the ids of the batches closed."""
+    def tick(self, ndim=True):
+        """Close what is due, repeat unlanded or not-yet-final notary calls, sync n-dim (unless ndim=False: the n-dim thread
+        does that). Returns the ids of the batches closed."""
         with self.lock:
             closed = self._close_due()
             self._retry_notary()
+        if ndim:
+            self.ndim_tick()
+        return closed
+
+    def ndim_tick(self):
+        with self.ndim_lock:
             try:
                 self.w.records.ndim_sync_all()
             except Exception as e:  # noqa: BLE001 - n-dim never stops the sealing
                 print(f"sealer: n-dim sync failed ({type(e).__name__})", file=sys.stderr, flush=True)
-            return closed
 
     def _close_due(self):
         cfg, st = self.w.cfg, self.w.storage
@@ -113,7 +123,7 @@ class Sealer:
         except Exception as e:  # noqa: BLE001 - a notary failure leaves the seal pending, retried next tick
             res = {"status": "failed", "profile": notary_mod.PROFILE, "over": "sha256:" + over_of(signed_header),
                    "key": over_of(signed_header), "anchors": [], "reason": f"error: {type(e).__name__}"}
-        self.w.storage.update_batch(batch_id, notary=res, state="anchored" if res.get("status") == "landed" else "pending")
+        self.w.storage.update_batch(batch_id, notary=res, state="anchored" if notary_mod.all_final(res) else "pending")
 
     def _retry_notary(self):
         if self.w.cfg.notary is None:
@@ -126,19 +136,29 @@ class Sealer:
     def start(self, poll_s=None):
         poll = float(poll_s if poll_s is not None else self.w.cfg.sealer_poll_s)
         self._stop.clear()
+        if self.w.cfg.armarium is not None:
+            self.w.records.ndim_rearm()  # what failed before a restart is tried again, once
 
         def loop():
             while not self._stop.wait(poll):
                 try:
-                    self.tick()
+                    self.tick(ndim=False)
                 except Exception as e:  # noqa: BLE001 - the loop keeps going; the next tick retries
                     print(f"sealer: tick failed ({type(e).__name__})", file=sys.stderr, flush=True)
 
+        def ndim_loop():
+            while not self._stop.wait(poll):
+                self.ndim_tick()
+
         self.thread = threading.Thread(target=loop, daemon=True, name="sealer")
         self.thread.start()
+        if self.w.cfg.armarium is not None:
+            self.ndim_thread = threading.Thread(target=ndim_loop, daemon=True, name="ndim")
+            self.ndim_thread.start()
         return self.thread
 
     def stop(self):
         self._stop.set()
-        if self.thread is not None:
-            self.thread.join(timeout=10)
+        for t in (self.thread, self.ndim_thread):
+            if t is not None:
+                t.join(timeout=10)
