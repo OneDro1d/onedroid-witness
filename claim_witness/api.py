@@ -14,6 +14,21 @@ style): one JSON answer per request, one log line per request with no bodies and
     GET  /v1/key-lists/{seq}
     GET  /healthz
 
+B3 (kept records, SPEC §3 and DECISIONS BD1; claim_witness/records.py, sealer.py):
+
+    GET    /v1/records/{id}/seal              the seal of any record or observation id (open)
+    POST   /v1/records/{id}/keep              keep a record: {envelope, disclosure? (private), keep_evidence_days?, evidence?}
+                                              as JSON, or multipart (part "request" plus one part per evidence object)
+    GET    /v1/records/{id}                   a kept record: the envelope and seal to anyone; a private record's disclosure to
+                                              its owner (API key) and to a share-token holder (?token= or X-Witness-Share-Token)
+    GET    /v1/records/{id}/bundle            the tar for witness-verify --bundle (same reader rule)
+    GET    /v1/records/{id}/evidence/{sha}    one kept evidence file (public record: anyone; private: owner, evidence token)
+    POST   /v1/records/{id}/shares            owner: a share token {days?, evidence?}; GET lists; DELETE .../shares/{token_id}
+    GET    /v1/records?q=&method=&outcome=&since=   owner search over the caller's own kept private records
+    DELETE /v1/records/{id}                   owner delete (private records)
+    DELETE /v1/records/{id}/evidence          owner: delete the kept evidence
+    POST   /v1/records/{id}/takedown          owner or operator: hide the record and its bundle (the seal stays)
+
 Auth (BD8) for the first three: `Authorization: Bearer <dev key>` (WITNESS_DEV_KEYS_FILE, each key mapped to an account; any
 X-Witness-Account header is ignored), or the BFF's onedroid-req/1 signature (X-Store-Key, X-Store-Time, X-Store-Signature,
 verified against the key list at WITNESS_CALLER_KEYS_URL) plus X-Witness-Account naming the account; POST /v1/observe the
@@ -25,6 +40,7 @@ import email.policy
 import hmac
 import json
 import re
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import __version__, jcs, reqauth
@@ -35,6 +51,10 @@ JOB_PATH = re.compile(r"^/v1/jobs/([A-Za-z0-9_-]{1,64})$")
 KEYLIST_PATH = re.compile(r"^/v1/key-lists/([0-9]{1,9})$")
 OBS_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})$")
 OBS_FILE_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})/files/([A-Za-z0-9][A-Za-z0-9._-]{0,63})$")
+REC_PATH = re.compile(r"^/v1/records/([0-9a-f]{64})$")
+REC_SUB = re.compile(r"^/v1/records/([0-9a-f]{64})/(seal|bundle|shares|keep|takedown|evidence)$")
+REC_EVIDENCE = re.compile(r"^/v1/records/([0-9a-f]{64})/evidence/([0-9a-f]{64})$")
+REC_SHARE = re.compile(r"^/v1/records/([0-9a-f]{64})/shares/(tok_[0-9a-f]{16})$")
 
 
 class DevKeys:
@@ -148,9 +168,9 @@ def make_handler(witness, auth):
             self.end_headers()
             self.wfile.write(body)
 
-        def _send_bytes(self, code, data):
+        def _send_bytes(self, code, data, content_type="application/octet-stream"):
             self.send_response(code)
-            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
@@ -177,9 +197,45 @@ def make_handler(witness, auth):
                 raise WitnessError(413, "too-large", f"a request is at most {max_body} bytes")
             return self.rfile.read(n) if n else b""
 
+        def _query(self):
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "", keep_blank_values=True)
+            return {k: v[0] for k, v in q.items()}
+
+        def _token(self):
+            return self._query().get("token") or self.headers.get("X-Witness-Share-Token") or None
+
+        def _records_get(self, path):
+            """The B3 read routes, or None when the path is not one of them."""
+            rec = witness.records
+            if path == "/v1/records":
+                acct = auth.account("GET", path, b"", self.headers)
+                q = self._query()
+                return self._send(200, rec.search(acct, q.get("q"), q.get("method"), q.get("outcome"), q.get("since")))
+            m = REC_PATH.match(path)
+            if m:
+                return self._send(200, rec.view(self._maybe_account(path), m.group(1), self._token()))
+            m = REC_EVIDENCE.match(path)
+            if m:
+                return self._send_bytes(200, rec.evidence_file(self._maybe_account(path), m.group(1), m.group(2), self._token()))
+            m = REC_SUB.match(path)
+            if m and m.group(2) == "seal":
+                seal = witness.sealer.seal_view(m.group(1))
+                if seal is None:
+                    raise WitnessError(404, "not-found", "this witness signed no payload with this id")
+                return self._send(200, seal)
+            if m and m.group(2) == "bundle":
+                return self._send_bytes(200, rec.bundle(self._maybe_account(path), m.group(1), self._token()), "application/x-tar")
+            if m and m.group(2) == "shares":
+                return self._send(200, rec.share_list(auth.account("GET", path, b"", self.headers), m.group(1)))
+            if path.startswith("/v1/records/"):
+                raise WitnessError(404, "not-found", f"no route GET {path}")
+            return None
+
         def do_GET(self):
             path = self.path.split("?", 1)[0]
             try:
+                if path == "/v1/records" or path.startswith("/v1/records/"):
+                    return self._records_get(path)
                 if path == "/healthz":
                     ok, out = witness.health()
                     return self._send(200 if ok else 503, out)
@@ -212,9 +268,48 @@ def make_handler(witness, auth):
             except WitnessError as e:
                 self._error(e)
 
+        def _json_or_empty(self, raw):
+            return _json(raw) if raw.strip() else {}
+
+        def do_DELETE(self):
+            path = self.path.split("?", 1)[0]
+            try:
+                raw = self._read_body()
+                acct = auth.account("DELETE", path, raw, self.headers)
+                m = REC_PATH.match(path)
+                if m:
+                    return self._send(200, witness.records.delete(acct, m.group(1)))
+                m = REC_SUB.match(path)
+                if m and m.group(2) == "evidence":
+                    return self._send(200, witness.records.delete_evidence(acct, m.group(1)))
+                m = REC_SHARE.match(path)
+                if m:
+                    return self._send(200, witness.records.share_revoke(acct, m.group(1), m.group(2)))
+                raise WitnessError(404, "not-found", f"no route DELETE {path}")
+            except WitnessError as e:
+                self._error(e)
+
+        def _records_post(self, path):
+            m = REC_SUB.match(path)
+            if not m or m.group(2) not in ("keep", "shares", "takedown"):
+                return False
+            raw = self._read_body()
+            acct = auth.account("POST", path, raw, self.headers)
+            rid, what = m.group(1), m.group(2)
+            if what == "keep":
+                body, parts = parse_body(self.headers.get("Content-Type"), raw)
+                self._send(200, witness.records.keep(acct, rid, body, parts))
+            elif what == "shares":
+                self._send(200, witness.records.share_create(acct, rid, self._json_or_empty(raw)))
+            else:
+                self._send(200, witness.records.takedown(acct, rid, self._json_or_empty(raw)))
+            return True
+
         def do_POST(self):
             path = self.path.split("?", 1)[0]
             try:
+                if path.startswith("/v1/records/") and self._records_post(path):
+                    return
                 if path not in ("/v1/witness", "/v1/agent-keys", "/v1/observe"):
                     self._read_body()
                     raise WitnessError(404, "not-found", f"no route POST {path}")

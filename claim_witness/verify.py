@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""witness-verify (SPEC §6), slice B1: steps 1 (key list), 2 (signature), 3 (ids and commitments), 5 (key validity, for an
-unsealed record), 6 (bundle files and the re-run of a pure-Python method from the tarball pinned by code_sha256) and 7 (the
-agent's signature). Step 4 (the seal) comes with the sealer in S3 and is reported as SKIP.
+"""witness-verify (SPEC §6): steps 1 (key list), 2 (signature), 3 (ids and commitments), 4 (the seal, B3), 5 (key validity:
+at the anchor time when sealed, else at the payload's own time), 6 (bundle files and the re-run of a pure-Python method from
+the tarball pinned by code_sha256) and 7 (the agent's signature).
+
+B3, step 4 (`seal`): the leaf H(0x00 || payload) and its path must give the batch root (RFC 9162 §2.1.3.2); the batch header
+must be signed by a key of the key list (PAE over the canonical header without `sig`), name that root and this witness; the
+notary's `over` must be "sha256:" + H(canonical signed header) with every anchor landed. The anchor transaction itself is not
+read here (SKIP seal-chain: check it with armarium's POST /notary/v1/verify or an RPC you trust). Key validity is then judged
+at the anchor time (the earliest landed block_time): a key revoked at or before it fails; FLAG seal-delay when the anchor
+came more than interval_s + 15 minutes after the payload's time. A pending seal is SKIP ("time not proven").
 
 B2b: an observation envelope (predicateType observation/v1) is verified too: signature, payload canonical, observation id,
 manifest digest (a public observation's subject is H(canonical manifest)), key validity at fetched_at, every file given with
@@ -40,7 +47,10 @@ CLAIM_TYPE = "https://onedroid.ai/witness/claim/v1"
 OBSERVATION_TYPE = "https://onedroid.ai/witness/observation/v1"
 NEEDS_IMAGE = ("match.screenshot",)
 KEYLIST_TYPE = "https://onedroid.ai/witness/key-list/v1"
+BATCH_PAYLOAD_TYPE = "application/vnd.onedroid.witness.batch-header+json"
 MAX_INT = 2 ** 53 - 1
+SEAL_GRACE_S = 900
+ANCHOR_SKEW_S = 300  # the signer's own clock tolerance: an anchor further before the payload's time is inconsistent
 
 # ---------------------------------------------------------------------------------------------------------------------
 # RFC 8032 Ed25519, pure Python (the reference code of RFC 8032 §6, restated)
@@ -263,6 +273,146 @@ def agent_message(witness_id, claim, evidence, nonce, agent_time):
 # ---------------------------------------------------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# step 4: the seal (RFC 9162 §2.1.3.2, restated from claim_witness.merkle)
+
+
+def merkle_root_from_path(leaf_hex, index, size, path_hex):
+    """The root a leaf and its inclusion path give in a tree of `size` leaves, or None when they cannot fit."""
+    try:
+        r = bytes.fromhex(leaf_hex)
+        hashes = [bytes.fromhex(x) for x in path_hex]
+    except (TypeError, ValueError):
+        return None
+    if not (isinstance(index, int) and isinstance(size, int)) or isinstance(index, bool) or not 0 <= index < size or len(r) != 32:
+        return None
+    fn, sn = index, size - 1
+    for x in hashes:
+        if len(x) != 32 or sn == 0:
+            return None
+        if fn & 1 or fn == sn:
+            r = hashlib.sha256(b"\x01" + x + r).digest()
+            if not fn & 1:
+                while fn and not fn & 1:
+                    fn >>= 1
+                    sn >>= 1
+        else:
+            r = hashlib.sha256(b"\x01" + r + x).digest()
+        fn >>= 1
+        sn >>= 1
+    return r.hex() if sn == 0 else None
+
+
+def _utc(value):
+    """An RFC 3339 time as YYYY-MM-DDTHH:MM:SSZ (UTC, seconds), or None."""
+    import datetime
+    if not isinstance(value, str):
+        return None
+    try:
+        t = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if t.tzinfo is None:
+        return None
+    return t.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _secs(t):
+    import calendar
+    import time as _t
+    return calendar.timegm(_t.strptime(t, "%Y-%m-%dT%H:%M:%SZ"))
+
+
+def check_seal(r, seal, raw, keys, kl, skip_text):
+    """Step 4. Returns the anchor time (UTC string) when the seal verifies and is anchored, "failed" when it fails, else None."""
+    if not isinstance(seal, dict) or "batch_header" not in seal:
+        r.skip("seal", skip_text)
+        return None
+    errs, anchor = [], None
+    try:
+        hdr = seal["batch_header"]
+        leaf = sha256_hex(b"\x00" + raw)
+        root = merkle_root_from_path(leaf, seal["leaf_index"], hdr["size"], seal["path"])
+        if root is None or root != hdr["root"]:
+            errs.append("the leaf and its path do not give the batch root")
+        unsigned = {k: v for k, v in hdr.items() if k != "sig"}
+        entry = (keys or {}).get(hdr.get("key_id"))
+        if entry is None:
+            errs.append(f"the batch header's key {hdr.get('key_id')!r} is not in the key list")
+        elif not ed25519_verify(base64.b64decode(entry["public"]), base64.b64decode(hdr["sig"], validate=True),
+                                pae(BATCH_PAYLOAD_TYPE, canonical(unsigned))):
+            errs.append("the batch header's signature does not verify")
+        if kl is not None and hdr.get("witness") != kl.get("witness"):
+            errs.append(f"the batch header names {hdr.get('witness')!r}, the key list {kl.get('witness')!r}")
+        anchored = seal.get("state") == "anchored"
+        if anchored:
+            notary = seal.get("notary") or {}
+            if notary.get("over") != "sha256:" + sha256_hex(canonical(hdr)):
+                errs.append("the notary's over is not sha256 of the canonical signed batch header")
+            landed = [a for a in notary.get("anchors") or [] if isinstance(a, dict) and a.get("state") == "landed" and a.get("tx_hash")]
+            if notary.get("status") != "landed" or not landed:
+                errs.append("the notary result is not landed on a chain")
+            times = sorted(t for t in (_utc(a.get("block_time")) for a in landed) if t)
+            if landed and not times:
+                errs.append("no landed anchor carries a block_time")
+            anchor = times[0] if times else None
+            if anchor and entry is not None:
+                if entry.get("revoked_at") and entry["revoked_at"] <= anchor:
+                    errs.append(f"the header's key was revoked at {entry['revoked_at']}, before the anchor time {anchor}")
+                closed = hdr.get("closed_at", "")
+                if not (entry.get("valid_from", "") <= closed and (entry.get("valid_to") is None or closed <= entry["valid_to"])):
+                    errs.append(f"the batch closed at {closed}, outside its key's validity")
+    except (KeyError, TypeError, ValueError, AttributeError) as e:
+        errs.append(f"unreadable seal: {type(e).__name__}")
+    if errs:
+        r.fail("seal", "; ".join(errs))
+        return "failed"
+    if not anchored:
+        r.skip("seal", f"batched (leaf {seal['leaf_index']} of {hdr['size']}: the path and the header verify) but not anchored: "
+                       "the time is not proven")
+        return None
+    chains = ", ".join(sorted({a.get("chain") or "?" for a in landed}))
+    r.ok("seal", f"leaf {seal['leaf_index']} of batch {hdr['batch_id'][:16]}... (size {hdr['size']}) gives its root; header "
+                 f"signed by {hdr['key_id']}; notary over matches; anchored on {chains} at {anchor}")
+    r.skip("seal-chain", "the anchor transaction itself was not read: check it with armarium's POST /notary/v1/verify "
+                         "{over, chain, tx_hash} or an RPC you trust")
+    return anchor
+
+
+def key_validity(r, entry, kid, at, anchor, interval_s=None, what="payload"):
+    """Step 5. Sealed (anchor given): a key revoked at or before the anchor time fails; otherwise `at` must lie in the key's
+    validity. Unsealed: a revoked key fails, because the payload cannot prove it was signed before the revocation."""
+    if anchor is None:
+        if entry.get("revoked_at"):
+            r.fail("key-validity", f"key {kid} was revoked at {entry['revoked_at']} ({entry.get('revoke_reason')}); an unsealed "
+                                   f"{what} cannot prove it was signed before that")
+            return
+        ok = entry.get("valid_from", "") <= at and (entry.get("valid_to") is None or at <= entry["valid_to"])
+        r.check("key-validity", ok, f"{at} is outside the key's validity {entry.get('valid_from')}..{entry.get('valid_to')}",
+                f"{kid} valid at the {what}'s own time {at} (not proven until sealed)")
+        return
+    try:
+        early = _secs(anchor) + ANCHOR_SKEW_S < _secs(at)
+    except ValueError:
+        early = True
+    if early:
+        r.fail("key-validity", f"anchored at {anchor}, before the {what}'s own time {at}: the times are not consistent")
+        return
+    if entry.get("revoked_at") and entry["revoked_at"] <= anchor:
+        r.fail("key-validity", f"key {kid} was revoked at {entry['revoked_at']} ({entry.get('revoke_reason')}), before the "
+                               f"anchor time {anchor}")
+        return
+    ok = entry.get("valid_from", "") <= at and (entry.get("valid_to") is None or at <= entry["valid_to"])
+    if r.check("key-validity", ok, f"{at} is outside the key's validity {entry.get('valid_from')}..{entry.get('valid_to')}",
+               f"{kid} valid at {at}, anchored at {anchor} before any revocation"):
+        try:
+            if interval_s is not None and _secs(anchor) - _secs(at) > int(interval_s) + SEAL_GRACE_S:
+                r.line(f"FLAG seal-delay: anchored {_secs(anchor) - _secs(at)} s after {at}, more than interval_s "
+                       f"{interval_s} + {SEAL_GRACE_S} s")
+        except ValueError:
+            pass
+
+
 class Report:
     def __init__(self, out):
         self.out, self.failed = out, False
@@ -426,7 +576,7 @@ def _key_validity(r, entry, kid, at):
                 f"{kid} valid at the payload's own time {at} (not proven until sealed)")
 
 
-def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, disclosure=None):
+def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, disclosure=None, seal=None, kl=None):
     """An observation envelope: id, manifest digest, key validity at fetched_at, files, text.canonical.txt."""
     oid = sha256_hex(raw)
     r.line(f"observation id: {oid}")
@@ -460,9 +610,10 @@ def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, d
             r.fail("body-commitment", f"unreadable disclosure: {e}")
     else:
         r.skip("manifest-digest", "private observation and no disclosure given (--disclosure)")
-    r.skip("seal", "pending: this observation is signed by its key; its time is not proven (sealing comes with S3)")
-    if entry is not None:
-        _key_validity(r, entry, kid, pred.get("fetched_at", ""))
+    anchor = check_seal(r, seal, raw, keys, kl, "pending: this observation is signed by its key; its time is not proven")
+    if entry is not None and anchor != "failed":
+        key_validity(r, entry, kid, pred.get("fetched_at", ""), anchor,
+                     (seal or {}).get("batch_header", {}).get("interval_s"), "observation")
     if manifest is None:
         return
     listed = {f["name"]: f["sha256"] for f in manifest.get("files") or []}
@@ -487,7 +638,8 @@ def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, d
             "canon/1 of rendered.html is not the manifest's text.canonical.txt", "canon/1 of rendered.html is text.canonical.txt")
 
 
-def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None, files=(), tar_bytes=None, expect_id=None):
+def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None, files=(), tar_bytes=None, expect_id=None,
+               seal=None):
     r.line("ed25519: " + ("cryptography" if _backend() is not None else "pure-python"))
     kl, keys = check_key_list(r, keys_env, trusted) if keys_env is not None else (None, None)
     if keys_env is None:
@@ -502,7 +654,7 @@ def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None,
     if st.get("predicateType") == OBSERVATION_TYPE:
         if env.get("payloadType") != PAYLOAD_TYPE:
             r.fail("signature", f"payloadType {env.get('payloadType')!r} is not {PAYLOAD_TYPE}")
-        run_observation_checks(r, env, keys, st, raw, list(files), tar_bytes, expect_id, disclosure)
+        run_observation_checks(r, env, keys, st, raw, list(files), tar_bytes, expect_id, disclosure, seal, kl)
         return
     rid = sha256_hex(raw)
     r.line(f"record id: {rid}")
@@ -545,17 +697,11 @@ def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None,
         except (KeyError, TypeError, ValueError) as e:
             r.fail("claim-commitment", f"unreadable disclosure: {e}")
     # step 4
-    r.skip("seal", "pending: this record is signed by its key; its time is not proven (sealing comes with S3)")
-    # step 5 (unsealed)
-    if entry is not None:
-        at = pred.get("witnessed_at", "")
-        if entry.get("revoked_at"):
-            r.fail("key-validity", f"key {kid} was revoked at {entry['revoked_at']} ({entry.get('revoke_reason')}); an unsealed "
-                                   "record cannot prove it was signed before that")
-        else:
-            ok = entry.get("valid_from", "") <= at and (entry.get("valid_to") is None or at <= entry["valid_to"])
-            r.check("key-validity", ok, f"witnessed_at {at} is outside the key's validity {entry.get('valid_from')}..{entry.get('valid_to')}",
-                    f"{kid} valid at the record's own time {at} (not proven until sealed)")
+    anchor = check_seal(r, seal, raw, keys, kl, "pending: this record is signed by its key; its time is not proven")
+    # step 5: at the anchor time when sealed, else at the record's own time
+    if entry is not None and anchor != "failed":
+        key_validity(r, entry, kid, pred.get("witnessed_at", ""), anchor,
+                     (seal or {}).get("batch_header", {}).get("interval_s"), "record")
     # step 6
     if view is not None:
         rerun(r, dict(view, method=pred["method"], finding=pred["finding"], outcome=pred["outcome"], reason=pred["reason"],
@@ -591,17 +737,20 @@ def main(argv=None, out=None):
     ap.add_argument("--methods")
     ap.add_argument("--evidence", action="append", default=[])
     ap.add_argument("--record-id")
+    ap.add_argument("--seal", help="the seal JSON (GET /v1/records/{id}/seal); a whole answer's own seal is used otherwise")
     try:
         a = ap.parse_args(argv)
     except SystemExit:
         return 2
     files, tar_bytes = [pathlib.Path(p).read_bytes() for p in a.evidence], None
     env_path, keys_path, disc_path, agent_path, tar_path = a.envelope, a.keys, a.disclosure, a.agent_key, a.methods
+    seal_path = a.seal
     if a.bundle:
         b = pathlib.Path(a.bundle)
         pick = lambda cur, name: cur or (str(b / name) if (b / name).is_file() else None)
         env_path, keys_path = pick(env_path, "envelope.json"), pick(keys_path, "keys.json")
         disc_path, agent_path = pick(disc_path, "disclosure.json"), pick(agent_path, "agent_key.json")
+        seal_path = pick(seal_path, "seal.json")
         tars = sorted(b.glob("witness-methods-*.tar.gz"))
         tar_path = tar_path or (str(tars[0]) if tars else None)
         if (b / "evidence").is_dir():
@@ -612,8 +761,10 @@ def main(argv=None, out=None):
     try:
         env = _read_json(env_path)
         disclosure = _read_json(disc_path) if disc_path else None
-        if isinstance(env, dict) and "envelope" in env:  # a whole POST /v1/witness or /v1/observe answer
+        seal = _read_json(seal_path) if seal_path else None
+        if isinstance(env, dict) and "envelope" in env:  # a whole POST /v1/witness or /v1/observe answer, or a record view
             disclosure = disclosure or env.get("disclosure")
+            seal = seal if seal is not None else env.get("seal")
             env = env["envelope"]
         trusted = bool(a.trust)
         keys_env = _read_json(a.trust or keys_path) if (a.trust or keys_path) else None
@@ -623,7 +774,7 @@ def main(argv=None, out=None):
         print(f"witness-verify: cannot read input: {e}", file=sys.stderr)
         return 2
     r = Report(out)
-    run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id)
+    run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id, seal)
     r.line("RESULT: " + ("FAIL" if r.failed else "PASS"))
     return 1 if r.failed else 0
 

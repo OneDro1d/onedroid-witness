@@ -12,7 +12,8 @@ import time
 
 import psycopg
 
-from .storage import JOB_FIELDS, OBS_FIELDS, OUTCOMES, OUTPUT_FIELDS, Conflict, Storage
+from .storage import (BATCH_FIELDS, JOB_FIELDS, KEPT_FIELDS, OBS_FIELDS, OUTCOMES, OUTPUT_FIELDS, SHARE_FIELDS, Conflict,
+                      Storage)
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
 MIGRATION_LOCK = 0x636C6169  # "clai": the advisory lock key the migration holds
@@ -103,11 +104,15 @@ class PostgresStorage(Storage):
 
     def create_job(self, job):
         try:
-            self._q("INSERT INTO jobs (id, account, state, created_at, idem_key, request_sha256, auto_fp, http_status, answer, error) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (job["id"], job["account"], job["state"], int(job["created_at"]), job.get("idem_key"), job.get("request_sha256"),
-                     job.get("auto_fp"), job.get("http_status"), job.get("answer"),
-                     json.dumps(job["error"]) if job.get("error") is not None else None))
+            # record_id (004_keep) is named only when set, so a row can still be written before that migration ran
+            extra = ", record_id" if job.get("record_id") is not None else ""
+            args = (job["id"], job["account"], job["state"], int(job["created_at"]), job.get("idem_key"), job.get("request_sha256"),
+                    job.get("auto_fp"), job.get("http_status"), job.get("answer"),
+                    json.dumps(job["error"]) if job.get("error") is not None else None)
+            if extra:
+                args += (job["record_id"],)
+            self._q(f"INSERT INTO jobs (id, account, state, created_at, idem_key, request_sha256, auto_fp, http_status, answer, error"
+                    f"{extra}) VALUES ({', '.join(['%s'] * len(args))})", args)
         except psycopg.errors.UniqueViolation:
             raise Conflict("job id exists") from None
 
@@ -134,13 +139,14 @@ class PostgresStorage(Storage):
         return self._job(self._q(f"SELECT {', '.join(JOB_FIELDS)} FROM jobs WHERE account = %s AND auto_fp = %s AND created_at >= %s "
                                  "AND state = 'done' ORDER BY created_at LIMIT 1", (account, auto_fp, int(since)), fetch="one"))
 
-    def append_signing_log(self, payload_id, predicate_type, at):
-        return self._q("INSERT INTO signing_log (payload_id, predicate_type, at) VALUES (%s, %s, %s) RETURNING seq",
-                       (payload_id, predicate_type, int(at)), fetch="one")[0]
+    def append_signing_log(self, payload_id, predicate_type, at, leaf=None):
+        return self._q("INSERT INTO signing_log (payload_id, predicate_type, at, leaf) VALUES (%s, %s, %s, %s) RETURNING seq",
+                       (payload_id, predicate_type, int(at), leaf), fetch="one")[0]
 
     def signing_log(self):
-        return [{"seq": r[0], "payload_id": r[1], "predicate_type": r[2], "at": r[3]}
-                for r in self._q("SELECT seq, payload_id, predicate_type, at FROM signing_log ORDER BY seq", fetch="all")]
+        return [{"seq": r[0], "payload_id": r[1], "predicate_type": r[2], "at": r[3], "leaf": r[4], "batch_id": r[5]}
+                for r in self._q("SELECT seq, payload_id, predicate_type, at, leaf, batch_id FROM signing_log ORDER BY seq",
+                                 fetch="all")]
 
     def add_agent_key(self, row):
         self._q("INSERT INTO agent_keys (agent_key_id, account, agent, public_key, created_at) VALUES (%s, %s, %s, %s, %s) "
@@ -255,3 +261,178 @@ class PostgresStorage(Storage):
     def fresh_count(self, account, day):
         r = self._q("SELECT n FROM fresh_observations WHERE account = %s AND day = %s", (account, int(day)), fetch="one")
         return int(r[0]) if r else 0
+
+    def set_observation_kept(self, obs_id, kept):
+        self._q("UPDATE observations SET kept = %s WHERE id = %s", (bool(kept), obs_id))
+
+    def delete_observation(self, obs_id):
+        self._q("DELETE FROM observations WHERE id = %s", (obs_id,))
+
+    # ------------------------------------------------------------------------------------------------- B3: the sealer
+
+    def log_has(self, payload_id):
+        return self._q("SELECT 1 FROM signing_log WHERE payload_id = %s LIMIT 1", (payload_id,), fetch="one") is not None
+
+    def pending_leaves(self, limit, max_seq=None):
+        sql = "SELECT seq, payload_id, predicate_type, at, leaf, batch_id FROM signing_log WHERE batch_id IS NULL AND leaf IS NOT NULL"
+        args = []
+        if max_seq is not None:
+            sql += " AND seq <= %s"
+            args.append(int(max_seq))
+        rows = self._q(sql + " ORDER BY seq LIMIT %s", (*args, int(limit)), fetch="all")
+        return [dict(zip(("seq", "payload_id", "predicate_type", "at", "leaf", "batch_id"), r)) for r in rows]
+
+    def write_batch(self, batch, proofs):
+        with self.lock:
+            c = self._c()
+            try:
+                with c.transaction():
+                    c.execute("INSERT INTO batches (id, first_seq, last_seq, size, root, header, notary, state, created_at) "
+                              "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                              (batch["id"], int(batch["first_seq"]), int(batch["last_seq"]), int(batch["size"]), batch["root"],
+                               json.dumps(batch["header"]), json.dumps(batch["notary"]) if batch.get("notary") is not None else None,
+                               batch["state"], int(batch["created_at"])))
+                    seqs = [int(p["seq"]) for p in proofs]
+                    n = c.execute("UPDATE signing_log SET batch_id = %s WHERE seq = ANY(%s) AND batch_id IS NULL",
+                                  (batch["id"], seqs)).rowcount
+                    if n != len(seqs):
+                        raise Conflict("a leaf is already in a batch")
+                    with c.cursor() as cur:
+                        cur.executemany("INSERT INTO seals (payload_id, batch_id, leaf_index, path) VALUES (%s, %s, %s, %s) "
+                                        "ON CONFLICT (payload_id) DO NOTHING",
+                                        [(p["payload_id"], batch["id"], int(p["leaf_index"]), json.dumps(p["path"])) for p in proofs])
+            except psycopg.errors.UniqueViolation:
+                raise Conflict("batch exists") from None
+
+    def update_batch(self, batch_id, **fields):
+        cols, args = [], []
+        for k, v in fields.items():
+            if k not in ("notary", "state"):
+                raise KeyError(k)
+            cols.append(f"{k} = %s")
+            args.append(json.dumps(v) if k == "notary" and v is not None else v)
+        self._q(f"UPDATE batches SET {', '.join(cols)} WHERE id = %s", (*args, batch_id))
+
+    @staticmethod
+    def _batch(r):
+        if r is None:
+            return None
+        b = dict(zip(BATCH_FIELDS, r))
+        b["header"] = json.loads(b["header"])
+        b["notary"] = json.loads(b["notary"]) if b["notary"] is not None else None
+        return b
+
+    def get_batch(self, batch_id):
+        return self._batch(self._q(f"SELECT {', '.join(BATCH_FIELDS)} FROM batches WHERE id = %s", (batch_id,), fetch="one"))
+
+    def batches(self, state=None):
+        if state is None:
+            rows = self._q(f"SELECT {', '.join(BATCH_FIELDS)} FROM batches ORDER BY first_seq", fetch="all")
+        else:
+            rows = self._q(f"SELECT {', '.join(BATCH_FIELDS)} FROM batches WHERE state = %s ORDER BY first_seq", (state,), fetch="all")
+        return [self._batch(r) for r in rows]
+
+    def get_seal(self, payload_id):
+        r = self._q("SELECT batch_id, leaf_index, path FROM seals WHERE payload_id = %s", (payload_id,), fetch="one")
+        return {"batch_id": r[0], "leaf_index": r[1], "path": json.loads(r[2])} if r else None
+
+    # ------------------------------------------------------------------------------------------------- B3: kept records
+
+    _JSON_KEPT = ("envelope", "ndim")
+
+    def put_kept(self, row):
+        vals = [json.dumps(row.get(k)) if k in self._JSON_KEPT else row.get(k) for k in KEPT_FIELDS]
+        try:
+            self._q(f"INSERT INTO kept_records ({', '.join(KEPT_FIELDS)}) VALUES ({', '.join(['%s'] * len(KEPT_FIELDS))})", vals)
+        except psycopg.errors.UniqueViolation:
+            raise Conflict("kept already") from None
+
+    def _kept(self, r):
+        if r is None:
+            return None
+        k = dict(zip(KEPT_FIELDS, r))
+        for f in self._JSON_KEPT:
+            k[f] = json.loads(k[f])
+        for f in ("wrapped_key", "body_box", "evidence_key_box"):
+            if k[f] is not None:
+                k[f] = bytes(k[f])
+        return k
+
+    def get_kept(self, record_id):
+        return self._kept(self._q(f"SELECT {', '.join(KEPT_FIELDS)} FROM kept_records WHERE record_id = %s", (record_id,),
+                                  fetch="one"))
+
+    def update_kept(self, record_id, **fields):
+        cols, args = [], []
+        for k, v in fields.items():
+            if k not in KEPT_FIELDS or k == "record_id":
+                raise KeyError(k)
+            cols.append(f"{k} = %s")
+            args.append(json.dumps(v) if k in self._JSON_KEPT else v)
+        self._q(f"UPDATE kept_records SET {', '.join(cols)} WHERE record_id = %s", (*args, record_id))
+
+    def kept_list(self, account=None, visibility=None):
+        sql, args = f"SELECT {', '.join(KEPT_FIELDS)} FROM kept_records WHERE true", []
+        if account is not None:
+            sql += " AND account = %s"
+            args.append(account)
+        if visibility is not None:
+            sql += " AND visibility = %s"
+            args.append(visibility)
+        return [self._kept(r) for r in self._q(sql + " ORDER BY kept_at, record_id", args, fetch="all")]
+
+    def put_kept_evidence(self, record_id, rows):
+        for r in rows:
+            self._q("INSERT INTO kept_evidence (record_id, sha256, box) VALUES (%s, %s, %s) "
+                    "ON CONFLICT (record_id, sha256) DO UPDATE SET box = EXCLUDED.box", (record_id, r["sha256"], bytes(r["box"])))
+
+    def get_kept_evidence(self, record_id):
+        return [{"sha256": r[0], "box": bytes(r[1])} for r in
+                self._q("SELECT sha256, box FROM kept_evidence WHERE record_id = %s ORDER BY sha256", (record_id,), fetch="all")]
+
+    def delete_kept_evidence(self, record_id):
+        return self._q("DELETE FROM kept_evidence WHERE record_id = %s", (record_id,))
+
+    def put_index(self, record_id, account, tokens):
+        for t in tokens:
+            self._q("INSERT INTO owner_index (record_id, account, token) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                    (record_id, account, t))
+
+    def find_index(self, account, tokens):
+        tokens = sorted(set(tokens))
+        if not tokens:
+            return set()
+        rows = self._q("SELECT record_id FROM owner_index WHERE account = %s AND token = ANY(%s) GROUP BY record_id "
+                       "HAVING count(DISTINCT token) = %s", (account, tokens, len(tokens)), fetch="all")
+        return {r[0] for r in rows}
+
+    def delete_index(self, record_id):
+        return self._q("DELETE FROM owner_index WHERE record_id = %s", (record_id,))
+
+    def put_share(self, row):
+        self._q(f"INSERT INTO share_tokens ({', '.join(SHARE_FIELDS)}) VALUES ({', '.join(['%s'] * len(SHARE_FIELDS))})",
+                [row.get(k) for k in SHARE_FIELDS])
+
+    def get_share(self, token_hash):
+        r = self._q(f"SELECT {', '.join(SHARE_FIELDS)} FROM share_tokens WHERE token_hash = %s", (token_hash,), fetch="one")
+        return dict(zip(SHARE_FIELDS, r)) if r else None
+
+    def shares_of(self, record_id):
+        return [dict(zip(SHARE_FIELDS, r)) for r in self._q(
+            f"SELECT {', '.join(SHARE_FIELDS)} FROM share_tokens WHERE record_id = %s ORDER BY created_at, token_id",
+            (record_id,), fetch="all")]
+
+    def update_share(self, token_id, **fields):
+        cols, args = [], []
+        for k, v in fields.items():
+            if k not in ("revoked_at",):
+                raise KeyError(k)
+            cols.append(f"{k} = %s")
+            args.append(v)
+        self._q(f"UPDATE share_tokens SET {', '.join(cols)} WHERE token_id = %s", (*args, token_id))
+
+    def delete_shares(self, record_id):
+        return self._q("DELETE FROM share_tokens WHERE record_id = %s", (record_id,))
+
+    def delete_jobs_for_record(self, record_id):
+        return self._q("DELETE FROM jobs WHERE record_id = %s", (record_id,))

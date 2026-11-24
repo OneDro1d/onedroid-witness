@@ -1,4 +1,4 @@
-# claim-witness slices B1, B6 and B2b on the DEV cluster, namespace witness-dev (DECISIONS BD6, BD7), beside the old onedroid-witness until
+# claim-witness slices B1, B6, B2b and B3 on the DEV cluster, namespace witness-dev (DECISIONS BD6, BD7), beside the old onedroid-witness until
 # B8. The orchestrator sets the image at rollout time (IMAGE_PLACEHOLDER). Secrets are referenced by NAME only; how to create
 # each one is in README_CLAIM.md, "Secrets". Nothing here holds a secret value.
 #
@@ -118,6 +118,27 @@ spec:
             - {name: WITNESS_IMAGE_DIGEST, value: "IMAGE_DIGEST_PLACEHOLDER"}
             - {name: WITNESS_RESOLVERS, value: "1.1.1.1,8.8.8.8"}
             - {name: WITNESS_CONFIRM_DELAY_S, value: "60"}
+            # B3 sealer (SPEC §7.2), a thread of this container: a batch closes when its oldest leaf is
+            # WITNESS_BATCH_INTERVAL_S old or it holds WITNESS_BATCH_MAX_LEAVES leaves. README_CLAIM.md, "Sealer".
+            - {name: WITNESS_BATCH_INTERVAL_S, value: "3600"}
+            - {name: WITNESS_BATCH_MAX_LEAVES, value: "100000"}
+            - {name: WITNESS_SEALER, value: "1"}
+            - {name: WITNESS_SEALER_POLL_S, value: "30"}
+            # The armarium notary (hash/1). Token: Secret claim-witness-notary-token (key `token`); CA: ConfigMap armarium-ca
+            # (key `ca.crt`). Both volumes are optional: without the token file the notary is off and seals stay pending.
+            # The orchestrator sets NOTARY_URL_PLACEHOLDER (an https URL) when it creates the Secret.
+            - {name: WITNESS_NOTARY_URL, value: "NOTARY_URL_PLACEHOLDER"}
+            - {name: WITNESS_NOTARY_TOKEN_FILE, value: /etc/claim-witness/notary/token}
+            - {name: WITNESS_NOTARY_CA_FILE, value: /etc/claim-witness/armarium-ca/ca.crt}
+            # n-dim (BD4) through armarium's /chain/{name}/object. Token: Secret claim-witness-armarium-token (key `token`, an
+            # object:write + object:read token bound to the chain). Without the token file nothing is written and every kept
+            # record says n-dim "not-configured". NDIM_STORE_EVIDENCE=1 also writes kept evidence ciphertext (BD4 option C).
+            - {name: ARMARIUM_URL, value: "ARMARIUM_URL_PLACEHOLDER"}
+            - {name: ARMARIUM_TOKEN_FILE, value: /etc/claim-witness/armarium/token}
+            - {name: ARMARIUM_CA_FILE, value: /etc/claim-witness/armarium-ca/ca.crt}
+            - {name: ARMARIUM_CHAIN, value: "claim-witness-dev"}
+            - {name: NDIM_STORE_EVIDENCE, value: "0"}
+            - {name: WITNESS_LINK_BASE, value: "https://evidence.onedroid.ai"}
           volumeMounts:
             - {name: socket, mountPath: /run/claim-witness}
             - {name: attempt-key, mountPath: /etc/claim-witness/attempt, readOnly: true}
@@ -126,6 +147,9 @@ spec:
             - {name: judge-key, mountPath: /etc/claim-witness/judge-key, readOnly: true}
             - {name: judge-models, mountPath: /etc/claim-witness/judge-models, readOnly: true}
             - {name: fetcher-secret, mountPath: /etc/claim-witness/fetcher, readOnly: true}
+            - {name: notary-token, mountPath: /etc/claim-witness/notary, readOnly: true}
+            - {name: armarium-token, mountPath: /etc/claim-witness/armarium, readOnly: true}
+            - {name: armarium-ca, mountPath: /etc/claim-witness/armarium-ca, readOnly: true}
           readinessProbe:
             httpGet: {path: /healthz, port: 8080}
             initialDelaySeconds: 3
@@ -190,6 +214,27 @@ spec:
         # the fetcher's shared secret (the same Secret the claim-fetcher Deployment reads), key `secret`
         - name: fetcher-secret
           secret: {secretName: claim-fetcher-secret, defaultMode: 0440, items: [{key: secret, path: secret}]}
+        # B3, all optional (the pod starts without them): the notary's token, armarium's object token, armarium's private CA
+        - name: notary-token
+          secret:
+            secretName: claim-witness-notary-token
+            optional: true
+            defaultMode: 0440
+            items:
+              - {key: token, path: token}
+        - name: armarium-token
+          secret:
+            secretName: claim-witness-armarium-token
+            optional: true
+            defaultMode: 0440
+            items:
+              - {key: token, path: token}
+        - name: armarium-ca
+          configMap:
+            name: armarium-ca
+            optional: true
+            items:
+              - {key: ca.crt, path: ca.crt}
 ---
 apiVersion: v1
 kind: Service

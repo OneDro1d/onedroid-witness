@@ -83,7 +83,9 @@ class Config:
                  max_body_bytes=25 << 20, default_wait=10, max_wait=60, rate_per_minute=60, workers=8, trust_list=None,
                  judge=None, price=None, judge_output_ttl=DAY,
                  fetcher=None, resolvers=None, confirm_delay_s=60, sleep=time.sleep, free_observations_per_day=50,
-                 observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY):
+                 observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY,
+                 notary=None, armarium=None, ndim_chain=None, ndim_store_evidence=False, batch_interval_s=3600,
+                 batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
         if not master_key or len(master_key) < 32:
@@ -106,6 +108,17 @@ class Config:
         self.free_observations_per_day, self.observation_price = int(free_observations_per_day), self.price["observation"]
         self.image_digest, self.tesseract_bin = ocr.parse_digest(image_digest), tesseract_bin
         self.host_fetches_per_minute, self.observation_ttl = int(host_fetches_per_minute), int(observation_ttl)
+        # B3: the sealer (SPEC §7.2), the notary (a notary.NotaryClient, or None: batches close but never anchor), n-dim (an
+        # ndim.ArmariumClient and its chain, or None: nothing is written), and the kept-record settings
+        if int(batch_interval_s) < 1 or int(batch_max_leaves) < 1:
+            raise ValueError("batch_interval_s and batch_max_leaves: integers >= 1")
+        self.notary, self.armarium, self.ndim_chain = notary, armarium, ndim_chain
+        if armarium is not None and not ndim_chain:
+            raise ValueError("ndim_chain: the chain to write to is required with an armarium client")
+        self.ndim_store_evidence = bool(ndim_store_evidence)
+        self.batch_interval_s, self.batch_max_leaves = int(batch_interval_s), int(batch_max_leaves)
+        self.sealer_poll_s, self.link_base = float(sealer_poll_s), str(link_base)
+        self.operator_accounts = list(operator_accounts or [])
 
 
 def iso(t):
@@ -191,6 +204,10 @@ class Witness:
         self.last_purge = None
         self.host_limit = HostLimit(config.host_fetches_per_minute)
         self.lookup_key = hmac.new(config.master_key, b"claim-witness/observation-lookup/1", hashlib.sha256).digest()
+        from .records import Records  # B3; imported here: records.py imports WitnessError from this module
+        from .sealer import Sealer
+        self.records = Records(self)
+        self.sealer = Sealer(self)
 
     def now(self):
         return int(self.cfg.clock())
@@ -252,8 +269,12 @@ class Witness:
             raise WitnessError(503, "no-key-list", "the witness has no key list yet")
         pred = json.loads(base64.b64decode(latest["envelope"]["payload"]))["predicate"]
         return {"witness_id": self.cfg.witness_id, "key_list_seq": latest["seq"], "key_list": latest["envelope"],
-                "key_list_sha256": latest["sha256"], "batch_interval_s": pred.get("batch_interval_s"),
-                "sealers": pred.get("sealers", []), "trust_list": list(self.cfg.trust_list), "seal": "none (S3)"}
+                "key_list_sha256": latest["sha256"], "batch_interval_s": self.cfg.batch_interval_s,
+                "sealers": pred.get("sealers", []), "trust_list": list(self.cfg.trust_list),
+                "seal": {"profile": "hash/1", "notary": self.cfg.notary is not None, "batch_max_leaves": self.cfg.batch_max_leaves,
+                         "leaf": "H(0x00 || payload)", "tree": "RFC 9162 section 2.1",
+                         "over": "sha256:H(canonical signed batch header)"},
+                "ndim": {"configured": self.cfg.armarium is not None, "store_evidence": self.cfg.ndim_store_evidence}}
 
     def key_list(self, seq):
         env = self.storage.get_key_list(seq)
@@ -286,6 +307,7 @@ class Witness:
         now = self.now()
         self.storage.purge(jobs_before=now - JOB_TTL, nonces_before=now - NONCE_WINDOW, attempts_before=now - ATTEMPT_WINDOW,
                            outputs_expired_at=now, observations_before=now - self.cfg.observation_ttl)
+        self.records.purge(now)
         self.last_purge = now
 
     def _maybe_purge(self):
@@ -343,7 +365,8 @@ class Witness:
             prev = self.storage.find_job_by_auto(account, p.auto_fp, since=now - IDEM_WINDOW)
             if prev is not None:
                 if idem_key is not None:
-                    jid = self._new_job(p, now, state="done", answer=prev["answer"], answer_ctx=prev["id"])
+                    jid = self._new_job(p, now, state="done", answer=prev["answer"], answer_ctx=prev["id"],
+                                        record_id=prev.get("record_id"))
                     return self._respond(jid, 0)
                 return 200, self._answer_of(prev), {}
         jid = self._new_job(p, now)
@@ -368,14 +391,15 @@ class Witness:
             return status, out, {}
         return 202, {"job_id": jid, "state": job["state"] if job else "queued"}, {"Location": f"/v1/jobs/{jid}"}
 
-    def _new_job(self, p, now, state="queued", answer=None, answer_ctx=None):
+    def _new_job(self, p, now, state="queued", answer=None, answer_ctx=None, record_id=None):
         jid = uuid.uuid4().hex
         if answer is not None and answer_ctx != jid:
             answer = crypto.seal_box(self.cfg.master_key, jid, crypto.open_box(self.cfg.master_key, answer_ctx, answer))
         try:
             self.storage.create_job({"id": jid, "account": p.account, "state": state, "created_at": now, "idem_key": p.idem_key,
                                      "request_sha256": p.request_sha256, "auto_fp": p.auto_fp,
-                                     "http_status": 200 if state == "done" else None, "answer": answer, "error": None})
+                                     "http_status": 200 if state == "done" else None, "answer": answer, "error": None,
+                                     "record_id": record_id})
         except Conflict:  # a uuid4 collision
             raise WitnessError(500, "internal", "job id collision") from None
         return jid
@@ -398,7 +422,7 @@ class Witness:
                                             error={"error": "internal", "detail": type(e).__name__})
                     return
                 blob = crypto.seal_box(self.cfg.master_key, jid, json.dumps(answer, ensure_ascii=False).encode("utf-8"))
-                self.storage.update_job(jid, state="done", http_status=200, answer=blob)
+                self.storage.update_job(jid, state="done", http_status=200, answer=blob, record_id=answer.get("record_id"))
         finally:
             with self.events_lock:
                 ev = self.events.pop(jid, None)
@@ -991,7 +1015,9 @@ class Witness:
             if not all(isinstance(x, int) and not isinstance(x, bool) for x in (c, r)) or not (1 <= c <= 3 and 1 <= r <= c):
                 raise WitnessError(422, "invalid-options", "options.models: {count: 1|2|3, require?: n <= count}")
         if out["keep"] or out["keep_evidence_days"]:
-            raise WitnessError(422, "keep-not-served", "keeping a record comes with slice S3; send keep: false")
+            raise WitnessError(422, "keep-not-served", "send keep: false and keep the record after the check with POST "
+                                                       "/v1/records/{id}/keep (envelope, disclosure for a private record, "
+                                                       "keep_evidence_days and the evidence bytes)")
         return out
 
     def _label(self, label):
