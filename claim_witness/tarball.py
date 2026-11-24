@@ -32,8 +32,13 @@ def _info(name, size=0, is_dir=False):
     return ti
 
 
+SHIPPED = (".py", ".txt")  # the code and the fixed model prompts (methods/prompts/<method>-<version>.txt, B6)
+
+
 def build_methods_tarball(src=METHODS_DIR):
-    files = sorted(p for p in pathlib.Path(src).rglob("*.py") if "__pycache__" not in p.parts)
+    src = pathlib.Path(src)
+    files = sorted((p for p in src.rglob("*") if p.is_file() and p.suffix in SHIPPED and "__pycache__" not in p.parts),
+                   key=lambda p: p.relative_to(src).as_posix())
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w", format=tarfile.USTAR_FORMAT) as tf:
         for p in files:

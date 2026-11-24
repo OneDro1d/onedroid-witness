@@ -6,7 +6,7 @@ import threading
 
 import psycopg
 
-from .storage import JOB_FIELDS, OUTCOMES, Conflict, Storage
+from .storage import JOB_FIELDS, OUTCOMES, OUTPUT_FIELDS, Conflict, Storage
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
 MIGRATION_LOCK = 0x636C6169  # "clai": the advisory lock key the migration holds
@@ -148,7 +148,22 @@ class PostgresStorage(Storage):
         r = self._q("SELECT seq, envelope, sha256, at FROM key_lists ORDER BY seq DESC LIMIT 1", fetch="one")
         return {"seq": r[0], "envelope": json.loads(r[1]), "sha256": r[2], "at": r[3]} if r else None
 
-    def purge(self, jobs_before, nonces_before, attempts_before):
+    def add_judge_output(self, row):
+        self._q("INSERT INTO judge_outputs (record_id, model, provider, served_model, raw, created_at, expires_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                tuple(row.get(k) for k in OUTPUT_FIELDS))
+
+    def judge_outputs(self, record_id=None):
+        cols = ", ".join(OUTPUT_FIELDS)
+        if record_id is None:
+            rows = self._q(f"SELECT {cols} FROM judge_outputs ORDER BY id", fetch="all")
+        else:
+            rows = self._q(f"SELECT {cols} FROM judge_outputs WHERE record_id = %s ORDER BY id", (record_id,), fetch="all")
+        return [dict(zip(OUTPUT_FIELDS, r)) for r in rows]
+
+    def purge(self, jobs_before, nonces_before, attempts_before, outputs_expired_at=None):
         self._q("DELETE FROM jobs WHERE created_at < %s", (int(jobs_before),))
         self._q("DELETE FROM nonces WHERE at < %s", (int(nonces_before),))
         self._q("DELETE FROM attempts WHERE at < %s", (int(attempts_before),))
+        if outputs_expired_at is not None:
+            self._q("DELETE FROM judge_outputs WHERE expires_at < %s", (int(outputs_expired_at),))

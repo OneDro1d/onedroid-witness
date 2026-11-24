@@ -35,13 +35,19 @@ class Storage:
     def put_key_list(self, seq, envelope, sha256, at): raise NotImplementedError
     def get_key_list(self, seq): raise NotImplementedError
     def latest_key_list(self): raise NotImplementedError
-    def purge(self, jobs_before, nonces_before, attempts_before): raise NotImplementedError
+    def add_judge_output(self, row): raise NotImplementedError
+    def judge_outputs(self, record_id=None): raise NotImplementedError
+    def purge(self, jobs_before, nonces_before, attempts_before, outputs_expired_at=None): raise NotImplementedError
+
+
+OUTPUT_FIELDS = ("record_id", "model", "provider", "served_model", "raw", "created_at", "expires_at")
 
 
 class MemoryStorage(Storage):
     def __init__(self):
         self.lock = threading.RLock()
         self.jobs, self.log, self.agent_keys, self.nonces, self.attempts, self.key_lists = {}, [], {}, {}, [], {}
+        self.outputs = []
 
     def _changed(self):
         pass
@@ -143,11 +149,22 @@ class MemoryStorage(Storage):
                 return None
             return copy.deepcopy(self.key_lists[max(self.key_lists)])
 
-    def purge(self, jobs_before, nonces_before, attempts_before):
+    def add_judge_output(self, row):
+        with self.lock:
+            self.outputs.append({k: row.get(k) for k in OUTPUT_FIELDS})
+            self._changed()
+
+    def judge_outputs(self, record_id=None):
+        with self.lock:
+            return [dict(r) for r in self.outputs if record_id is None or r["record_id"] == record_id]
+
+    def purge(self, jobs_before, nonces_before, attempts_before, outputs_expired_at=None):
         with self.lock:
             self.jobs = {k: j for k, j in self.jobs.items() if j["created_at"] >= jobs_before}
             self.nonces = {k: at for k, at in self.nonces.items() if at >= nonces_before}
             self.attempts = [a for a in self.attempts if a[2] >= attempts_before]
+            if outputs_expired_at is not None:
+                self.outputs = [r for r in self.outputs if r["expires_at"] >= outputs_expired_at]
             self._changed()
 
 
@@ -167,13 +184,15 @@ class FileStorage(MemoryStorage):
             self.nonces = {tuple(k.split("\x00", 1)): v for k, v in doc.get("nonces", {}).items()}
             self.jobs = {k: dict(v, answer=base64.b64decode(v["answer"]) if v.get("answer") else None)
                          for k, v in doc.get("jobs", {}).items()}
+            self.outputs = doc.get("judge_outputs", [])
 
     def _changed(self):
         jobs = {k: dict(v, answer=base64.b64encode(bytes(v["answer"])).decode() if v.get("answer") else None)
                 for k, v in self.jobs.items()}
         doc = {"log": self.log, "agent_keys": self.agent_keys, "attempts": self.attempts,
                "key_lists": {str(k): v for k, v in self.key_lists.items()},
-               "nonces": {"\x00".join(k): v for k, v in self.nonces.items()}, "jobs": jobs}
+               "nonces": {"\x00".join(k): v for k, v in self.nonces.items()}, "jobs": jobs,
+               "judge_outputs": getattr(self, "outputs", [])}
         tmp = f"{self.path}.{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(doc, f)

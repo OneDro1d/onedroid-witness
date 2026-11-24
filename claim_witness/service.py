@@ -26,7 +26,8 @@ import time
 import unicodedata
 import uuid
 
-from . import attempts, crypto, ids, jcs, methods, record, screen, signer as signer_mod, tarball
+from . import attempts, crypto, ids, jcs, judge as judge_mod, methods, record, screen, signer as signer_mod, tarball
+from .methods import judge_supports
 from .schemas import CLAIM_TYPE
 from .storage import Conflict
 
@@ -63,7 +64,8 @@ class WitnessError(Exception):
 
 class Config:
     def __init__(self, witness_id, attempt_key, master_key, redact_bin=None, clock=time.time, max_object_bytes=20 << 20,
-                 max_body_bytes=25 << 20, default_wait=10, max_wait=60, rate_per_minute=60, workers=8, trust_list=None):
+                 max_body_bytes=25 << 20, default_wait=10, max_wait=60, rate_per_minute=60, workers=8, trust_list=None,
+                 judge=None, price=None, judge_output_ttl=DAY):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
         if not master_key or len(master_key) < 32:
@@ -74,6 +76,9 @@ class Config:
         self.default_wait, self.max_wait, self.rate_per_minute = int(default_wait), int(max_wait), int(rate_per_minute)
         self.workers = int(workers)
         self.trust_list = list(trust_list) if trust_list is not None else [witness_id]
+        self.judge = judge  # a judge.Judge (the model backend), or None: judge.supports then answers 503
+        self.price = judge_mod.price_list(price)  # BD3, reported with every answer; the BFF holds the credits
+        self.judge_output_ttl = int(judge_output_ttl)
 
 
 def iso(t):
@@ -92,7 +97,7 @@ def _text_ok(s, max_len):
 class Prepared:
     """A validated request: everything the job needs."""
     __slots__ = ("account", "claim", "method", "label", "evidence", "objects", "options", "agent", "agent_row", "request_sha256",
-                 "auto_fp", "idem_key")
+                 "auto_fp", "idem_key", "models")
 
 
 class RateLimit:
@@ -139,14 +144,28 @@ class Witness:
         code = tarball.methods_code_sha256()
         out = []
         for m in methods.METHODS.values():
-            out.append({"id": m.id, "major": m.major, "version": m.version, "code_sha256": code, "runtime": RUNTIME,
-                        "mechanical": m.mechanical, "determinism": m.determinism, "params_schema": m.params_schema,
-                        "slots": {k: list(v) for k, v in m.slots.items()},
-                        "templates": {"true": m.templates[True], "false": m.templates[False]},
-                        "findings": dict(m.findings), "limits": m.limits})
+            entry = {"id": m.id, "major": m.major, "version": m.version, "code_sha256": code, "runtime": RUNTIME,
+                     "mechanical": m.mechanical, "determinism": m.determinism, "params_schema": m.params_schema,
+                     "slots": {k: list(v) for k, v in m.slots.items()},
+                     "slot_counts": {k: list(v) for k, v in m.slot_counts.items()},
+                     "templates": {"true": m.templates[True], "false": m.templates[False]},
+                     "findings": dict(m.findings), "limits": m.limits}
+            if m.id == "judge.supports":
+                entry.update(prompt_sha256=judge_supports.prompt_sha256(), max_input_tokens=judge_supports.MAX_INPUT_TOKENS,
+                             served=self.cfg.judge is not None)
+            out.append(entry)
         return {"library": {"version": tarball.library_version(), "tarball": tarball.tarball_name(), "code_sha256": code,
                             "runtime": RUNTIME, "canonicaliser": "canon/1"},
-                "methods": out, "models": []}
+                "methods": out, "models": self._public_models(), "price": dict(self.cfg.price)}
+
+    def _public_models(self):
+        return judge_mod.public_models(self.cfg.judge.models, self.cfg.price) if self.cfg.judge is not None else []
+
+    def price_view(self):
+        """GET /v1/price (BD3): the provisional price list in credits and the model list with each run's price."""
+        return dict(self.cfg.price, models=self._public_models(),
+                    note="Prices are provisional (DECISIONS BD3). The witness reports a price with each answer; the BFF holds "
+                         "and settles the credits.")
 
     def well_known(self):
         latest = self.storage.latest_key_list()
@@ -186,7 +205,8 @@ class Witness:
 
     def purge(self):
         now = self.now()
-        self.storage.purge(jobs_before=now - JOB_TTL, nonces_before=now - NONCE_WINDOW, attempts_before=now - ATTEMPT_WINDOW)
+        self.storage.purge(jobs_before=now - JOB_TTL, nonces_before=now - NONCE_WINDOW, attempts_before=now - ATTEMPT_WINDOW,
+                           outputs_expired_at=now)
         self.last_purge = now
 
     def _maybe_purge(self):
@@ -308,8 +328,16 @@ class Witness:
 
     def _witness(self, p):
         m = p.method
-        ev = {e["slot"]: dict(e, data=p.objects[e["sha256"]]) for e in p.evidence}
-        res = methods.run(m.id, p.claim["params"], ev)
+        judgment, model_runs, raw_outputs = None, [], []
+        if m.mechanical:
+            ev = {e["slot"]: dict(e, data=p.objects[e["sha256"]]) for e in p.evidence}
+            res = methods.run(m.id, p.claim["params"], ev)
+        else:  # judge.supports (§5): the model calls happen here, before the attempt lock and the signer
+            j = self.cfg.judge.run(p.claim["statement"], p.claim["assertion"],
+                                   [(p.objects[e["sha256"]], e["media_type"]) for e in p.evidence],
+                                   p.models["count"], p.models["require"])
+            res = methods.Result(j["finding"], j["detail"], j["vars"], reason=j["reason"])
+            judgment, model_runs, raw_outputs = j["judgment"], j["model_runs"], j["raw"]
         statement = m.render(p.claim["assertion"], res.vars)
         public = p.options["visibility"] == "public"
         if public:
@@ -320,8 +348,12 @@ class Witness:
         if p.agent is not None:
             submitter.update(agent=p.agent_row["agent"], agent_key_id=p.agent["agent_key_id"], agent_sig=p.agent["agent_sig"],
                              nonce=p.agent["nonce"], agent_time=p.agent["agent_time"])
-        options_used = {"accept_untrusted": p.options["accept_untrusted"], "allow_provider": p.options["allow_provider"],
-                        "panel": p.options["panel"]}
+        if m.mechanical:
+            options_used = {"accept_untrusted": p.options["accept_untrusted"], "allow_provider": p.options["allow_provider"],
+                            "panel": p.options["panel"]}
+        else:  # BD2 replaces §5.6's panel: the record says how many models ran and how many had to agree
+            options_used = {"accept_untrusted": p.options["accept_untrusted"], "allow_provider": p.options["allow_provider"],
+                            "models": dict(p.models)}
         tag = attempts.attempt_tag(self.cfg.attempt_key, p.claim, [e["sha256"] for e in p.evidence], [], m.id, p.account)
         with self.attempt_lock:
             prior = self.storage.count_attempts(tag, since=now - ATTEMPT_WINDOW)
@@ -329,12 +361,19 @@ class Witness:
                 p.claim, statement, [{k: e[k] for k in ("slot", "kind", "sha256", "media_type", "name")} for e in p.evidence],
                 {"id": m.id, "version": m.version, "code_sha256": tarball.methods_code_sha256(), "runtime": RUNTIME},
                 res.finding, res.reason, res.detail, m.limits, attempts.attempt_field(prior), submitter, options_used, iso(now),
-                {"id": self.cfg.witness_id, "key_id": info["key_id"], "key_list_seq": info["key_list_seq"]})
+                {"id": self.cfg.witness_id, "key_id": info["key_id"], "key_list_seq": info["key_list_seq"]}, judgment=judgment)
             stmt, disclosure = record.build(pred, p.options["visibility"], label=p.label)
             out = self.signer.sign(CLAIM_TYPE, stmt)
             self.storage.add_attempt(tag, pred["outcome"], now)
         env = out["envelope"]
-        answer = {"record_id": ids.record_id(base64.b64decode(env["payload"])), "envelope": env, "seal": {"state": "pending"}}
+        rid = ids.record_id(base64.b64decode(env["payload"]))
+        if public:  # §5.8: raw outputs of a public record are kept 24 h; a private record's are discarded (BD1)
+            for spec, text, provider, served in raw_outputs:
+                if text is not None:
+                    self.storage.add_judge_output({"record_id": rid, "model": spec.id, "provider": provider, "served_model": served,
+                                                   "raw": text, "created_at": now, "expires_at": now + self.cfg.judge_output_ttl})
+        answer = {"record_id": rid, "envelope": env, "seal": {"state": "pending"},
+                  "price": judge_mod.price_of(model_runs, self.cfg.price)}
         if disclosure is not None:
             answer["disclosure"] = disclosure
         if res.failing_tests:
@@ -372,6 +411,9 @@ class Witness:
         p.agent = self._agent_block(body.get("agent"))
         p.agent_row = None
         p.auto_fp = None
+        p.models = None
+        if not p.method.mechanical:
+            p.models = self._judge_checks(p, body.get("options") or {})
         if p.method.mechanical and all(e["kind"] == "object" for e in p.evidence):
             p.auto_fp = hashlib.sha256(jcs.canonical({
                 "account": account, "claim_id": ids.claim_id(p.claim), "method": p.method.id, "version": p.method.version,
@@ -453,21 +495,49 @@ class Witness:
             raise WitnessError(422, "invalid-claim", f"claim: {e}") from None
         return dict(c), m
 
+    def _judge_checks(self, p, raw_options):
+        """judge.supports before anything runs: a configured backend (else 503), the model setup (BD2; the legacy `panel: n`
+        means {count: n, require: n}), no more models than configured, and a private claim only with allow_provider (§5.7)."""
+        judge = self.cfg.judge
+        if judge is None:
+            raise WitnessError(503, "judge-not-configured", "this witness has no model backend; nothing was signed")
+        if "models" in raw_options:
+            models = judge_mod.models_option(p.options["models"])
+            if "panel" in raw_options and raw_options["panel"] != models["count"]:
+                raise WitnessError(422, "invalid-options", "options.panel and options.models.count disagree; send models only")
+        else:
+            models = {"count": p.options["panel"], "require": p.options["panel"]}
+        if models["count"] > len(judge.models):
+            raise WitnessError(422, "invalid-options", f"options.models.count: this witness has {len(judge.models)} model(s)")
+        if p.options["visibility"] == "private" and not p.options["allow_provider"]:
+            raise WitnessError(422, "provider-not-allowed", "a private judge.supports claim is read by a model provider: send "
+                                                            "options.allow_provider: true to allow it, or make the claim public")
+        return models
+
+    def _slots_text(self, m):
+        def n(s):
+            lo, hi = m.slot_counts[s]
+            return f"{lo}" if lo == hi else f"{lo}-{hi}"
+        return f"{m.id} takes exactly the slots " + ", ".join(f"{s} ({'|'.join(k)}, {n(s)})" for s, k in m.slots.items())
+
     def _evidence(self, m, items):
         if not isinstance(items, list):
             raise WitnessError(422, "wrong-evidence-slots", "evidence: a list")
-        seen = {}
+        counts = {}
         for e in items:
             if not isinstance(e, dict) or not isinstance(e.get("slot"), str) or e.get("kind") not in KINDS:
                 raise WitnessError(422, "invalid-evidence", "an evidence item is {slot, kind: object|url|observation|record, ...}")
             slot = e["slot"]
-            if slot not in m.slots or e["kind"] not in m.slots[slot] or slot in seen:
-                raise WitnessError(422, "wrong-evidence-slots", f"{m.id} takes exactly the slots "
-                                   + ", ".join(f"{s} ({'|'.join(k)})" for s, k in m.slots.items()))
-            seen[slot] = e
-        if set(seen) != set(m.slots):
-            raise WitnessError(422, "wrong-evidence-slots", f"{m.id} takes exactly the slots "
-                               + ", ".join(f"{s} ({'|'.join(k)})" for s, k in m.slots.items()))
+            if slot not in m.slots or e["kind"] not in m.slots[slot]:
+                raise WitnessError(422, "wrong-evidence-slots", self._slots_text(m))
+            counts[slot] = counts.get(slot, 0) + 1
+        for slot, (lo, hi) in m.slot_counts.items():
+            if not lo <= counts.get(slot, 0) <= hi:
+                raise WitnessError(422, "wrong-evidence-slots", self._slots_text(m))
+        for e in items:
+            if e["kind"] != "object":  # judge.supports' observation evidence is in its schema; it is served from B2b on
+                raise WitnessError(422, "wrong-evidence-slots", f"{e['kind']} evidence is not served by this witness yet; "
+                                                                "send the bytes as an object")
         out = []
         for e in items:
             extra = set(e) - OBJECT_KEYS
