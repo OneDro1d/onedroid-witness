@@ -72,10 +72,10 @@ class Base:
         self.assertEqual(code, 200, out)
         return out
 
-    def private_check(self):
+    def private_check(self, label=None):
         c = claim("quote.in-source", {"quote": f"{CANARY} moved"})
         body = request(c, [obj_item("source", PRIVATE_SOURCE, name=f"{CANARY}.txt")], "private")
-        body["label"] = f"label {CANARY}"
+        body["label"] = label or f"label {CANARY}"
         code, out, _ = self.s.witness_call(body)
         self.assertEqual(code, 200, out)
         return out
@@ -234,7 +234,7 @@ class PrivateReads(Base):
         code, lst, _ = self.s.call("GET", f"/v1/records/{rid}/shares", key=OTHER)
         self.assertEqual(code, 403)
         # scoped to one record
-        out2 = self.private_check()
+        out2 = self.private_check(label="a second record")
         self.keep(out2)
         code, rec2, _ = self.get(out2["record_id"], token=sh["token"])
         self.assertEqual(code, 403, rec2)
