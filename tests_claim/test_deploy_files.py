@@ -92,6 +92,34 @@ class Manifest(unittest.TestCase):
         self.assertNotRegex(self.text, r"(?m)^\s*(data|stringData):")
 
 
+class B2b(unittest.TestCase):
+    """(i) the fetcher wiring and the image digest in the manifest, names only; (f) Tesseract in the image."""
+
+    def setUp(self):
+        self.manifest = (h.ROOT / "k8s" / "claim-dev.yaml").read_text()
+        self.api = self.manifest.split('args: ["signer", "serve"]')[0]
+
+    def test_fetcher_env_in_the_api_container(self):
+        self.assertRegex(self.api, r"FETCHER_URL, value: \"?http://claim-fetcher\.witness-dev\.svc\.cluster\.local\"?")
+        self.assertIn("FETCHER_SECRET_FILE", self.api)
+        self.assertIn("claim-fetcher-secret", self.api)
+        self.assertRegex(self.manifest, r"secretName: claim-fetcher-secret[\s\S]{0,120}key: secret")
+        self.assertIn("WITNESS_IMAGE_DIGEST", self.api)
+        self.assertIn("IMAGE_DIGEST_PLACEHOLDER", self.api)
+        self.assertNotIn("claim-fetcher-secret", self.manifest.split('args: ["signer", "serve"]')[1].split("volumes:")[0])
+
+    def test_dockerfile_installs_tesseract(self):
+        text = (h.ROOT / "Dockerfile.claim").read_text()
+        self.assertIn("tesseract-ocr", text)
+        self.assertIn("tesseract-ocr-eng", text)
+        self.assertIn("WITNESS_TESSERACT_BIN", text)
+
+    def test_readme_has_a_section_per_method(self):
+        text = (h.ROOT / "README_CLAIM.md").read_text()
+        for heading in ("### page.live", "### match.text", "### match.screenshot", "### Observations", "claim-fetcher-secret"):
+            self.assertIn(heading, text)
+
+
 class Readme(unittest.TestCase):
     def test_readme_sections(self):
         text = (h.ROOT / "README_CLAIM.md").read_text()

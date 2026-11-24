@@ -126,6 +126,40 @@ class Contract:
             st.put_key_list(2, env, "c" * 64, 12)
 
 
+    def _obs(self, oid, account="acct_a", visibility="public", tag="t1", fetched_at=1000, created_at=1000):
+        return {"id": oid, "account": account, "visibility": visibility, "lookup_tag": tag, "fetched_at": fetched_at,
+                "created_at": created_at, "envelope": {"payloadType": "x", "payload": "eyJ9", "signatures": []},
+                "body_box": b"\x01box" if visibility == "private" else None, "signer": "w:k"}
+
+    def test_observations_and_files(self):
+        st = self.make()
+        st.put_observation(self._obs("o1"), {"response.body": b"<p>a</p>", "text.canonical.txt": b"a"})
+        st.put_observation(self._obs("o2", visibility="private", tag="t2", fetched_at=1500, created_at=1500), {"x": b"\x00\x01"})
+        st.put_observation(self._obs("o3", fetched_at=1200, created_at=1200), {"y": b"y"})
+        o = st.get_observation("o2")
+        self.assertEqual((o["account"], o["visibility"], bytes(o["body_box"]), o["envelope"]["payload"], o["signer"]),
+                         ("acct_a", "private", b"\x01box", "eyJ9", "w:k"))
+        self.assertIsNone(st.get_observation("nope"))
+        self.assertEqual(st.get_observation_files("o1"), {"response.body": b"<p>a</p>", "text.canonical.txt": b"a"})
+        self.assertEqual(st.find_observation(["t1"], since=900)["id"], "o3")  # the newest
+        self.assertEqual(st.find_observation(["t1", "t2"], since=900)["id"], "o2")
+        self.assertIsNone(st.find_observation(["t1"], since=1300))
+        self.assertIsNone(st.find_observation([], since=0))
+        st.purge(jobs_before=0, nonces_before=0, attempts_before=0, observations_before=1300)
+        self.assertIsNone(st.get_observation("o1"))
+        self.assertEqual(st.get_observation_files("o1"), {})
+        self.assertEqual(st.get_observation("o2")["id"], "o2")
+
+    def test_fresh_observation_counter(self):
+        st = self.make()
+        self.assertEqual(st.bump_fresh("acct_a", 20000), 1)
+        self.assertEqual(st.bump_fresh("acct_a", 20000), 2)
+        self.assertEqual(st.bump_fresh("acct_b", 20000), 1)
+        self.assertEqual(st.bump_fresh("acct_a", 20001), 1)
+        self.assertEqual(st.fresh_count("acct_a", 20000), 2)
+        self.assertEqual(st.fresh_count("acct_c", 20000), 0)
+
+
 class MemoryContract(Contract, unittest.TestCase):
     def make(self):
         return storage_mod.MemoryStorage()
@@ -181,6 +215,29 @@ class PostgresContract(Contract, unittest.TestCase):
             self.assertEqual(stj["state"], "done")
         finally:
             s.close()
+
+    def test_page_live_and_match_text_end_to_end_on_postgres(self):
+        from tests_claim.fakefetch import page, stack, url_item
+        st = self.make()
+        s, ff, sleeper = stack(storage=st)
+        try:
+            url = "https://pg.example/"
+            html = b"<html><body><p>Stored in Postgres.</p></body></html>"
+            ff.set(url, page(html))
+            code, out, _ = s.witness_call(h.request(h.claim("page.live", {"url": url}), [url_item(url)], "private"))
+            self.assertEqual(code, 200, out)
+            oid = out["disclosure"]["body"]["evidence"][0]["observations"][0]
+            self.assertEqual(st.get_observation(oid)["visibility"], "private")
+            self.assertNotIn(b"Stored in Postgres", b"".join(st.get_observation_files(oid).values()))  # private files sealed
+            code, out, _ = s.witness_call(h.request(h.claim("match.text"), [h.obj_item("submitted", html, "text/html", "c.html"),
+                                                                           url_item(url, max_age=600)], "private"))
+            self.assertEqual(code, 200, out)
+            self.assertEqual(out["disclosure"]["body"]["finding"], "match")
+            self.assertEqual(len(ff.calls), 1)
+            self.assertEqual(out["price"]["reused_observations"], 1)
+        finally:
+            s.close()
+            ff.close()
 
 
 if __name__ == "__main__":
