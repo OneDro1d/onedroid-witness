@@ -92,7 +92,38 @@ class Manifest(unittest.TestCase):
         self.assertNotRegex(self.text, r"(?m)^\s*(data|stringData):")
 
 
+class JudgeManifest(unittest.TestCase):
+    """B6 (j): the model backend env on the api container, by name only: base URL, the model list from a ConfigMap, the key
+    file from Secret onedroid-witness-openrouter key `key`. The judge's key never reaches the signer."""
+
+    def setUp(self):
+        text = (h.ROOT / "k8s" / "claim-dev.yaml").read_text()
+        self.dep = [d for d in docs(text) if kind_of(d) == "Deployment" and "name: claim-witness" in d][0]
+        self.api, self.signer = self.dep.split('args: ["signer", "serve"]')
+        self.text = text
+
+    def test_api_env_names_the_backend(self):
+        for name in ("WITNESS_JUDGE_BASE_URL", "WITNESS_JUDGE_API_KEY_FILE", "WITNESS_JUDGE_MODELS_FILE"):
+            self.assertIn(name, self.api)
+        self.assertIn("https://openrouter.ai/api/v1", self.api)
+
+    def test_key_from_the_openrouter_secret_and_models_from_a_configmap(self):
+        self.assertIn("onedroid-witness-openrouter", self.dep)
+        self.assertRegex(self.dep, r"(?s)secretName: onedroid-witness-openrouter.*?items:.*?key: key")
+        self.assertIn("configMap:", self.dep)
+        self.assertIn("claim-witness-judge-models", self.dep)
+        self.assertNotIn("onedroid-witness-openrouter", self.signer)
+        self.assertEqual([d for d in docs(self.text) if kind_of(d) in ("Secret", "ConfigMap")], [])
+
+
 class Readme(unittest.TestCase):
+    def test_judge_section(self):
+        text = (h.ROOT / "README_CLAIM.md").read_text()
+        self.assertIn("## judge.supports", text)
+        for name in ("WITNESS_JUDGE_BASE_URL", "WITNESS_JUDGE_API_KEY_FILE", "WITNESS_JUDGE_MODELS_FILE", "onedroid-witness-openrouter",
+                     "claim-witness-judge-models", "wrong-evidence-slots", "allow_provider", "/v1/price"):
+            self.assertIn(name, text)
+
     def test_readme_sections(self):
         text = (h.ROOT / "README_CLAIM.md").read_text()
         for heading in ("Builder decisions", "Running the tests", "Running it locally", "Secrets"):

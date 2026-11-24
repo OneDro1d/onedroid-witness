@@ -40,6 +40,33 @@ class Vectors(unittest.TestCase):
         self.assertEqual(methods, {"match.exact", "quote.in-source", "tests.pass"})
         self.assertEqual({t["assertion"] for t in doc["templates"]}, {True, False})
 
+    def test_vectors_cover_judge_supports(self):
+        """B6: judge.supports templates (with the "Asserted false: " prefix), the prompt's sha256, the model input and the
+        decision over fixed model outputs, each reproduced by the witness and by the tarball."""
+        doc = json.loads(VECTORS.read_text())
+        j = doc.get("judge")
+        self.assertTrue(j)
+        from claim_witness.methods import judge_supports
+        self.assertEqual(j["prompt_sha256"], judge_supports.prompt_sha256())
+        self.assertEqual({t["assertion"] for t in j["templates"]}, {True, False})
+        self.assertTrue(any(t["statement"].startswith("Asserted false: ") for t in j["templates"]))
+        reasons = {c["reason"] for c in j["decide"]}
+        for r in ("judged-supports", "judged-contradicted", "judged-silent", "undecided", "possible-injection", "judges-disagree"):
+            self.assertIn(r, reasons)
+        for c in j["decide"]:
+            self.assertRegex(c["input_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_a_changed_judge_vector_fails_the_check(self):
+        doc = json.loads(VECTORS.read_text())
+        doc["judge"]["decide"][0]["reason"] = "judged-silent" if doc["judge"]["decide"][0]["reason"] != "judged-silent" else "undecided"
+        d = pathlib.Path(tempfile.mkdtemp(prefix="cw-vec-"))
+        p = d / "vectors.json"
+        p.write_text(json.dumps(doc))
+        r = subprocess.run([sys.executable, "-m", "claim_witness.vectors", "--check", "--file", str(p)], cwd=str(h.ROOT),
+                           capture_output=True, text=True, timeout=300)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("FAIL judge", r.stdout)
+
     def test_a_changed_vector_fails_the_check(self):
         doc = json.loads(VECTORS.read_text())
         doc["claim_id"][0]["claim_id"] = "0" * 64
