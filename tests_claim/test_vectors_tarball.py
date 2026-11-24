@@ -37,7 +37,7 @@ class Vectors(unittest.TestCase):
         for kind in ("jcs", "canon1", "claim_id", "record_id", "commitments", "templates", "envelope"):
             self.assertTrue(doc.get(kind), kind)
         methods = {t["method"] for t in doc["templates"]}
-        self.assertEqual(methods, {"match.exact", "quote.in-source", "tests.pass", "page.live", "match.text", "match.screenshot"})
+        self.assertEqual(methods, {"match.exact", "quote.in-source", "tests.pass", "page.live", "match.text", "match.screenshot", "post.by-author"})
         self.assertEqual({t["assertion"] for t in doc["templates"]}, {True, False})
         for mid in ("page.live", "match.text", "match.screenshot"):
             self.assertEqual({t["assertion"] for t in doc["templates"] if t["method"] == mid}, {True, False}, mid)

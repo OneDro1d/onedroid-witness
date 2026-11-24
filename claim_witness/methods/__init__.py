@@ -1,5 +1,6 @@
 """The witness method library (SPEC §4): match.exact, quote.in-source, tests.pass (B1); judge.supports (B6: its pure part
-here, its model calls in claim_witness/judge.py); page.live, match.text, match.screenshot (B2b).
+here, its model calls in claim_witness/judge.py); page.live, match.text, match.screenshot (B2b); post.by-author (B5a, Bluesky:
+it reads the platform fields of a `capture: post` observation, post_by_author.py).
 
 Pure functions over bytes, standard library only, relative imports only: this package is published as the reproducible
 tarball witness-methods-<LIBRARY_VERSION>.tar.gz whose sha256 is every method's `code_sha256` (SPEC §9.4), and
@@ -14,11 +15,11 @@ import re
 import urllib.parse
 import unicodedata
 
-from . import (canon, judge_supports, match_exact, match_screenshot, match_text, page_live, quote_in_source,  # noqa: F401
-               tests_pass)
+from . import (canon, judge_supports, match_exact, match_screenshot, match_text, page_live, post_by_author,  # noqa: F401
+               quote_in_source, tests_pass)
 from .result import Result
 
-LIBRARY_VERSION = "1.3.0"
+LIBRARY_VERSION = "1.4.0"
 POSITIVE, NEGATIVE, NEUTRAL = "positive", "negative", "neutral"
 HEX_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_QUOTE = 4000
@@ -109,6 +110,25 @@ def _url_params(params):
     check_url(params["url"])
 
 
+HANDLE_LABEL = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+
+
+def _handle_params(params):
+    """post.by-author: exactly {handle}, an AT Protocol handle (a DNS name of two or more labels whose last label does not
+    start with a digit), at most 253 characters. Compared case-insensitively; the template keeps it as written."""
+    if not isinstance(params, dict) or set(params) != {"handle"}:
+        raise ParamsError("params: exactly {handle}")
+    h = params["handle"]
+    if not isinstance(h, str) or not 3 <= len(h) <= 253 or not h.isascii():
+        raise ParamsError("handle: an AT Protocol handle such as bsky.app")
+    labels = h.split(".")
+    if len(labels) < 2 or not all(HANDLE_LABEL.match(x) for x in labels) or labels[-1][0].isdigit():
+        raise ParamsError("handle: an AT Protocol handle such as bsky.app (no @, no spaces)")
+
+
+HANDLE_SCHEMA = {"type": "object", "properties": {"handle": {"type": "string", "minLength": 3, "maxLength": 253}},
+                 "required": ["handle"], "additionalProperties": False}
+
 URL_SCHEMA = {"type": "object", "properties": {"url": {"type": "string", "format": "uri", "maxLength": MAX_URL}},
               "required": ["url"], "additionalProperties": False}
 NO_PARAMS = {"type": "object", "properties": {}, "additionalProperties": False}
@@ -166,6 +186,14 @@ METHODS = {
         {"consistent": POSITIVE, "differs": NEGATIVE},
         "Compared the text read from the image. The pixels were not proven; an image can be edited.", match_screenshot.run,
         _no_params, determinism="ocr", thresholds={"T_bp": match_screenshot.T_BP, "F_bp": match_screenshot.F_BP}, pure=False),
+    "post.by-author": Method(
+        "post.by-author", 1, "1.0.0", HANDLE_SCHEMA, {"post": ("url", "observation")},
+        {True: "The post at {url} was published by the account {handle}.",
+         False: "The post at {url} was not published by the account {handle}."},
+        {"author-verified": POSITIVE, "author-platform": POSITIVE, "author-differs": NEGATIVE,
+         "signature-unverifiable": NEUTRAL, "handle-unresolved": NEUTRAL},
+        "Proves which account key or platform account published the post, not who controls the account. The post time is the "
+        "author's own claim.", post_by_author.run, _handle_params, determinism="observed"),
 }
 
 

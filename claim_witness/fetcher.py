@@ -66,8 +66,11 @@ class FetcherClient:
             raise SystemExit("FETCHER_SECRET_FILE: the file is empty")
         return cls(url, secret, timeout=int(env.get("FETCHER_CLIENT_TIMEOUT_S") or 45))
 
-    def _post(self, url, capture):
-        body = json.dumps({"url": url, "capture": capture}).encode("utf-8")
+    def _post(self, url, capture, handle=None):
+        req = {"url": url, "capture": capture}
+        if capture == "post" and handle is not None:  # B5a: the handle the fetcher resolves both ways
+            req["handle"] = handle
+        body = json.dumps(req).encode("utf-8")
         req = urllib.request.Request(self.url + "/v1/capture", data=body, method="POST",
                                      headers={"Content-Type": "application/json", "X-Fetcher-Secret": self.secret})
         try:
@@ -84,10 +87,10 @@ class FetcherClient:
         except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
             raise FetchFailed("unreachable", UNAVAILABLE, f"the fetcher does not answer: {type(e).__name__}") from None
 
-    def capture(self, url, capture="page"):
-        """A Capture, or FetchFailed."""
+    def capture(self, url, capture="page", handle=None):
+        """A Capture, or FetchFailed. capture "post" (B5a) may carry the claimed handle."""
         for attempt in range(self.busy_retries + 1):
-            status, ctype, data = self._post(url, capture)
+            status, ctype, data = self._post(url, capture, handle)
             if status == 503 and attempt < self.busy_retries:
                 self.sleep(self.busy_delay_s * (attempt + 1))
                 continue

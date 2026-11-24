@@ -39,6 +39,29 @@ def _int(v, default=0):
     return v if isinstance(v, int) and not isinstance(v, bool) else default
 
 
+PLATFORM_FIELDS = ("name", "post_uri", "author_did", "handle", "handle_resolution", "did_doc_sha256", "signature", "commit_cid",
+                   "created_at_claimed")
+RESOLUTION_FIELDS = ("method", "result_did", "at", "bidirectional")
+
+
+def _short(v, n=512):
+    return v if isinstance(v, str) and len(v) <= n else None
+
+
+def platform_of(p):
+    """The §2.3 `platform` of a `capture: post` (B5a): exactly its fields, strings or null (bidirectional a boolean),
+    anything else dropped to null; None for a page capture."""
+    if not isinstance(p, dict):
+        return None
+    hr = p.get("handle_resolution") if isinstance(p.get("handle_resolution"), dict) else {}
+    out = {k: _short(p.get(k)) for k in PLATFORM_FIELDS if k != "handle_resolution"}
+    out["signature"] = p.get("signature") if p.get("signature") in ("verified", "not-available", "failed") else "failed"
+    out["handle_resolution"] = {"method": hr.get("method") if hr.get("method") in ("dns-txt", "well-known") else None,
+                                "result_did": _short(hr.get("result_did")), "at": _short(hr.get("at"), 64),
+                                "bidirectional": hr.get("bidirectional") is True}
+    return {k: out[k] for k in PLATFORM_FIELDS}
+
+
 def from_capture(manifest, files, visibility):
     """(the §2.3 manifest predicate, the files with text.canonical.txt added)."""
     out = {k: v for k, v in files.items() if k != TEXT_FILE}
@@ -66,7 +89,8 @@ def from_capture(manifest, files, visibility):
     pred["resolved_ips"] = list(pred["resolved_ips"] or [])
     pred.update(fetcher={"id": f.get("id"), "version": f.get("version"), "browser": f.get("browser"),
                          "viewport": list(f.get("viewport") or [])},
-                files=entries, canonicaliser=canon.CANON_ID, platform=None, visibility=visibility)
+                files=entries, canonicaliser=canon.CANON_ID, platform=platform_of(manifest.get("platform")),
+                visibility=visibility)
     jcs.canonical(pred)  # integers only (BD9): a float from the fetcher stops here
     return pred, out
 
