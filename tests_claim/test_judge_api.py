@@ -181,7 +181,8 @@ class OneModel(Base):
         self.script(supports())
         sd = h.seed(7)
         code, reg, _ = self.s.call("POST", "/v1/agent-keys", {"public_key": h.b64(h.public_of(sd))})
-        body = judge_request(label="my private label words")
+        body = judge_request()
+        body["label"] = "my private label words"
         body["agent"] = h.agent_block(sd, reg["agent_key_id"], "witness:test", body["claim"], body["evidence"], "nonce-judge-0001",
                                       h.iso(self.s.clock()))
         self.ok(body)

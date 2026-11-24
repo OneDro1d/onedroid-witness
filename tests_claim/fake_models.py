@@ -53,7 +53,7 @@ def sleep_then(seconds, text):
 
 
 def status(code, body=b'{"error": {"message": "upstream failed"}}'):
-    return lambda body: ("status", code, body)
+    return lambda request_body: ("status", code, body)
 
 
 def raw(body_bytes):
