@@ -7,14 +7,15 @@ witness-verify skips its re-run. The witness puts the OCR text in evidence["subm
 this module compares it.
 
 A screenshot usually shows part of a page, so the OCR tokens are compared with the span of the page's tokens they line up
-with (similarity.window), not with the whole page. T and F are provisional for 1.0.0: OCR noise was not measured with the real
-Tesseract in the build (it was not installed there); see README_CLAIM.md.
+with (similarity.window), not with the whole page. T and F come from the screenshot calibration set
+(tests_claim/fixtures/calibration/screenshots/measured.json, measured inside the claim-witness image with its Tesseract):
+honest screenshots 9655..10000, one-sentence forgeries 6486..9134; see README_CLAIM.md.
 """
 from . import canon, observed, similarity
 from .result import Result
 
-T_BP = 8500
-F_BP = 6500
+T_BP = 9500
+F_BP = 9300
 
 
 def run(params, evidence):

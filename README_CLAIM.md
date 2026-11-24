@@ -236,8 +236,19 @@ Slots `submitted` (an image object, so private claims only: VR-21 refuses images
 
 - OCR: `tesseract stdin stdout -l eng --psm 3` (`tesseract-ocr` and `tesseract-ocr-eng` in `Dockerfile.claim`,
   `WITNESS_TESSERACT_BIN`), then canon/1. The OCR tokens are compared with the span of the page's tokens they line up with
-  (a screenshot shows part of a page): `consistent` (≥ T = 8500), `differs` (< F = 6500), else `undecided`; no text read is
+  (a screenshot shows part of a page): `consistent` (≥ T = 9500), `differs` (< F = 9300), else `undecided`; no text read is
   `unreadable`.
+- **T = 9500, F = 9300** basis points (decision 64), from the screenshot calibration set
+  `tests_claim/fixtures/calibration/screenshots/` (`build.py` makes the screenshots with Chromium, `measure.py` measured them
+  inside the claim-witness image `dev-8ca79b4@sha256:829dae31…`, Tesseract 5.5.0, and wrote `measured.json`; `pod.log` and
+  `pod.yaml` beside it): 32 honest screenshots (widths 1280 and 390, two fonts, full page and a crop, PNG and JPEG) scored
+  9655 to 10000; 32 forgeries (one sentence replaced) scored 6486 to 9134; 8 screenshots of another page 714 to 4745. T sits
+  155 under the lowest honest screenshot and F 166 above the highest forgery, with an undecided band of 200 between.
+- Limits of that set: Tesseract read every word of these clean renders, so the honest loss came only from canon/1 joining
+  inline links spaced by CSS (a navigation bar). Phone and browser chrome (status bar, address bar, tabs), cookie banners,
+  dark mode, re-compressed or rescaled images were not in it. Pages were 116 to 165 tokens: on a much longer page one replaced
+  sentence moves a full-page screenshot less than the gap, so a full-page shot of a long page with one sentence changed can
+  be `consistent` (as with match.text, decision 48). A crop of the changed part is what this method can tell apart.
 - `method.code_sha256` is the image digest from `WITNESS_IMAGE_DIGEST` (`sha256:<hex>`; the orchestrator sets it at
   rollout, `IMAGE_DIGEST_PLACEHOLDER` in the manifest), `runtime` is `python3.12+tesseract-<version>`. Without the digest or
   Tesseract the method answers 503 `ocr-unavailable` and signs nothing. witness-verify prints `SKIP method-rerun: re-run
@@ -281,7 +292,7 @@ each model's `credits_per_run`, and the free fresh observations a day. `WITNESS_
   `text.canonical.txt` and its hidden nodes are the excerpts of its `hidden-nodes.json` (§5.2, §5.5), so the hidden-node
   injection rules (`statement-in-hidden` and the hard patterns) read the fetcher's hidden nodes, and a quote is verified
   against the visible text only.
-- **One methods library, 1.3.0** (1.2.0 until BD13, decision 63) (`witness-methods-1.3.0.tar.gz`, `.py` and `.txt` files with the judge prompt), holding all
+- **One methods library, 1.4.0** (1.2.0 until BD13, decision 63; 1.3.0 until the screenshot calibration, decision 64) (`witness-methods-1.4.0.tar.gz`, `.py` and `.txt` files with the judge prompt), holding all
   seven methods. `vectors.json` was regenerated with both slices' sections (`judge`, `thresholds`, `observation`).
 - **One price object**: "Price" above.
 
@@ -335,7 +346,7 @@ is the same commands as the manifest: `python3 -m claim_witness signer serve` wi
 `WITNESS_DEV_KEYS_FILE`, optionally `WITNESS_CALLER_KEYS_URL`.
 
 Verify an answer offline: `python3 -m claim_witness.verify --envelope answer.json --keys keys.json` (keys.json = the
-`key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.3.0.tar.gz` and
+`key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.4.0.tar.gz` and
 `--evidence FILE` as needed, or `--bundle DIR`.
 
 ## Deploying on dev
@@ -535,7 +546,7 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     differ and the honest copies match, with a narrow undecided band.
 49. **match.screenshot** compares OCR tokens with the aligned window of the page's tokens. T = 8500 and F = 6500 are
     provisional: Tesseract was not installed where B2b was built, so OCR noise was not measured (the tests use a stand-in
-    binary with the same command line). Recalibrate in the image before relying on it.
+    binary with the same command line). Recalibrate in the image before relying on it. (Superseded by decision 64.)
 50. **Evidence trust.** This witness's keys come from its own key lists only. A key list sent with a foreign envelope must
     verify (its own signatures, its subject digest) and must name another witness; its observations are valid but untrusted
     (the trust list holds witness ids, no pinned keys yet), so they count only with `accept_untrusted`. A foreign private
@@ -594,3 +605,31 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     `code_sha256`. One test changed ("test change for BD13", its own commit): in `test_fabricated_quotes_are_rejected` the
     case "offsets shifted" (start + 3 with the right text) is now asserted to verify with the witness's offsets, and the two
     library pins say 1.3.0.
+64. **match.screenshot T = 9500, F = 9300, measured in the image** (supersedes decision 49's provisional 8500/6500). The
+    calibration set `tests_claim/fixtures/calibration/screenshots/` holds 72 cases made by `build.py` (fixed seed 20261124,
+    Playwright 1.49.1, Chromium 131.0.6778.33 headless, DejaVu Serif 18px and DejaVu Sans 14px; it rebuilds every file byte
+    for byte, and the images are committed because a screenshot depends on the browser build and the fonts): 8 article
+    pages, each in one layout (width 1280 at scale 1 or 390 at scale 2, one of the two fonts); per page 4 honest screenshots
+    (full page and a two-paragraph crop, PNG and JPEG quality 80), 4 forgeries (the same page with exactly one sentence
+    inside the crop replaced by a sentence within 3 words of its length, compared with the original page) and one
+    unrelated case (another article's screenshot). The page side is the browser's DOM after load, made into an observation
+    with `observation.from_capture`, so the comparison is with its `text.canonical.txt` as for a fetched page.
+    `measure.py` ran inside pod `claim-screenshot-cal` in `witness-dev` from image
+    `claim-witness:dev-8ca79b4@sha256:829dae31e192de5c1a724755c65c1eab7a52205b4f18ac54854649b0f2e48af7` (no Secrets, no
+    service-account token, read-only root, user 10001; deleted after), through `ocr.Ocr.text` (`tesseract stdin stdout -l
+    eng --psm 3`, Tesseract 5.5.0, `eng.traineddata` sha256 `7d4322bd…`) and `methods.run("match.screenshot")`, and wrote
+    `measured.json` (similarity, token counts and the OCR text per case). Results: honest 9655 to 10000 (every crop
+    10000, full pages 9655 to 9761), forgeries 6486 to 9134 (crops 6486 to 8527, full pages 8702 to 9134), unrelated 714 to
+    4745; PNG and JPEG of the same screenshot scored the same except in two forgeries (by 167 and 68 bp). The gap is 521 bp. T and F split it in about thirds: T = 9500 is 155
+    under the lowest honest case, F = 9300 is 166 above the highest forgery, and 9300 to 9499 is `undecided`, so a little
+    more noise than measured makes an answer undecided before it makes it wrong. On the provisional values 18 of the 32
+    forgeries were `consistent`. `test_match_screenshot_calibration.py` checks the table against the set and the image,
+    re-computes every similarity from the recorded OCR text with the code here, and asserts the separation. The limits are
+    in the match.screenshot section above (clean renders only; short pages). The thresholds are in
+    `match_screenshot.py`, which is in the methods tarball, so the library is **1.4.0** (`witness-methods-1.4.0.tar.gz`,
+    `methods_code_sha256` 1d30489e… → 540ea1a9…) and every pure method's `code_sha256` changes, no other method's behaviour.
+    match.screenshot keeps method version 1.0.0 (its output shape is unchanged; `detail` carries `T_bp`/`F_bp`), and its
+    `code_sha256` is the image digest, so the new thresholds take effect only with a new image. `vectors.json` was
+    regenerated: the three match.screenshot vectors decide as before with the new `T_bp`/`F_bp` in their detail, and the
+    envelopes name the new `code_sha256`. Two tests changed ("test change for match.screenshot calibration", its own
+    commit): the two library pins say 1.4.0.
