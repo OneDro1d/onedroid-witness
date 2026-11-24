@@ -89,8 +89,15 @@ def test_selftest_hides_secret_paths_from_the_namespace(tmp_path):
     secret_dir.mkdir()
     (secret_dir / "secret").write_text("do-not-leak")
     result = C.run_selftest(C.Settings(hide_paths=(str(secret_dir),)))
-    assert result["passed"] is True, result
-    assert {"path": str(secret_dir), "result": "hidden"} in result["hidden_paths"]
+    entry = [h for h in result["hidden_paths"] if h["path"] == str(secret_dir)][0]
+    assert entry["result"] != "readable", result
+    assert result["passed"] is True, result  # not required by default: a failed mount is recorded, not fatal
+    if entry["result"].startswith("failed"):
+        required = C.run_selftest(C.Settings(hide_paths=(str(secret_dir),), require_hidden=True))
+        assert required["passed"] is False and any("not hidden" in r for r in required["reasons"]), required
+        pytest.skip(f"this host refuses mount(2) in the worker's mount namespace ({entry['result']}), e.g. a "
+                    "container AppArmor profile; recorded and, with require_hidden, fatal")
+    assert entry["result"] == "hidden"
 
 
 @pytest.mark.integration
