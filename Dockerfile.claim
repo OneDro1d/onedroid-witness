@@ -1,0 +1,29 @@
+# claim-witness (DECISIONS BD6): one image that runs either the HTTP API (`api`, the default) or the signer sidecar
+# (`signer serve`, plus the operator commands `signer keylist init|rotate|show`), chosen by the container's args.
+#
+# tools/redact-copy: the evidence store's own credential rules (github.com/OneDro1d/onedroid-indie/redact at the version the
+# store pins in tools/redact-copy/go.mod), vendored so this stage builds offline, exactly as onedroid-audit's Dockerfile builds
+# it (BD11). claim_witness/screen.py runs it over the signed text fields of every public claim (WITNESS_REDACT_BIN); without it
+# a public claim is refused 503 and nothing is signed.
+ARG GO_VERSION=1.23.4
+FROM golang:${GO_VERSION}-bookworm AS redact-copy
+WORKDIR /src
+COPY tools/redact-copy/ ./
+RUN CGO_ENABLED=0 go build -mod=vendor -trimpath -o /out/redact-copy . && /out/redact-copy </dev/null >/dev/null
+
+# python3.12: the minor version is part of every record's method.runtime (SPEC §9.2); change it only with a method version.
+FROM python:3.12-slim
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin witness
+WORKDIR /app
+COPY --chmod=0644 requirements-claim.txt ./
+RUN pip install --no-cache-dir --only-binary :all: -r requirements-claim.txt
+# --chmod: the build context keeps the files' own modes (0600 in the author's checkout), which user 10001 cannot read
+COPY --chmod=0755 claim_witness/ ./claim_witness/
+COPY --from=redact-copy --chmod=0755 /out/redact-copy /app/bin/redact-copy
+ENV WITNESS_REDACT_BIN=/app/bin/redact-copy \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+USER 10001
+EXPOSE 8080
+ENTRYPOINT ["python3", "-m", "claim_witness"]
+CMD ["api"]

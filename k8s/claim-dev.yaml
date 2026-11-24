@@ -1,0 +1,169 @@
+# claim-witness slice B1 on the DEV cluster, namespace witness-dev (DECISIONS BD6, BD7), beside the old onedroid-witness until
+# B8. The orchestrator sets the image at rollout time (IMAGE_PLACEHOLDER). Secrets are referenced by NAME only; how to create
+# each one is in README_CLAIM.md, "Secrets". Nothing here holds a secret value.
+#
+#   claim-pg       Postgres 16 + pgvector, one replica, its own PVC (BD7)
+#   claim-witness  the API container plus the signer sidecar; they share an emptyDir holding only the signer's Unix socket.
+#                  The signing key is mounted into the signer container alone. The Service exposes the API port only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: claim-pg
+  namespace: witness-dev
+  labels: {app: claim-pg}
+spec:
+  clusterIP: None
+  selector: {app: claim-pg}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: claim-pg
+  namespace: witness-dev
+spec:
+  serviceName: claim-pg
+  replicas: 1
+  selector:
+    matchLabels: {app: claim-pg}
+  template:
+    metadata:
+      labels: {app: claim-pg}
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          ports: [{containerPort: 5432, name: postgres}]
+          env:
+            - name: POSTGRES_USER
+              valueFrom: {secretKeyRef: {name: claim-pg-credentials, key: username}}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: claim-pg-credentials, key: password}}
+            - name: POSTGRES_DB
+              valueFrom: {secretKeyRef: {name: claim-pg-credentials, key: database}}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          volumeMounts:
+            - {name: pgdata, mountPath: /var/lib/postgresql/data}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+        namespace: witness-dev
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claim-witness
+  namespace: witness-dev
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: claim-witness}
+  template:
+    metadata:
+      labels: {app: claim-witness}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: api
+          image: IMAGE_PLACEHOLDER
+          args: ["api"]
+          ports: [{containerPort: 8080, name: http}]
+          env:
+            - {name: WITNESS_ID, value: "witness:onedroid-dev"}
+            - {name: WITNESS_SIGNER_SOCKET, value: /run/claim-witness/signer.sock}
+            - name: WITNESS_DATABASE_URL
+              valueFrom: {secretKeyRef: {name: claim-pg-credentials, key: url}}
+            - {name: WITNESS_ATTEMPT_KEY_FILE, value: /etc/claim-witness/attempt/key}
+            - {name: WITNESS_MASTER_KEY_FILE, value: /etc/claim-witness/master/key}
+            - {name: WITNESS_DEV_KEYS_FILE, value: /etc/claim-witness/dev-keys/dev-keys.json}
+            # BD8: set WITNESS_CALLER_KEYS_URL to the BFF's published service key list once its /bff/v1/witness routes exist;
+            # unset, only the dev keys above are accepted.
+            - {name: WITNESS_PORT, value: "8080"}
+          volumeMounts:
+            - {name: socket, mountPath: /run/claim-witness}
+            - {name: attempt-key, mountPath: /etc/claim-witness/attempt, readOnly: true}
+            - {name: master-key, mountPath: /etc/claim-witness/master, readOnly: true}
+            - {name: dev-keys, mountPath: /etc/claim-witness/dev-keys, readOnly: true}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: 8080}
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+        - name: signer
+          image: IMAGE_PLACEHOLDER
+          args: ["signer", "serve"]
+          env:
+            - {name: WITNESS_ID, value: "witness:onedroid-dev"}
+            - {name: WITNESS_KEY_ID, value: "witness:onedroid-dev:2026a"}
+            - {name: WITNESS_SIGNER_SOCKET, value: /run/claim-witness/signer.sock}
+            - {name: WITNESS_SIGNING_KEY_FILE, value: /etc/claim-witness/signing/key}
+            - name: WITNESS_DATABASE_URL
+              valueFrom: {secretKeyRef: {name: claim-pg-credentials, key: url}}
+            # dev only: on the very first start, with no key list in the database, sign key list 1 with this key. Every later
+            # list is signed by the operator command (README_CLAIM.md, "Rotating the key").
+            - {name: WITNESS_SIGNER_BOOTSTRAP, value: "1"}
+          volumeMounts:
+            - {name: socket, mountPath: /run/claim-witness}
+            - {name: signing-key, mountPath: /etc/claim-witness/signing, readOnly: true}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+      volumes:
+        - name: socket
+          emptyDir: {medium: Memory, sizeLimit: 1Mi}
+        - name: signing-key
+          secret: {secretName: claim-witness-signing-key, defaultMode: 0440}
+        - name: attempt-key
+          secret: {secretName: claim-witness-attempt-key, defaultMode: 0440}
+        - name: master-key
+          secret: {secretName: claim-witness-master-key, defaultMode: 0440}
+        - name: dev-keys
+          secret: {secretName: claim-witness-dev-keys, defaultMode: 0440}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claim-witness
+  namespace: witness-dev
+  labels: {app: claim-witness}
+spec:
+  selector: {app: claim-witness}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

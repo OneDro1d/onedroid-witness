@@ -1,0 +1,36 @@
+OneDroid Valor
+Copyright 2026 Providentia Worldwide (PWW)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Origin of the costing logic
+---------------------------
+The rules for reading Claude Code transcripts, counting tokens per message,
+splitting cache writes and fast mode, matching paths and worktrees to a
+repository, finding ticket keys and pricing tokens were first written by PWW
+for OneDroid Talos (providentiaww/talosdashboard, src/costs and
+src/session/transcripts.js). That code is PWW's own and carries no licence
+file of its own.
+
+Per Michal Bacia's decision of 2026-10-21, PWW relicenses that costing logic
+under the Apache License, Version 2.0, for use in OneDroid Valor.
+
+The Go code in this repository is a clean rewrite: no JavaScript source was
+copied. Talos's test vectors were ported as Go table tests, and the parity
+fixtures under testdata/ are generated, with no real transcript content.
+
+The seed price list (internal/prices/prices.json) restates the vendors'
+published list prices as read on the date in each entry.
+
+Origin of the record format and the credential rules
+----------------------------------------------------
+The record format (record/) and the credential rules (redact/) were first
+written by PWW for the OneDroid Synapse recorder (providentiaww/MCP-router,
+internal/agentrecord/contract and internal/agentrecord/secrets). That code is
+PWW's own and carries no licence file of its own.
+
+Per Michal Bacia's decision of 2026-11-07 (D41a), PWW relicenses it under the
+Apache License, Version 2.0, for the OneDroid Argus kit. The packages here are
+a rewrite that keeps the record's wire format byte-compatible with the
+recorder, so both write the same rows. Test fixtures that look like real
+credentials are synthetic and split in the source.

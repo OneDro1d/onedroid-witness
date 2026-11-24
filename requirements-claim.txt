@@ -1,0 +1,3 @@
+# claim_witness runtime dependencies (Dockerfile.claim). witness-verify (claim_witness/verify.py) needs none of them.
+cryptography==50.0.2
+psycopg[binary]==3.3.9

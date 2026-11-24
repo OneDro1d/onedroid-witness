@@ -1,0 +1,918 @@
+{
+ "about": "claim witness test vectors (SPEC TS-23); regenerate with python3 -m claim_witness.vectors --write",
+ "attempt_tag": [
+  {
+   "account": "acct_a",
+   "claim": {
+    "assertion": true,
+    "method": "match.exact",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "key_hex": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+   "method": "match.exact",
+   "objects": [
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   ],
+   "tag": "be26179f5ff408a57a46a8b7e089edb49a64be975b6c37d3a679c466f7a57aec",
+   "urls": []
+  }
+ ],
+ "canon1": [
+  {
+   "input": "  Hello   world \n\n\t second\tline  \r\n",
+   "layer": "response",
+   "media_type": "text/plain",
+   "output": "Hello world\nsecond line"
+  },
+  {
+   "input": "‘a’ “c” e–f—g wait… x y",
+   "layer": "response",
+   "media_type": "text/plain",
+   "output": "'a' \"c\" e-f-g wait... x y"
+  },
+  {
+   "input": "ﬁne Ａ",
+   "layer": "response",
+   "media_type": "text/plain",
+   "output": "fine A"
+  },
+  {
+   "input": "posted 3 hours ago, edited just now, seen yesterday",
+   "layer": "response",
+   "media_type": "text/plain",
+   "output": "posted <reltime>, edited <reltime>, seen <reltime>"
+  },
+  {
+   "input": "<html><head><title>T</title></head><body><script>x</script><p>Visible</p><p hidden>H</p><span style=\"display:none\">H</span><p>After</p></body></html>",
+   "layer": "response",
+   "media_type": "text/html",
+   "output": "Visible\nAfter"
+  },
+  {
+   "input": "<div>one<p>two</p>three<br>four<ul><li>a</li><li>b</li></ul></div>",
+   "layer": "response",
+   "media_type": "text/html",
+   "output": "one\ntwo\nthree\nfour\na\nb"
+  },
+  {
+   "input": "<p>keep</p><p data-witness-hidden>menu</p>",
+   "layer": "response",
+   "media_type": "text/html",
+   "output": "keep\nmenu"
+  },
+  {
+   "input": "<p>keep</p><p data-witness-hidden>menu</p>",
+   "layer": "rendered",
+   "media_type": "text/html",
+   "output": "keep"
+  }
+ ],
+ "claim_id": [
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"match.exact\",\"method_major\":1,\"params\":{},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "match.exact",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_id": "fa321818220d4e9e4ab004219a14e80382c54cf7472e869eff2c79b4142f8751"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"match.exact\",\"method_major\":1,\"params\":{},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "match.exact",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_id": "fa321818220d4e9e4ab004219a14e80382c54cf7472e869eff2c79b4142f8751"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"quote.in-source\",\"method_major\":1,\"params\":{\"quote\":\"\\\"not a judge of truth\\\" - never\"},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "quote.in-source",
+    "method_major": 1,
+    "params": {
+     "quote": "\"not a judge of truth\" - never"
+    },
+    "statement": null
+   },
+   "claim_id": "9a5940f3252ab5642462ee5308effbf0625451c791406b7b4c0e499d37d2186e"
+  },
+  {
+   "canonical": "{\"assertion\":false,\"method\":\"quote.in-source\",\"method_major\":1,\"params\":{\"quote\":\"a judge of lies\"},\"statement\":null}",
+   "claim": {
+    "assertion": false,
+    "method": "quote.in-source",
+    "method_major": 1,
+    "params": {
+     "quote": "a judge of lies"
+    },
+    "statement": null
+   },
+   "claim_id": "2d2497a47fa5a8b05ef32174941005eddc93af7b77f6bbff8520d928444ddc34"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"quote.in-source\",\"method_major\":1,\"params\":{\"quote\":\"x\"},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "quote.in-source",
+    "method_major": 1,
+    "params": {
+     "quote": "x"
+    },
+    "statement": null
+   },
+   "claim_id": "f2ccee1e8b777dbec368cf6fb210fe469f052e9d055524f84031e90dcb381d8c"
+  },
+  {
+   "canonical": "{\"assertion\":false,\"method\":\"tests.pass\",\"method_major\":1,\"params\":{},\"statement\":null}",
+   "claim": {
+    "assertion": false,
+    "method": "tests.pass",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_id": "2c20d2b66974d06d84b28601c5569c02233f48552b94b76c809c4ab0825d4213"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"tests.pass\",\"method_major\":1,\"params\":{\"expect_commit\":\"1111111\"},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "tests.pass",
+    "method_major": 1,
+    "params": {
+     "expect_commit": "1111111"
+    },
+    "statement": null
+   },
+   "claim_id": "c2b93e6cfa0a25caf0132cc680e9faae7eab5a71d83cc59ae2839d9944806628"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"tests.pass\",\"method_major\":1,\"params\":{},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "tests.pass",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_id": "6a25312ef6616edbd0d7f2673c862f64b83c154643b3f2a2468f598e5764f0fe"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"tests.pass\",\"method_major\":1,\"params\":{},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "tests.pass",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_id": "6a25312ef6616edbd0d7f2673c862f64b83c154643b3f2a2468f598e5764f0fe"
+  }
+ ],
+ "commitments": [
+  {
+   "body": {
+    "label": null,
+    "visibility": "private"
+   },
+   "body_commitment": "d580d34ca8ef5d0620d1242282121c7701274bb4382a67e3b453cc45aaa93d9a",
+   "claim": {
+    "assertion": true,
+    "method": "match.exact",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_commitment": "420480597110117ae42ef938d658a90c7c8dc5d53a98d5e3c60317f6812e7919",
+   "salt_b64url": "AAECAwQFBgcICQoLDA0ODw",
+   "salt_hex": "000102030405060708090a0b0c0d0e0f"
+  },
+  {
+   "body": {
+    "claim": {
+     "assertion": true,
+     "method": "match.exact",
+     "method_major": 1,
+     "params": {},
+     "statement": null
+    },
+    "label": "my words",
+    "visibility": "private"
+   },
+   "body_commitment": "614d9631cf074365a968953ee4d4f0f83c53cd3e69f5f2370195c0fcd26d8134",
+   "claim": {
+    "assertion": true,
+    "method": "match.exact",
+    "method_major": 1,
+    "params": {},
+    "statement": null
+   },
+   "claim_commitment": "420480597110117ae42ef938d658a90c7c8dc5d53a98d5e3c60317f6812e7919",
+   "salt_b64url": "AAECAwQFBgcICQoLDA0ODw",
+   "salt_hex": "000102030405060708090a0b0c0d0e0f"
+  }
+ ],
+ "envelope": [
+  {
+   "agent_key": {
+    "agent": "agt_vector",
+    "agent_key_id": "ak_vector",
+    "public_key": "MSWQOgvdQ+gD+KXQ320F5/ae7Q3PjV9NOmhegzD2vCA="
+   },
+   "disclosure": null,
+   "envelope": {
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiIwYTc4NTQyNWExOTMwMDk3YmZjYmQzMjEwMTY3MDM5NjY3NWY3ODg3ZDM0ZTNlZmNmOGUwMTQ0ZTQyOWZlMTEyIiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
+    "payloadType": "application/vnd.in-toto+json",
+    "signatures": [
+     {
+      "keyid": "witness:vectors:2026a",
+      "sig": "7PffQm6UC7V2YwBtlRTWTBdhUy7offJ1qslAFjl7BwQmzCnajUHvfdCrwfh8KvzI3dUnw6050DK6XAP0b8V/Cg=="
+     }
+    ]
+   },
+   "evidence_b64": [
+    "VGhlIHdpdG5lc3Mgc2lnbnMgb25lIGFuc3dlci4KSXQgaXMg4oCcbm90IGEganVkZ2Ugb2YgdHJ1dGjigJ0g4oCUIG5ldmVyLg=="
+   ],
+   "key_id": "witness:vectors:2026a",
+   "key_list": {
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmF0Y2hfaW50ZXJ2YWxfcyI6MzYwMCwia2V5cyI6W3siYWxnIjoiZWQyNTUxOSIsImtleV9pZCI6IndpdG5lc3M6dmVjdG9yczoyMDI2YSIsInB1YmxpYyI6Im0ySHNja0dndzk4aFBLanNKU0Y1MndXZU45MHExN0JnLzRjdTd2Q3poUE09IiwicmV2b2tlX3JlYXNvbiI6bnVsbCwicmV2b2tlZF9hdCI6bnVsbCwidmFsaWRfZnJvbSI6IjIwMjYtMTEtMjVUMDk6NDY6NDBaIiwidmFsaWRfdG8iOm51bGx9XSwic2VhbGVycyI6W10sInNlcSI6MSwid2l0bmVzcyI6IndpdG5lc3M6dmVjdG9ycyJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2tleS1saXN0L3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImM4MWM4NzY5NWMyNWI2YTI5YTNlODQ1M2ZmODQwOTQyNjdkMjIxYmM5YzE5MGQwOGM5ZDkxOTBhMzhiMjE0ZmUifSwibmFtZSI6ImtleS1saXN0In1dfQ==",
+    "payloadType": "application/vnd.in-toto+json",
+    "signatures": [
+     {
+      "keyid": "witness:vectors:2026a",
+      "sig": "oHv0CERe6nH1XRfEvgoeVuAulxn0bBkDzxD/WXe4oq16qP1b1Tv/7PB+kdVS3loiki3xHRXVkdGmspKBNbO4BQ=="
+     }
+    ]
+   },
+   "payload_b64": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiIwYTc4NTQyNWExOTMwMDk3YmZjYmQzMjEwMTY3MDM5NjY3NWY3ODg3ZDM0ZTNlZmNmOGUwMTQ0ZTQyOWZlMTEyIiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
+   "public_b64": "m2HsckGgw98hPKjsJSF52wWeN90q17Bg/4cu7vCzhPM=",
+   "record_id": "d413c01b49bdf528f0750c0a3dfe7304ca86337c681ad5c8a385386b94fd6712",
+   "seed_hex": "56d9175ea4bd23481bdffca721da83d77071544002add851c571e2fca29f8b44",
+   "visibility": "public"
+  },
+  {
+   "agent_key": {
+    "agent": "agt_vector",
+    "agent_key_id": "ak_vector",
+    "public_key": "MSWQOgvdQ+gD+KXQ320F5/ae7Q3PjV9NOmhegzD2vCA="
+   },
+   "disclosure": {
+    "body": {
+     "attempt": {
+      "n": 1,
+      "prior": {
+       "CANNOT_WITNESS": 0,
+       "NOT_SUPPORTED": 0,
+       "SUPPORTED": 0
+      },
+      "scope": "account",
+      "window_days": 30
+     },
+     "claim": {
+      "assertion": true,
+      "method": "quote.in-source",
+      "method_major": 1,
+      "params": {
+       "quote": "not a judge of truth"
+      },
+      "statement": null
+     },
+     "detail": {
+      "end": 57,
+      "source_chars": 67,
+      "start": 37
+     },
+     "evidence": [
+      {
+       "kind": "object",
+       "media_type": "text/plain",
+       "name": "source.txt",
+       "sha256": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae",
+       "slot": "source"
+      }
+     ],
+     "finding": "quote-found",
+     "judgment": null,
+     "label": "vector label",
+     "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
+     "method": {
+      "code_sha256": "0a785425a1930097bfcbd32101670396675f7887d34e3efcf8e0144e429fe112",
+      "id": "quote.in-source",
+      "runtime": "python3.12",
+      "version": "1.0.0"
+     },
+     "options_used": {
+      "accept_untrusted": false,
+      "allow_provider": false,
+      "panel": 1
+     },
+     "outcome": "SUPPORTED",
+     "reason": "quote-found",
+     "relied_on": [],
+     "statement": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae contains the passage: “not a judge of truth”.",
+     "submitter": {
+      "account": "acct_vector",
+      "agent": "agt_vector",
+      "agent_key_id": "ak_vector",
+      "agent_sig": "IBe6b0pttE9PHEc+MGFwCA1o0DXiGNJ1+BAUG8AbzRrnRlJEr4zE8Rp9ta7ouovvajkYTqNxuR8RH97FaN+UAA==",
+      "agent_time": "2026-11-25T09:47:40Z",
+      "nonce": "nonce-vector-0001"
+     },
+     "visibility": "private",
+     "witness": {
+      "id": "witness:vectors",
+      "key_id": "witness:vectors:2026a",
+      "key_list_seq": 1
+     },
+     "witnessed_at": "2026-11-25T09:47:40Z"
+    },
+    "salt": "AAECAwQFBgcICQoLDA0ODw"
+   },
+   "envelope": {
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiNDhiOGNjZjdjZjgxMDRhMzI2MGY0YmQwZWQyMzI4MmJiYTg3MTQyNWZhOWY2M2FjNzA3ZTYzNTY1NWFiYmFkYSIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiMGE3ODU0MjVhMTkzMDA5N2JmY2JkMzIxMDE2NzAzOTY2NzVmNzg4N2QzNGUzZWZjZjhlMDE0NGU0MjlmZTExMiIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
+    "payloadType": "application/vnd.in-toto+json",
+    "signatures": [
+     {
+      "keyid": "witness:vectors:2026a",
+      "sig": "9vfQII8T68DU1Afj6TLqhy0t/ClrrKcqNB8N5GhvN3GMNWP1r+541d6SxfRvjNoQPhIH5hUdqi1ljyrPUBa0Cg=="
+     }
+    ]
+   },
+   "evidence_b64": [
+    "VGhlIHdpdG5lc3Mgc2lnbnMgb25lIGFuc3dlci4KSXQgaXMg4oCcbm90IGEganVkZ2Ugb2YgdHJ1dGjigJ0g4oCUIG5ldmVyLg=="
+   ],
+   "key_id": "witness:vectors:2026a",
+   "key_list": {
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmF0Y2hfaW50ZXJ2YWxfcyI6MzYwMCwia2V5cyI6W3siYWxnIjoiZWQyNTUxOSIsImtleV9pZCI6IndpdG5lc3M6dmVjdG9yczoyMDI2YSIsInB1YmxpYyI6Im0ySHNja0dndzk4aFBLanNKU0Y1MndXZU45MHExN0JnLzRjdTd2Q3poUE09IiwicmV2b2tlX3JlYXNvbiI6bnVsbCwicmV2b2tlZF9hdCI6bnVsbCwidmFsaWRfZnJvbSI6IjIwMjYtMTEtMjVUMDk6NDY6NDBaIiwidmFsaWRfdG8iOm51bGx9XSwic2VhbGVycyI6W10sInNlcSI6MSwid2l0bmVzcyI6IndpdG5lc3M6dmVjdG9ycyJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2tleS1saXN0L3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImM4MWM4NzY5NWMyNWI2YTI5YTNlODQ1M2ZmODQwOTQyNjdkMjIxYmM5YzE5MGQwOGM5ZDkxOTBhMzhiMjE0ZmUifSwibmFtZSI6ImtleS1saXN0In1dfQ==",
+    "payloadType": "application/vnd.in-toto+json",
+    "signatures": [
+     {
+      "keyid": "witness:vectors:2026a",
+      "sig": "oHv0CERe6nH1XRfEvgoeVuAulxn0bBkDzxD/WXe4oq16qP1b1Tv/7PB+kdVS3loiki3xHRXVkdGmspKBNbO4BQ=="
+     }
+    ]
+   },
+   "payload_b64": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiNDhiOGNjZjdjZjgxMDRhMzI2MGY0YmQwZWQyMzI4MmJiYTg3MTQyNWZhOWY2M2FjNzA3ZTYzNTY1NWFiYmFkYSIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiMGE3ODU0MjVhMTkzMDA5N2JmY2JkMzIxMDE2NzAzOTY2NzVmNzg4N2QzNGUzZWZjZjhlMDE0NGU0MjlmZTExMiIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
+   "public_b64": "m2HsckGgw98hPKjsJSF52wWeN90q17Bg/4cu7vCzhPM=",
+   "record_id": "293af87974a2266cb0ce1dcf176d026e080203f01dcb7fb6f25024aab2353408",
+   "seed_hex": "56d9175ea4bd23481bdffca721da83d77071544002add851c571e2fca29f8b44",
+   "visibility": "private"
+  }
+ ],
+ "jcs": [
+  {
+   "canonical": "{\"\":5,\"B\":4,\"a\":3,\"€\":2,\"😀\":1}",
+   "input": {
+    "": 5,
+    "B": 4,
+    "a": 3,
+    "€": 2,
+    "😀": 1
+   }
+  },
+  {
+   "canonical": "{\"a\":{\"x\":-7,\"y\":9007199254740991},\"b\":[true,false,null]}",
+   "input": {
+    "a": {
+     "x": -7,
+     "y": 9007199254740991
+    },
+    "b": [
+     true,
+     false,
+     null
+    ]
+   }
+  },
+  {
+   "canonical": "\"a\\\"b\\\\c\\n\\t\\u0001\\u001f/é \"",
+   "input": "a\"b\\c\n\t\u0001\u001f/é "
+  },
+  {
+   "canonical": "{\"claim\":{\"assertion\":true,\"method\":\"match.exact\",\"method_major\":1,\"params\":{},\"statement\":null}}",
+   "input": {
+    "claim": {
+     "assertion": true,
+     "method": "match.exact",
+     "method_major": 1,
+     "params": {},
+     "statement": null
+    }
+   }
+  },
+  {
+   "canonical": "[0,-1,1,[],{}]",
+   "input": [
+    0,
+    -1,
+    1,
+    [],
+    {}
+   ]
+  }
+ ],
+ "record_id": [
+  {
+   "leaf_hash": "e36b39587a7a6bc29ae00bf9f773b694a54208c153f34022787ec9691ed28baa",
+   "payload_b64": "eyJ4IjoxfQ==",
+   "record_id": "5041bf1f713df204784353e82f6a4a535931cb64f1f4b4a5aeaffcb720918b22"
+  },
+  {
+   "leaf_hash": "0d8dc3d2af9881f621bccb5e2942a5b014fc1bec093b7ebefd58c0af4b970550",
+   "payload_b64": "eyJwcmVkaWNhdGUiOnsib3V0Y29tZSI6IlNVUFBPUlRFRCJ9LCJzdWJqZWN0IjpbXX0=",
+   "record_id": "20676b411820380eba83689bc5907655d5d222ce08e83c83cd57fbc7bdc75479"
+  }
+ ],
+ "templates": [
+  {
+   "assertion": true,
+   "detail": {
+    "submitted_bytes": 5,
+    "target_bytes": 5
+   },
+   "evidence": [
+    {
+     "data_b64": "c2FtZQo=",
+     "media_type": "text/plain",
+     "name": "submitted.txt",
+     "sha256": "a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6",
+     "slot": "submitted"
+    },
+    {
+     "data_b64": "c2FtZQo=",
+     "media_type": "text/plain",
+     "name": "target.txt",
+     "sha256": "a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6",
+     "slot": "target"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "match",
+   "limits": "Bytes only.",
+   "method": "match.exact",
+   "outcome": "SUPPORTED",
+   "params": {},
+   "reason": "match",
+   "statement": "The submitted file a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6 is byte-identical to a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "submitted_bytes": 5,
+    "target_bytes": 5
+   },
+   "evidence": [
+    {
+     "data_b64": "c2FtZQo=",
+     "media_type": "text/plain",
+     "name": "submitted.txt",
+     "sha256": "a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6",
+     "slot": "submitted"
+    },
+    {
+     "data_b64": "c2FtZQo=",
+     "media_type": "text/plain",
+     "name": "target.txt",
+     "sha256": "a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6",
+     "slot": "target"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "match",
+   "limits": "Bytes only.",
+   "method": "match.exact",
+   "outcome": "NOT_SUPPORTED",
+   "params": {},
+   "reason": "match",
+   "statement": "The submitted file a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6 is not byte-identical to a6328afc76e9db71da297ebff4b0d3e7a7eb3b01d917c05a6573fef121b6ecb6."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "first_diff": 2,
+    "submitted_bytes": 4,
+    "target_bytes": 4
+   },
+   "evidence": [
+    {
+     "data_b64": "YWJjZA==",
+     "media_type": "text/plain",
+     "name": "submitted.txt",
+     "sha256": "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",
+     "slot": "submitted"
+    },
+    {
+     "data_b64": "YWJYZA==",
+     "media_type": "text/plain",
+     "name": "target.txt",
+     "sha256": "25b313ad0a78bedd25eba8d2ecd1d43fa44f208a553fc626294dccaab916d4fe",
+     "slot": "target"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "differs",
+   "limits": "Bytes only.",
+   "method": "match.exact",
+   "outcome": "NOT_SUPPORTED",
+   "params": {},
+   "reason": "differs",
+   "statement": "The submitted file 88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589 is byte-identical to 25b313ad0a78bedd25eba8d2ecd1d43fa44f208a553fc626294dccaab916d4fe."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "first_diff": 2,
+    "submitted_bytes": 4,
+    "target_bytes": 4
+   },
+   "evidence": [
+    {
+     "data_b64": "YWJjZA==",
+     "media_type": "text/plain",
+     "name": "submitted.txt",
+     "sha256": "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",
+     "slot": "submitted"
+    },
+    {
+     "data_b64": "YWJYZA==",
+     "media_type": "text/plain",
+     "name": "target.txt",
+     "sha256": "25b313ad0a78bedd25eba8d2ecd1d43fa44f208a553fc626294dccaab916d4fe",
+     "slot": "target"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "differs",
+   "limits": "Bytes only.",
+   "method": "match.exact",
+   "outcome": "SUPPORTED",
+   "params": {},
+   "reason": "differs",
+   "statement": "The submitted file 88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589 is not byte-identical to 25b313ad0a78bedd25eba8d2ecd1d43fa44f208a553fc626294dccaab916d4fe."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "end": 66,
+    "source_chars": 67,
+    "start": 36
+   },
+   "evidence": [
+    {
+     "data_b64": "VGhlIHdpdG5lc3Mgc2lnbnMgb25lIGFuc3dlci4KSXQgaXMg4oCcbm90IGEganVkZ2Ugb2YgdHJ1dGjigJ0g4oCUIG5ldmVyLg==",
+     "media_type": "text/plain",
+     "name": "source.txt",
+     "sha256": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae",
+     "slot": "source"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "quote-found",
+   "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
+   "method": "quote.in-source",
+   "outcome": "SUPPORTED",
+   "params": {
+    "quote": "\"not a judge of truth\" - never"
+   },
+   "reason": "quote-found",
+   "statement": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae contains the passage: “\"not a judge of truth\" - never”."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "end": 57,
+    "source_chars": 67,
+    "start": 37
+   },
+   "evidence": [
+    {
+     "data_b64": "VGhlIHdpdG5lc3Mgc2lnbnMgb25lIGFuc3dlci4KSXQgaXMg4oCcbm90IGEganVkZ2Ugb2YgdHJ1dGjigJ0g4oCUIG5ldmVyLg==",
+     "media_type": "text/plain",
+     "name": "source.txt",
+     "sha256": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae",
+     "slot": "source"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "quote-found",
+   "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
+   "method": "quote.in-source",
+   "outcome": "NOT_SUPPORTED",
+   "params": {
+    "quote": "not a judge of truth"
+   },
+   "reason": "quote-found",
+   "statement": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae does not contain the passage: “not a judge of truth”."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "source_chars": 67
+   },
+   "evidence": [
+    {
+     "data_b64": "VGhlIHdpdG5lc3Mgc2lnbnMgb25lIGFuc3dlci4KSXQgaXMg4oCcbm90IGEganVkZ2Ugb2YgdHJ1dGjigJ0g4oCUIG5ldmVyLg==",
+     "media_type": "text/plain",
+     "name": "source.txt",
+     "sha256": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae",
+     "slot": "source"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "quote-absent",
+   "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
+   "method": "quote.in-source",
+   "outcome": "SUPPORTED",
+   "params": {
+    "quote": "a judge of lies"
+   },
+   "reason": "quote-absent",
+   "statement": "5367614b90167ffecf8ebe9af0a0f0f272d67b51b420012b5fbd48fa4cf24aae does not contain the passage: “a judge of lies”."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "end": 5,
+    "source_chars": 5,
+    "start": 0
+   },
+   "evidence": [
+    {
+     "data_b64": "PHA+U2hvd248L3A+PHAgaGlkZGVuPnNlY3JldDwvcD4=",
+     "media_type": "text/html",
+     "name": "s.html",
+     "sha256": "e790614e31151c1ee516ab5ee29bd4ca3e70cdd80b4bc648e537f4690778e8ad",
+     "slot": "source"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "quote-found",
+   "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
+   "method": "quote.in-source",
+   "outcome": "SUPPORTED",
+   "params": {
+    "quote": "Shown"
+   },
+   "reason": "quote-found",
+   "statement": "e790614e31151c1ee516ab5ee29bd4ca3e70cdd80b4bc648e537f4690778e8ad contains the passage: “Shown”."
+  },
+  {
+   "assertion": true,
+   "detail": {},
+   "evidence": [
+    {
+     "data_b64": "iVBORw0KGgr//g==",
+     "media_type": "image/png",
+     "name": "s.png",
+     "sha256": "608b46bb11fb3fd7be889e6e75fb4deee0ea15be13ad778fef9d04007828b877",
+     "slot": "source"
+    }
+   ],
+   "failing_tests": [],
+   "finding": null,
+   "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
+   "method": "quote.in-source",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "quote": "x"
+   },
+   "reason": "unreadable",
+   "statement": "608b46bb11fb3fd7be889e6e75fb4deee0ea15be13ad778fef9d04007828b877 contains the passage: “x”."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "errors": 0,
+    "failed": 0,
+    "format": "go-test-json",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 1
+   },
+   "evidence": [
+    {
+     "data_b64": "eyJBY3Rpb24iOiJydW4iLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIlRlc3QiOiJUZXN0QSJ9CnsiQWN0aW9uIjoicGFzcyIsIlBhY2thZ2UiOiJleGFtcGxlLmNvbS92IiwiVGVzdCI6IlRlc3RBIiwiRWxhcHNlZCI6MH0KeyJBY3Rpb24iOiJvdXRwdXQiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIk91dHB1dCI6ImNvbW1pdDogMGUwYmJmOWExYjJjXG4ifQp7IkFjdGlvbiI6InBhc3MiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIkVsYXBzZWQiOjB9Cg==",
+     "media_type": "application/json",
+     "name": "go.json",
+     "sha256": "65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "tests-passed",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "SUPPORTED",
+   "params": {},
+   "reason": "tests-passed",
+   "statement": "The test output 65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947 reports at least one test run and no failures."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "errors": 0,
+    "failed": 0,
+    "format": "go-test-json",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 1
+   },
+   "evidence": [
+    {
+     "data_b64": "eyJBY3Rpb24iOiJydW4iLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIlRlc3QiOiJUZXN0QSJ9CnsiQWN0aW9uIjoicGFzcyIsIlBhY2thZ2UiOiJleGFtcGxlLmNvbS92IiwiVGVzdCI6IlRlc3RBIiwiRWxhcHNlZCI6MH0KeyJBY3Rpb24iOiJvdXRwdXQiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIk91dHB1dCI6ImNvbW1pdDogMGUwYmJmOWExYjJjXG4ifQp7IkFjdGlvbiI6InBhc3MiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIkVsYXBzZWQiOjB9Cg==",
+     "media_type": "application/json",
+     "name": "go.json",
+     "sha256": "65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "tests-passed",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "NOT_SUPPORTED",
+   "params": {},
+   "reason": "tests-passed",
+   "statement": "The test output 65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947 does not report at least one test run and no failures."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "errors": 0,
+    "failed": 0,
+    "format": "go-test-json",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 1
+   },
+   "evidence": [
+    {
+     "data_b64": "eyJBY3Rpb24iOiJydW4iLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIlRlc3QiOiJUZXN0QSJ9CnsiQWN0aW9uIjoicGFzcyIsIlBhY2thZ2UiOiJleGFtcGxlLmNvbS92IiwiVGVzdCI6IlRlc3RBIiwiRWxhcHNlZCI6MH0KeyJBY3Rpb24iOiJvdXRwdXQiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIk91dHB1dCI6ImNvbW1pdDogMGUwYmJmOWExYjJjXG4ifQp7IkFjdGlvbiI6InBhc3MiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIkVsYXBzZWQiOjB9Cg==",
+     "media_type": "application/json",
+     "name": "go.json",
+     "sha256": "65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "tests-passed",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "SUPPORTED",
+   "params": {
+    "expect_commit": "0e0bbf9"
+   },
+   "reason": "tests-passed",
+   "statement": "The test output 65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947 reports at least one test run and no failures for commit 0e0bbf9."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "errors": 0,
+    "failed": 0,
+    "format": "go-test-json",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 1
+   },
+   "evidence": [
+    {
+     "data_b64": "eyJBY3Rpb24iOiJydW4iLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIlRlc3QiOiJUZXN0QSJ9CnsiQWN0aW9uIjoicGFzcyIsIlBhY2thZ2UiOiJleGFtcGxlLmNvbS92IiwiVGVzdCI6IlRlc3RBIiwiRWxhcHNlZCI6MH0KeyJBY3Rpb24iOiJvdXRwdXQiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIk91dHB1dCI6ImNvbW1pdDogMGUwYmJmOWExYjJjXG4ifQp7IkFjdGlvbiI6InBhc3MiLCJQYWNrYWdlIjoiZXhhbXBsZS5jb20vdiIsIkVsYXBzZWQiOjB9Cg==",
+     "media_type": "application/json",
+     "name": "go.json",
+     "sha256": "65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "commit-mismatch",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "expect_commit": "1111111"
+   },
+   "reason": "commit-mismatch",
+   "statement": "The test output 65a8f2a3bd6e64be49c195984814e56a23ef34a23d230d9f1841025297eda947 reports at least one test run and no failures for commit 1111111."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "errors": 0,
+    "failed": 0,
+    "format": "jest-json",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 1
+   },
+   "evidence": [
+    {
+     "data_b64": "eyJudW1GYWlsZWRUZXN0cyI6IDAsICJudW1QYXNzZWRUZXN0cyI6IDEsICJudW1QZW5kaW5nVGVzdHMiOiAwLCAibnVtUnVudGltZUVycm9yVGVzdFN1aXRlcyI6IDAsICJudW1Ub3RhbFRlc3RzIjogMSwgInRlc3RSZXN1bHRzIjogW119",
+     "media_type": "application/json",
+     "name": "jest.json",
+     "sha256": "2eab32b3a3aaec11b3be1679b8d27a612f7e8f58da7a1faf6533a1923e186e6f",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "commit-absent",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "expect_commit": "1111111"
+   },
+   "reason": "commit-absent",
+   "statement": "The test output 2eab32b3a3aaec11b3be1679b8d27a612f7e8f58da7a1faf6533a1923e186e6f does not report at least one test run and no failures for commit 1111111."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "errors": 0,
+    "failed": 1,
+    "format": "junit-xml",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 2
+   },
+   "evidence": [
+    {
+     "data_b64": "PHRlc3RzdWl0ZSBuYW1lPSJzIiB0ZXN0cz0iMiI+PHRlc3RjYXNlIGNsYXNzbmFtZT0icGtnLkEiIG5hbWU9Im9rIi8+PHRlc3RjYXNlIGNsYXNzbmFtZT0icGtnLkEiIG5hbWU9ImJhZCI+PGZhaWx1cmUgbWVzc2FnZT0ieCIvPjwvdGVzdGNhc2U+PC90ZXN0c3VpdGU+",
+     "media_type": "application/xml",
+     "name": "junit.xml",
+     "sha256": "86ad8e36df94c0b7d34138fc0aaf44af52d6ee906e7639a0516da6618aaa0fa7",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [
+    "pkg.A.bad"
+   ],
+   "finding": "tests-failed",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "NOT_SUPPORTED",
+   "params": {},
+   "reason": "tests-failed",
+   "statement": "The test output 86ad8e36df94c0b7d34138fc0aaf44af52d6ee906e7639a0516da6618aaa0fa7 reports at least one test run and no failures."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "errors": 0,
+    "failed": 0,
+    "format": "jest-json",
+    "passed": 1,
+    "skipped": 0,
+    "tests": 1
+   },
+   "evidence": [
+    {
+     "data_b64": "eyJudW1GYWlsZWRUZXN0cyI6IDAsICJudW1QYXNzZWRUZXN0cyI6IDEsICJudW1QZW5kaW5nVGVzdHMiOiAwLCAibnVtUnVudGltZUVycm9yVGVzdFN1aXRlcyI6IDAsICJudW1Ub3RhbFRlc3RzIjogMSwgInRlc3RSZXN1bHRzIjogW119",
+     "media_type": "application/json",
+     "name": "jest.json",
+     "sha256": "2eab32b3a3aaec11b3be1679b8d27a612f7e8f58da7a1faf6533a1923e186e6f",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "tests-passed",
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "SUPPORTED",
+   "params": {},
+   "reason": "tests-passed",
+   "statement": "The test output 2eab32b3a3aaec11b3be1679b8d27a612f7e8f58da7a1faf6533a1923e186e6f reports at least one test run and no failures."
+  },
+  {
+   "assertion": true,
+   "detail": {},
+   "evidence": [
+    {
+     "data_b64": "QWxsIGdyZWVuLCB0cnVzdCBtZS4=",
+     "media_type": "text/plain",
+     "name": "prose.txt",
+     "sha256": "71121bd4ad85e0210728e981a636ec74be34b2c6092d6357de424ed634121a8c",
+     "slot": "log"
+    }
+   ],
+   "failing_tests": [],
+   "finding": null,
+   "limits": "The log's origin was not verified.",
+   "method": "tests.pass",
+   "outcome": "CANNOT_WITNESS",
+   "params": {},
+   "reason": "unreadable",
+   "statement": "The test output 71121bd4ad85e0210728e981a636ec74be34b2c6092d6357de424ed634121a8c reports at least one test run and no failures."
+  }
+ ]
+}
