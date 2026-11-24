@@ -22,18 +22,20 @@ class Manifest(unittest.TestCase):
     def test_api_names_sealer_notary_and_armarium(self):
         for name in ("WITNESS_BATCH_INTERVAL_S", "WITNESS_BATCH_MAX_LEAVES", "WITNESS_SEALER", "WITNESS_NOTARY_URL",
                      "WITNESS_NOTARY_TOKEN_FILE", "WITNESS_NOTARY_CA_FILE", "ARMARIUM_URL", "ARMARIUM_TOKEN_FILE",
-                     "ARMARIUM_CA_FILE", "ARMARIUM_CHAIN", "NDIM_STORE_EVIDENCE", "WITNESS_LINK_BASE"):
+                     "ARMARIUM_CA_FILE", "ARMARIUM_CASE", "NDIM_STORE_EVIDENCE", "WITNESS_LINK_BASE"):
             self.assertIn(name, self.api, name)
             self.assertNotIn(name, self.signer, name)
         self.assertRegex(self.api, r'WITNESS_BATCH_INTERVAL_S, value: "3600"')
         self.assertRegex(self.api, r'NDIM_STORE_EVIDENCE, value: "0"')
 
     def test_optional_volumes_names_only(self):
-        for name in ("claim-witness-notary-token", "claim-witness-armarium-token", "armarium-ca"):
+        # B3W: armarium's real Secrets and the two CAs (notary: armarium-ca; object service: armarium-objects-ca)
+        for name in ("armarium-claim-witness", "armarium-claim-witness-objects", "armarium-ca", "armarium-objects-ca"):
             self.assertIn(name, self.volumes, name)
-        for block in re.findall(r"(?s)- name: (?:notary-token|armarium-token|armarium-ca)\n.*?optional: true", self.volumes):
+        for block in re.findall(r"(?s)- name: (?:notary-token|armarium-token|armarium-ca|armarium-objects-ca)\n.*?optional: true", self.volumes):
             self.assertIn("optional: true", block)
-        self.assertEqual(len(re.findall(r"(?s)- name: (?:notary-token|armarium-token|armarium-ca)\n.*?optional: true", self.volumes)), 3)
+        self.assertEqual(len(re.findall(r"(?s)- name: (?:notary-token|armarium-token|armarium-ca|armarium-objects-ca)\n.*?optional: true",
+                                        self.volumes)), 4)
         self.assertEqual([d for d in docs(self.text) if kind_of(d) in ("Secret", "ConfigMap")], [])
 
 
