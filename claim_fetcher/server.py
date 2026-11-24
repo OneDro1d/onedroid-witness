@@ -19,7 +19,7 @@ import os
 import sys
 import threading
 
-from . import FETCHER_ID, VERSION, addr
+from . import FETCHER_ID, VERSION, addr, atproto, post
 from .capture import CaptureError, HTTP_STATUS, Settings, capture_sync, run_selftest, to_tar
 
 MAX_BODY = 64 * 1024
@@ -115,8 +115,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             url = req.get("url")
             if not isinstance(url, str) or not url or len(url) > MAX_URL:
                 raise ValueError("url")
-            if req.get("capture", "page") != "page":
-                raise ValueError("capture must be 'page'")
+            kind = req.get("capture", "page")
+            if kind not in ("page", "post"):
+                raise ValueError("capture must be 'page' or 'post'")
+            handle = req.get("handle")
+            if kind == "page" and handle is not None:
+                raise ValueError("handle goes with capture 'post' only")
+            if kind == "post":
+                atproto.parse_post_url(url)  # a bsky.app post URL, else bad-request before any request
+                handle = atproto.normalize_handle(handle) if handle is not None else None
             viewport = _viewport(req.get("viewport"))
         except (ValueError, TypeError) as e:
             self._error("bad-request", str(e)[:200])
@@ -130,7 +137,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._error("busy", "too many captures in progress")
             return
         try:
-            manifest, files = self.server.capture_fn(url, viewport)
+            if kind == "post":
+                manifest, files = self.server.capture_fn(url, viewport, kind="post", handle=handle)
+            else:
+                manifest, files = self.server.capture_fn(url, viewport)
         except CaptureError as e:
             m = e.manifest or {}
             log.info(json.dumps({"event": "capture-refused", "url": url, "code": e.code, "detail": e.detail,
@@ -169,6 +179,8 @@ def main(argv=None):
     ap.add_argument("--selftest-only", action="store_true", help="run the self-test, print it, exit 0 if it passed")
     ap.add_argument("--capture", metavar="URL", help="capture one URL through the isolation path, print the manifest")
     ap.add_argument("--out", metavar="DIR", help="with --capture: also write manifest.json and the files here")
+    ap.add_argument("--post", action="store_true", help="with --capture: capture: post (a bsky.app post URL)")
+    ap.add_argument("--handle", help="with --capture --post: the handle to resolve both ways")
     args = ap.parse_args(argv)
     try:
         settings = Settings.from_env()
@@ -177,7 +189,10 @@ def main(argv=None):
         return 2
     if args.capture:
         try:
-            r = capture_sync(args.capture, DEFAULT_VIEWPORT, settings)
+            if args.post:
+                r = post.capture_post_sync(args.capture, args.handle, DEFAULT_VIEWPORT, settings)
+            else:
+                r = capture_sync(args.capture, DEFAULT_VIEWPORT, settings)
         except CaptureError as e:
             answer = {"error": e.code, "detail": e.detail}
             if e.manifest is not None:
@@ -209,8 +224,11 @@ def main(argv=None):
         log.error("refusing to serve: the namespace self-test failed: %s", result.get("reasons"))
         return 3
 
-    def capture_fn(url, viewport):
-        r = capture_sync(url, viewport, settings)
+    def capture_fn(url, viewport, kind="page", handle=None):
+        if kind == "post":
+            r = post.capture_post_sync(url, handle, viewport, settings)
+        else:
+            r = capture_sync(url, viewport, settings)
         return r.manifest, r.files
 
     srv = make_server(args.host, args.port, secret, capture_fn, result,

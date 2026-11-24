@@ -24,7 +24,9 @@ from .proxy import EgressProxy
 
 FILE_ORDER = ("capture.wacz", "response.body", "screenshot.png", "rendered.html", "hidden-nodes.json")
 MEDIA = {"capture.wacz": "application/wacz", "screenshot.png": "image/png", "rendered.html": "text/html",
-         "hidden-nodes.json": "application/json"}
+         "hidden-nodes.json": "application/json", "platform.json": "application/json",
+         "post.car": "application/vnd.ipld.car", "did-document.json": "application/did+json",
+         "handle-did-document.json": "application/did+json"}
 HTTP_STATUS = {"bad-request": 400, "scheme": 400, "port": 400, "unauthorized": 401, "blocked": 403,
                "robots-disallowed": 403, "timeout": 408, "too-large": 413, "unreachable": 422, "internal": 500,
                "busy": 503}
@@ -62,6 +64,7 @@ class Settings:
     user_agent: str = None  # None: robots.user_agent_for(the browser's version)
     hide_paths: tuple = (SERVICE_ACCOUNT_DIR,)
     require_hidden: bool = False  # True: a path that could not be hidden fails the self-test and every capture
+    post_timeout_s: float = 15.0  # capture: post, the platform requests (DID document, PDS, handle), beside the page
 
     @classmethod
     def from_env(cls, env=None):
@@ -76,6 +79,8 @@ class Settings:
             s.timeout_s = float(env["FETCHER_TIMEOUT_S"])
         if env.get("FETCHER_MAX_RESPONSE_BYTES"):
             s.max_response_bytes = int(env["FETCHER_MAX_RESPONSE_BYTES"])
+        if env.get("FETCHER_POST_TIMEOUT_S"):
+            s.post_timeout_s = float(env["FETCHER_POST_TIMEOUT_S"])
         if env.get("FETCHER_SETTLE_MS"):
             s.settle_ms = int(env["FETCHER_SETTLE_MS"])
         if env.get("FETCHER_ROBOTS_UNAVAILABLE"):
@@ -103,8 +108,9 @@ def _now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def build_manifest(requested_url, final_url, redirects, fetched_at, fetch_ms, status, resolved_ips, tls, robots,
-                   browser, viewport, files, body_media_type=None, user_agent=None):
+def file_entries(files, body_media_type=None):
+    """The manifest's `files`: FILE_ORDER first, then the rest by name (a post capture's platform.json, post.car,
+    did-document.json, handle-did-document.json), each {name, sha256, size, media_type?}."""
     entries = []
     for name in [n for n in FILE_ORDER if n in files] + sorted(n for n in files if n not in FILE_ORDER):
         blob = files[name]
@@ -114,6 +120,12 @@ def build_manifest(requested_url, final_url, redirects, fetched_at, fetch_ms, st
         elif name == "response.body" and body_media_type:
             entry["media_type"] = body_media_type
         entries.append(entry)
+    return entries
+
+
+def build_manifest(requested_url, final_url, redirects, fetched_at, fetch_ms, status, resolved_ips, tls, robots,
+                   browser, viewport, files, body_media_type=None, user_agent=None):
+    entries = file_entries(files, body_media_type)
     return {"requested_url": requested_url, "final_url": final_url, "redirects": list(redirects),
             "fetched_at": fetched_at, "fetch_ms": int(fetch_ms), "status": status, "resolved_ips": list(resolved_ips),
             "tls": tls, "robots": robots,

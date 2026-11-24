@@ -1,4 +1,4 @@
-# claim-fetcher (slice B2a)
+# claim-fetcher (slices B2a and B5a)
 
 The claim witness's page fetcher: a small HTTP service, called only by the witness, that opens one web page in Chromium
 and returns what it observed: the archive, the raw bytes, a screenshot, the rendered DOM with hidden elements marked,
@@ -42,7 +42,7 @@ or its host before anything was fetched has none):
 
 | code | HTTP | meaning |
 |---|---|---|
-| `bad-request` | 400 | not JSON, no url, url over 4096 chars, `capture` other than `page`, bad viewport |
+| `bad-request` | 400 | not JSON, no url, url over 4096 chars, `capture` other than `page` or `post`, a post URL that is not `https://bsky.app/profile/…/post/…`, a bad `handle` (or one with `capture: page`), bad viewport |
 | `scheme` | 400 | not http or https (checked before anything else runs) |
 | `port` | 400 | a port other than 80 or 443 |
 | `unauthorized` | 401 | missing or wrong secret (`hmac.compare_digest`) |
@@ -78,6 +78,64 @@ equal to the opaque background behind it, a box wholly left of or above the page
 text whose rendered boxes keep no area after clipping by every clipping ancestor (`overflow:hidden|clip`, `clip`,
 `clip-path: inset()`), which covers `height:0` containers, `text-indent:-9999px`, `clip-path: inset(50%)` and
 `transform: scale(0)`.
+
+## capture: post (slice B5a, Bluesky)
+
+```
+POST /v1/capture    {"url": "https://bsky.app/profile/<handle or DID>/post/<rkey>", "capture": "post",
+                     "handle": "<the handle to check, optional>", "viewport": [1280, 900]}
+```
+
+Only `https://bsky.app/profile/<handle or DID>/post/<rkey>` is accepted (no port, query or fragment); any other URL,
+a `handle` that is not a valid handle, or a `handle` with `capture: page`, is `bad-request` before any request is made.
+X, LinkedIn and TikTok are never fetched here: the witness answers them `method-not-applicable` without calling the
+fetcher. Two parts run side by side (`claim_fetcher/post.py`):
+
+- **The page**: the normal page capture of the bsky.app URL, unchanged (namespace, Chromium, proxy), so a person can see
+  the post (screenshot, rendered text). Its failure is the capture's failure, with its code.
+- **The platform part**, outside the namespace (like robots.txt), through an `EgressProxy` of its own (the same address
+  rules: resolve once through the public resolvers, vet every address, dial the vetted address; every redirect is a new
+  CONNECT; TLS certificates are checked), bounded by `FETCHER_POST_TIMEOUT_S` (15 s):
+  1. the repository DID: the URL's DID, or the URL's handle resolved;
+  2. its DID document: `https://plc.directory/<did>` for did:plc, `https://<domain>/.well-known/did.json` for did:web;
+  3. `GET <pds>/xrpc/com.atproto.sync.getRecord?did=…&collection=app.bsky.feed.post&rkey=…` from the
+     `AtprotoPersonalDataServer` the document names (an https DNS name, no port or path; anything else is not asked);
+  4. the claimed handle (the request's `handle`, else the URL's handle, else the document's first `alsoKnownAs`):
+     DNS TXT `_atproto.<handle>` through the public resolvers (`dnsclient.PublicResolver.txt`), else
+     `https://<handle>/.well-known/atproto-did`; then the resolved DID's document read back (the author's, or another
+     DID's): `bidirectional` when it lists `at://<handle>`.
+- **The proof** (`claim_fetcher/atproto.py`, standard library only, verify-only): the CAR's every block must hash to its
+  CID; the one root is the commit; its `did` must be the repository's; its `sig` (64 bytes, r||s, low-S) must verify
+  over sha256(DAG-CBOR of the commit without `sig`) against the document's `#atproto` Multikey (secp256k1 or P-256,
+  compressed); the MST path from the commit's `data` to `app.bsky.feed.post/<rkey>` must be complete, and the record
+  block's `$type` must be `app.bsky.feed.post`.
+
+Extra files in the tar: `platform.json`, `did-document.json` (the author's document, exactly as read), `post.car` (the
+getRecord answer), and `handle-did-document.json` when the claimed handle resolved to another DID. The manifest gains
+`"platform"`, exactly the SPEC §2.3 fields:
+
+```json
+"platform": {"name": "bluesky", "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+             "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "bsky.app",
+             "handle_resolution": {"method": "dns-txt", "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+                                   "at": "2026-11-24T21:21:49Z", "bidirectional": true},
+             "did_doc_sha256": "781c2ce3…", "signature": "verified",
+             "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+             "created_at_claimed": "2026-11-19T18:33:36.813Z"}
+```
+
+`platform.json` has those fields plus `url_actor`, `record_cid`, `commit_rev`, `pds`, `key_type`, `author_handles`,
+`signature_reason` (why not verified: `no-key`, `unsupported-key`, `no-pds`, `pds-status-<n>`, `bad-car`, `bad-commit`,
+`commit-did-mismatch`, `bad-signature`, `bad-mst`, `proof-incomplete`, `record-not-in-proof`, `bad-record`,
+`wrong-type`, `did-document-unreadable`, `url-handle-unresolved`) and `handle_did_doc_sha256`.
+
+| situation | result |
+|---|---|
+| the DID document or the PDS cannot be reached (refused address, timeout, no answer, too large) | the capture fails with that code (`blocked`, `timeout`, `unreachable`, `too-large`) |
+| the DID document answers other than 200 | `unreachable` |
+| the PDS answers other than 200 (record gone, repo taken down), the document has no usable key or PDS, the URL's handle does not resolve | `signature: "not-available"` |
+| the proof does not check (any reason above from `bad-car` on) | `signature: "failed"` |
+| the claimed handle does not resolve, resolves two ways (two `did=` records), or its DID's document does not list it | `bidirectional: false` (`result_did` null when nothing resolved) |
 
 ## Isolation (ARCHITECTURE §4 TB2)
 
@@ -162,6 +220,7 @@ serves. `/healthz` returns it. To run it alone:
 ```
 python -m claim_fetcher --selftest-only            # prints the JSON, exit 0 if it passed
 python -m claim_fetcher --capture https://example.com/ --out /tmp/x   # one capture, manifest printed, files written
+python -m claim_fetcher --capture https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j --post --handle bsky.app --out /tmp/p
 ```
 
 ## Tests
@@ -194,6 +253,7 @@ the cluster DNS names.
 | `FETCHER_TIMEOUT_S` | 15 | wall time per capture |
 | `FETCHER_MAX_RESPONSE_BYTES` | 10485760 | per response |
 | `FETCHER_SETTLE_MS` | 5000 | wait after load for scripts, within the wall time |
+| `FETCHER_POST_TIMEOUT_S` | 15 | `capture: post`: wall time of the platform requests, beside the page's own |
 | `FETCHER_MAX_CONCURRENT` | 2 | captures at once |
 | `FETCHER_ROBOTS_UNAVAILABLE` | allow | `deny` refuses a capture when robots.txt cannot be read |
 | `FETCHER_HIDE_PATHS` | | extra directories to cover in the worker, colon separated |
@@ -284,6 +344,37 @@ Decisions for the four acceptance defects of 24 Nov 2026 (D1-D4; tests `tests_fe
     the page each wait 5 s, so the answer is a 408 after about 11 s. A robots.txt connect timeout alone is still
     `unavailable` (decision 3).
 
+Decisions for `capture: post` (slice B5a; tests `tests_fetcher/test_post.py`, fixtures `tests_fetcher/fixtures/bsky/`):
+
+22. **The proof code is ours, standard library only** (`claim_fetcher/atproto.py`, about 500 lines): DAG-CBOR (the strict
+    subset, encoder and decoder), CIDv1/sha2-256, CAR v1, the MST walk, Multikey, and ECDSA verify for secp256k1 and
+    P-256 in plain affine arithmetic. No crypto package enters the image (the fetcher venv has none). It verifies
+    public data only, so timing does not matter. It is checked against a real post (the recorded getRecord CAR of
+    at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j verifies) and against synthetic repositories
+    signed by the tests' own signer on both curves.
+23. **The claimed handle travels in the request** (`handle`): the fetcher resolves it both ways, so the witness needs no
+    network of its own. The §2.3 `handle` and `handle_resolution` are about that handle; with no `handle`, the URL's
+    handle (or the document's first) is the one checked.
+24. **`bidirectional`** means: handle -> DID (one `did=` TXT record, or the well-known answer) and that DID's document
+    lists `at://<handle>`. When the handle resolves to another DID than the post's author, that DID's document is read
+    too (`handle-did-document.json`), so the witness can tell `author-differs` (a verified other account) from
+    `handle-unresolved`. DNS is tried first; HTTPS well-known only when DNS has no `did=` record. Two `did=` records
+    resolve to nothing. `method` is the last method tried (`well-known` when neither gave a DID).
+25. **Network failures on the DID document or the PDS are capture errors; refusals by the PDS are not.** A timeout or a
+    refused address is the fetcher's code (as for a page); a 4xx/5xx from the PDS, a document without a key or PDS, or
+    an unresolvable URL handle is `signature: "not-available"`; a proof that does not check is `failed`. Handle
+    resolution never fails a capture.
+26. **The page and the platform part run in parallel**, each with its own egress proxy and wall time (15 s each), so a
+    post capture takes at most about 15 s plus the slower of the two; the witness's client timeout (45 s) covers it.
+    The page's error wins when both fail.
+27. **`created_at_claimed`** is the record's `createdAt` only when it looks like an RFC 3339 time; otherwise null. It is
+    the author's own value; the witness's time is `fetched_at`.
+28. **Only `https://bsky.app/profile/…/post/…`** (no `www.`, no query or fragment): the one URL form the brief names,
+    checked before anything runs. The PDS endpoint must be an https DNS name with no port or path (the real ones are
+    `https://<name>.host.bsky.network`).
+29. **Fixtures** were fetched once on 24 Nov 2026 with read-only GETs of public endpoints (plc.directory, the PDS's
+    getRecord, `dig TXT @1.1.1.1`); `fixtures/bsky/dns-txt.json` says which.
+
 ## Known limits
 
 - **Chromium's own sandbox is off** (`--no-sandbox`, Playwright's default): inside the worker's user namespace,
@@ -293,5 +384,7 @@ Decisions for the four acceptance defects of 24 Nov 2026 (D1-D4; tests `tests_fe
   sandbox or a host that allows it.
 - On https, the 10 MB per-response cap for subresources is enforced in the browser recorder, not at the proxy (it sees
   only the tunnel); the 30 MB per-capture budget is enforced at the proxy.
-- `text.canonical.txt` and `platform.json` (SPEC §2.3) are not produced here: the canonicaliser and the social `post`
-  capture belong to later slices.
+- `text.canonical.txt` (SPEC §2.3) is not produced here: the witness computes it with canon/1.
+- `capture: post` covers Bluesky only. A post whose author rotated keys after the latest commit can show `failed`
+  until the PDS writes a new commit; a deleted post is `not-available` (getRecord no longer has it).
+- The platform part trusts plc.directory's answer for did:plc (it does not replay the PLC operation log).

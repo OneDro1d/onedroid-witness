@@ -25,7 +25,7 @@ from . import addr
 
 DEFAULT_RESOLVERS = ("1.1.1.1", "8.8.8.8")
 PORT = 53
-TYPE_A, TYPE_CNAME, TYPE_AAAA = 1, 5, 28
+TYPE_A, TYPE_CNAME, TYPE_TXT, TYPE_AAAA = 1, 5, 16, 28
 CLASS_IN = 1
 RCODE_NOERROR, RCODE_NXDOMAIN = 0, 3
 MAX_UDP = 4096
@@ -106,8 +106,21 @@ def _read_name(msg, off):
     return ".".join(labels), (end if end is not None else off)
 
 
+def _txt_value(rdata):
+    """One TXT record: its character-strings joined (RFC 1035 3.3.14), decoded as UTF-8 with replacement."""
+    out, i = bytearray(), 0
+    while i < len(rdata):
+        n = rdata[i]
+        if i + 1 + n > len(rdata):
+            raise DNSError("truncated TXT string")
+        out += rdata[i + 1:i + 1 + n]
+        i += 1 + n
+    return bytes(out).decode("utf-8", "replace")
+
+
 def parse_response(msg, qid, name, qtype):
-    """(rcode, truncated, addresses) of a reply to the query (qid, name, qtype). DNSError when it is not one."""
+    """(rcode, truncated, values) of a reply to the query (qid, name, qtype): addresses for A and AAAA, one string per
+    record for TXT. DNSError when it is not one."""
     if len(msg) < 12:
         raise DNSError("short reply")
     rid, flags, qdcount, ancount, _ns, _ar = struct.unpack("!HHHHHH", msg[:12])
@@ -138,6 +151,8 @@ def parse_response(msg, qid, name, qtype):
                 records.append((owner, rtype, _read_name(msg, off)[0]))
             elif rtype == qtype and rtype in (TYPE_A, TYPE_AAAA) and rdlen == (4 if rtype == TYPE_A else 16):
                 records.append((owner, rtype, str(ipaddress.ip_address(msg[off:off + rdlen]))))
+            elif rtype == qtype == TYPE_TXT:
+                records.append((owner, rtype, _txt_value(msg[off:off + rdlen])))
         off += rdlen
     # the CNAME chain from the asked name; only its addresses count
     chain, current = {want}, want
@@ -256,6 +271,25 @@ class PublicResolver:
         if partial:
             return partial
         raise DNSError(f"no resolver answered for {name}: {type(last).__name__ if last else ''} {last or ''}".strip())
+
+    def txt(self, name):
+        """The TXT records of name (one string per record, on the CNAME chain from name only); [] for NXDOMAIN or no
+        record. DNSError when no resolver gives a usable answer. Used for AT Protocol handles (`_atproto.<handle>`)."""
+        name = name.rstrip(".").lower()
+        deadline = time.monotonic() + self.timeout
+        last = None
+        for server in self.servers:
+            try:
+                rcode, values = self._query(server, name, TYPE_TXT, deadline)
+            except OSError as e:
+                last = e
+                continue
+            if rcode == RCODE_NXDOMAIN:
+                return []
+            if rcode == RCODE_NOERROR:
+                return values
+            last = DNSError(f"rcode TXT={rcode} from {server}")
+        raise DNSError(f"no resolver answered TXT for {name}: {last or ''}".strip())
 
 
 def default_resolver(extra=()):

@@ -589,7 +589,9 @@ def test_no_socket_is_opened_for_a_refused_post_url(monkeypatch):
     real = socket.socket
 
     def spy(*a, **k):
-        opened.append(a)
+        family = a[0] if a else k.get("family", socket.AF_INET)
+        if family in (socket.AF_INET, socket.AF_INET6):  # asyncio's own self-pipe is an AF_UNIX pair
+            opened.append(a)
         return real(*a, **k)
 
     monkeypatch.setattr(socket, "socket", spy)
