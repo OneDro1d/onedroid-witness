@@ -6,8 +6,8 @@
 - reads: GET /v1/records/{id} (public: anyone; private: the envelope to anyone, the disclosure to the owner and to share-token
   holders); share tokens (create, list, revoke, 30 days by default, scoped to one record); owner search over the owner's own
   private records (GET /v1/records?q=);
-- owner delete (BD1): the data key, the bytes, the index rows, the share tokens and the job answers deleted; a tombstone
-  version on the n-dim object; deleted_at; the envelope and the seal still served and verifiable. DELETE /evidence, takedown;
+- owner delete (BD1): the data key, the bytes, the index rows, the share tokens and the job answers deleted; a DELETE of every
+  version of the n-dim object (B3W: no tombstone version); deleted_at; the envelope and the seal still served and verifiable. DELETE /evidence, takedown;
 - n-dim through the ArmariumClient interface (fake): the sealer writes each kept record's envelope (commitments only when
   private); NDIM_STORE_EVIDENCE puts the kept evidence ciphertext there too; unset armarium says "not-configured";
 - the bundle (tar) verifies with witness-verify --bundle, seal included; a private bundle carries no agent key;
@@ -47,7 +47,7 @@ class Base:
         self.clock = h.Clock()
         self.notary = FakeNotary(self.clock)
         self.arm = FakeArmarium() if self.ndim else None
-        cfg = {"notary": self.notary, "armarium": self.arm, "ndim_chain": "claim-witness-dev" if self.ndim else None,
+        cfg = {"notary": self.notary, "armarium": self.arm, "ndim_case": "1e59334fee73fc758f793ce01c3cdd00" if self.ndim else None,
                "batch_interval_s": 3600, "ndim_store_evidence": self.store_evidence, "operator_accounts": ["acct_op"],
                "link_base": "https://evidence.example"}
         self.s = h.Stack(storage=self.make_storage(), clock=self.clock, config_overrides=cfg)
@@ -473,22 +473,22 @@ class NdimWrites(Base):
         self.seal_all()
         code, rec, _ = self.get(out["record_id"])
         self.assertEqual(rec["ndim"]["state"], "written", rec["ndim"])
-        self.assertEqual(rec["ndim"]["chain"], "claim-witness-dev")
-        obj = self.arm.get_object("claim-witness-dev", rec["ndim"]["object_id"])
+        (claimant,) = {c for c in self.arm.claimants}  # one claimant chain for the one owner (B3W)
+        self.assertEqual(rec["ndim"]["chain"], claimant)
+        obj = self.arm.get_object(claimant, rec["ndim"]["object_id"])
         self.assertEqual(obj["record_id"], out["record_id"])
         self.assertEqual(obj["envelope"], out["envelope"])
         self.assertEqual(obj["seal"]["state"], "anchored")
         self.assertNotIn(CANARY, self.arm.all_text())  # a private envelope holds commitments only
         code, prec, _ = self.get(pub["record_id"])
         self.assertEqual(prec["ndim"]["state"], "written")
-        # owner delete writes a tombstone version
+        # owner delete DELETEs the version (B3W: armarium's DELETE, not a tombstone version we write)
         code, d, _ = self.s.call("DELETE", f"/v1/records/{out['record_id']}")
         self.assertEqual(code, 200, d)
         code, rec, _ = self.get(out["record_id"])
-        self.assertEqual(rec["ndim"]["state"], "tombstoned", rec["ndim"])
-        versions = self.arm.objects[("claim-witness-dev", rec["ndim"]["object_id"])]
-        self.assertEqual(versions[-1]["kind"], "claim-witness/record-tombstone/1")
-        self.assertEqual(versions[-1]["deleted_at"], d["deleted_at"])
+        self.assertEqual(rec["ndim"]["state"], "deleted", rec["ndim"])
+        self.assertTrue(self.arm.objects[(claimant, rec["ndim"]["object_id"])]["deleted"])
+        self.assertNotIn("put", {c[0] for c in self.arm.calls})
         self.assert_wording(rec)
 
     def test_armarium_failure_is_retried_by_a_later_tick(self):
@@ -499,6 +499,7 @@ class NdimWrites(Base):
         code, rec, _ = self.get(out["record_id"])
         self.assertEqual(rec["ndim"]["state"], "pending")
         self.arm.fail = False
+        self.clock.advance(3601)  # B3W: a failed attempt backs off before the next one
         self.s.witness.sealer.tick()
         code, rec, _ = self.get(out["record_id"])
         self.assertEqual(rec["ndim"]["state"], "written")
@@ -522,7 +523,7 @@ class NdimEvidence(Base):
         self.assertEqual(rec["ndim"]["evidence"]["state"], "deleted")
         self.assertEqual(rec["ndim"]["evidence"]["dek"], "deleted")
         self.assertIn("the key is deleted; the encrypted bytes stay on the chain", json.dumps(rec["ndim"]))
-        self.assertEqual(self.arm.objects[("claim-witness-dev", ev["object_id"])][-1], "DELETED")
+        self.assertTrue(self.arm.objects[(rec["ndim"]["chain"], ev["object_id"])]["deleted"])
         self.assert_wording(rec)
         self.assert_wording(d)
 

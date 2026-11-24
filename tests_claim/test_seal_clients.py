@@ -8,7 +8,7 @@ import pathlib
 import tempfile
 import unittest
 
-from tests_claim.fake_seal import HttpsArmarium, HttpsNotary, make_tls
+from tests_claim.fake_seal import HttpsNotary, make_tls
 
 TLS = None
 
@@ -53,7 +53,8 @@ class NotaryClient(unittest.TestCase):
         body = json.loads(req["body"])
         self.assertEqual(body["profile"], "hash/1")
         self.assertEqual(body["key"], hexv)
-        self.assertEqual(base64.b64decode(body["payload"]), b'{"over":"sha256:' + hexv.encode() + b'"}')
+        # B3W: the real notary's hash/1 takes {"label", "over"} (label optional there, always sent here)
+        self.assertEqual(json.loads(base64.b64decode(body["payload"])), {"label": "claim-witness/batch/1", "over": "sha256:" + hexv})
 
     def test_conflict_and_bad_ca_fail_without_the_token(self):
         from claim_witness import notary
@@ -69,55 +70,20 @@ class NotaryClient(unittest.TestCase):
 
 
 class ArmariumClient(unittest.TestCase):
-    def setUp(self):
-        self.srv = HttpsArmarium(TLS)
-        self.env = {"ARMARIUM_URL": self.srv.url, "ARMARIUM_TOKEN_FILE": self.srv.token_file,
-                    "ARMARIUM_CA_FILE": self.srv.ca_file, "ARMARIUM_CHAIN": "claim-witness-dev"}
-
-    def tearDown(self):
-        self.srv.close()
+    """B3W: the object routes themselves (claimant, POST/PUT/DELETE/GET, 401/403/409) are tested against the real-shaped fake in
+    test_wire_ndim.py, which replaced the B3 route fake that lived here (its PUT and DELETE answers were not armarium's)."""
 
     def test_not_configured_without_url(self):
         from claim_witness import ndim
         self.assertEqual(ndim.from_env({}), (None, None))
 
-    def test_https_only_and_chain_required(self):
+    def test_https_only_and_case_required(self):
         from claim_witness import ndim
+        env = {"ARMARIUM_URL": "https://127.0.0.1:1", "ARMARIUM_TOKEN_FILE": __file__, "ARMARIUM_CASE": "1e59334fee73fc758f793ce01c3cdd00"}
         with self.assertRaises(ValueError):
-            ndim.from_env(dict(self.env, ARMARIUM_URL="http://127.0.0.1:1"))
+            ndim.from_env(dict(env, ARMARIUM_URL="http://127.0.0.1:1"))
         with self.assertRaises(ValueError):
-            ndim.from_env(dict(self.env, ARMARIUM_CHAIN=""))
-
-    def test_create_put_get_delete(self):
-        from claim_witness import ndim
-        client, chain = ndim.from_env(self.env)
-        self.assertEqual(chain, "claim-witness-dev")
-        self.assertEqual(ndim.chain_for("acct_a", chain), "claim-witness-dev")
-        c = client.create_object(chain, {"kind": "x", "n": 1})
-        self.assertTrue(c["id"])
-        self.assertIsInstance(c["block"], int)
-        self.assertEqual(client.get_object(chain, c["id"]), {"kind": "x", "n": 1})
-        p = client.put_version(chain, c["id"], c["block"], {"kind": "y"})
-        self.assertGreater(p["block"], c["block"])
-        self.assertEqual(self.srv.requests[-1]["query"], f"block={c['block']}")
-        self.assertEqual(client.get_object(chain, c["id"]), {"kind": "y"})
-        d = client.delete_object(chain, c["id"], p["block"])
-        self.assertEqual(d["dek"], "deleted")
-        self.assertEqual(d["residual"], ["ciphertext-on-chain"])
-        with self.assertRaises(ndim.Gone):
-            client.get_object(chain, c["id"])
-        for r in self.srv.requests:
-            self.assertEqual(r["auth"], "Bearer " + self.srv.TOKEN)
-
-    def test_errors_never_carry_the_token(self):
-        from claim_witness import ndim
-        bad_tok = pathlib.Path(tempfile.mkdtemp()) / "t"
-        bad_tok.write_text("wrong-token-value-123456\n")
-        client, chain = ndim.from_env(dict(self.env, ARMARIUM_TOKEN_FILE=str(bad_tok)))
-        with self.assertRaises(ndim.ArmariumError) as cm:
-            client.create_object(chain, {"a": 1})
-        self.assertNotIn("wrong-token-value", str(cm.exception))
-        self.assertIn("401", str(cm.exception))
+            ndim.from_env(dict(env, ARMARIUM_CASE=""))
 
 
 if __name__ == "__main__":
