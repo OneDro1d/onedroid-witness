@@ -36,11 +36,12 @@ class DevKeys(unittest.TestCase):
         self.s.close()
 
     def test_no_key_401_bad_key_401(self):
+        before = self.s.log_count()  # the bootstrap key list is the log's first row (SPEC §7.1)
         code, out, _ = self.s.witness_call(h.exact_request(), key=None)
         self.assertEqual(code, 401)
         code, out, _ = self.s.witness_call(h.exact_request(), key="dev-key-wrong-0000000000000")
         self.assertEqual(code, 401)
-        self.assertEqual(self.s.log_count(), 0)
+        self.assertEqual(self.s.log_count(), before)
 
     def test_dev_key_maps_to_account(self):
         code, out, _ = self.s.witness_call(h.exact_request(), key="dev-key-b-0123456789abcdef")
@@ -153,11 +154,12 @@ class AgentKeysTS25(unittest.TestCase):
         self.assertEqual(code, 200, out)
 
     def test_stale_agent_time_401(self):
+        before = self.s.log_count()  # the bootstrap key list is the log's first row (SPEC §7.1)
         code, out, _ = self.s.witness_call(self.body(agent_time=h.iso(self.s.clock() - 600)))
         self.assertEqual(code, 401, out)
         code, out, _ = self.s.witness_call(self.body(agent_time=h.iso(self.s.clock() + 301), nonce="nonce-future-01"))
         self.assertEqual(code, 401, out)
-        self.assertEqual(self.s.log_count(), 0)
+        self.assertEqual(self.s.log_count(), before)
 
     def test_bad_agent_signature_401(self):
         code, out, _ = self.s.witness_call(self.body(seed_bytes=h.seed(8)))
