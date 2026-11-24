@@ -1,0 +1,30 @@
+# claim-fetcher: the claim witness's page fetcher (slice B2a). See README_FETCHER.md.
+# Chromium (Playwright for Python, headless shell) runs inside an unprivileged user + network + mount namespace made by
+# util-linux `unshare`; no Linux capability is added and the container never runs as root.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+COPY requirements-fetcher.txt /app/requirements-fetcher.txt
+# util-linux gives unshare; ca-certificates is what robots.txt over https verifies against; playwright installs the
+# headless shell and the shared libraries it needs (as root, at build time only)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends util-linux ca-certificates \
+    && pip install --no-cache-dir -r /app/requirements-fetcher.txt \
+    && python -m playwright install --with-deps --only-shell chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 fetcher
+
+WORKDIR /app
+COPY claim_fetcher /app/claim_fetcher
+# the build context may carry owner-only modes (a workspace with umask 077); the service runs as an unprivileged user
+RUN chmod -R a+rX /app /ms-playwright
+USER 10001
+ENV HOME=/tmp \
+    FETCHER_WORK_DIR=/tmp \
+    FETCHER_PORT=8090
+EXPOSE 8090
+# serves only after the start-up self-test passed; `--selftest-only` prints it and exits
+ENTRYPOINT ["python3", "-m", "claim_fetcher"]

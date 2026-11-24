@@ -1,0 +1,84 @@
+# claim-fetcher on the DEV cluster (prov-poland-aks, namespace witness-dev). Slice B2a. See README_FETCHER.md.
+#
+# Before applying (the orchestrator, not this file):
+# - the image: replace IMAGE_PLACEHOLDER with the built Dockerfile.fetcher image;
+# - FETCHER_BLOCKED_CIDRS: replace CLUSTER_CIDRS_PLACEHOLDER with the cluster's pod, service and node CIDRs (comma or
+#   space separated). Left as the placeholder, the service refuses to start (it does not parse as a CIDR): fail closed;
+# - the Secret claim-fetcher-secret, with one key `secret` (the shared secret the witness sends as X-Fetcher-Secret),
+#   made off-cluster and never written into a manifest. The witness mounts the same Secret.
+#
+# Isolation needs no added capability: Chromium runs in an unprivileged user + network namespace. That needs a seccomp
+# profile that allows unshare(CLONE_NEWUSER); the pods here run with the default seccomp, which on this cluster is
+# Unconfined (measured by the orchestrator, 24 Nov 2026), so seccompProfile is deliberately not set. RuntimeDefault
+# would refuse the namespace and the self-test would keep the pod from serving.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claim-fetcher
+  namespace: witness-dev
+  labels: {app: claim-fetcher}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: claim-fetcher}
+  template:
+    metadata:
+      labels: {app: claim-fetcher}
+    spec:
+      # page script must have nothing to steal: no service-account token, no service-link env vars
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: fetcher
+          image: IMAGE_PLACEHOLDER
+          ports: [{name: api, containerPort: 8090}]
+          env:
+            - {name: FETCHER_PORT, value: "8090"}
+            - {name: FETCHER_SECRET_FILE, value: /etc/claim-fetcher/secret/secret}
+            - {name: FETCHER_BLOCKED_CIDRS, value: "CLUSTER_CIDRS_PLACEHOLDER"}
+            - {name: FETCHER_MAX_CONCURRENT, value: "2"}
+            - {name: FETCHER_TIMEOUT_S, value: "15"}
+            - {name: FETCHER_MAX_RESPONSE_BYTES, value: "10485760"}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: secret, mountPath: /etc/claim-fetcher/secret, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            - {name: shm, mountPath: /dev/shm}
+          # the API listens only after the self-test passed (about 5-10 s with the browser start)
+          startupProbe:
+            httpGet: {path: /healthz, port: api}
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: {path: /healthz, port: api}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: api}
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {cpu: "2", memory: 2Gi}
+      volumes:
+        - name: secret
+          secret: {secretName: claim-fetcher-secret}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+        - name: shm
+          emptyDir: {medium: Memory, sizeLimit: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claim-fetcher
+  namespace: witness-dev
+  labels: {app: claim-fetcher}
+spec:
+  selector: {app: claim-fetcher}
+  ports: [{name: api, port: 80, targetPort: api}]
