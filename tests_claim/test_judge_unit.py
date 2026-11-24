@@ -95,8 +95,8 @@ class Prompt(unittest.TestCase):
 
     def test_library_version_bumped_for_the_new_method(self):
         from claim_witness import methods, tarball
-        self.assertEqual(methods.LIBRARY_VERSION, "1.2.0")  # integration: one library for B6 and B2b (README decision 60)
-        self.assertEqual(tarball.tarball_name(), "witness-methods-1.2.0.tar.gz")
+        self.assertEqual(methods.LIBRARY_VERSION, "1.3.0")  # BD13 changed judge.supports' code (README decision 63)
+        self.assertEqual(tarball.tarball_name(), "witness-methods-1.3.0.tar.gz")
 
     def test_prompt_names_the_vocabulary_and_the_output_shape(self):
         t = js.prompt_text()
@@ -233,8 +233,7 @@ class Quotes(unittest.TestCase):
     def test_fabricated_quotes_are_rejected(self):
         good = self.q("two-year warranty")
         bad = [
-            dict(good, text="five-year warranty"),            # text not at the offsets
-            dict(good, start=good["start"] + 3),              # offsets shifted
+            dict(good, text="five-year warranty"),            # text not in the visible text
             dict(good, source=1),                             # wrong source
             dict(good, source=7),                             # no such source
             {"source": 0, "start": 900, "end": 950},          # out of range
@@ -249,6 +248,10 @@ class Quotes(unittest.TestCase):
         ok, rejected = js.verify_quotes(bad, self.items)
         self.assertEqual(ok, [])
         self.assertEqual(rejected, len(bad))
+        # test change for BD13: shifted offsets with the right text were rejected under the exact-offset rule; the text now
+        # decides, and the record carries the witness's offsets, never the shifted ones
+        self.assertEqual(js.verify_quotes([dict(good, start=good["start"] + 3)], self.items),
+                         ([{"source": 0, "start": good["start"], "end": good["end"]}], 0))
 
     def test_judge_run_needs_a_verified_quote_for_a_positive_or_negative_finding(self):
         good = json.dumps({"finding": "judged-supports", "quotes": [self.q("two-year warranty")]})
