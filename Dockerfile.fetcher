@@ -11,7 +11,7 @@ COPY requirements-fetcher.txt /app/requirements-fetcher.txt
 # util-linux gives unshare; ca-certificates is what robots.txt over https verifies against; playwright installs the
 # headless shell and the shared libraries it needs (as root, at build time only)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends util-linux ca-certificates \
+    && apt-get install -y --no-install-recommends util-linux ca-certificates libatomic1 \
     && pip install --no-cache-dir -r /app/requirements-fetcher.txt \
     && python -m playwright install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/* \
