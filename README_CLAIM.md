@@ -1,4 +1,4 @@
-# claim-witness, slice B1
+# claim-witness, slices B1 and B6
 
 The single-claim witness (SPEC Draft 3, `.df/missions/M-20261124-CLAIM-WITNESS/SPEC.md` in the claims notepad, plus
 `M-20261124-WITNESS-BUILD/DECISIONS.md` BD1-BD12, which wins where they differ). One claim in, one signed record out. The old
@@ -43,6 +43,98 @@ The single-claim witness (SPEC Draft 3, `.df/missions/M-20261124-CLAIM-WITNESS/S
   sorted, mtime 0, uid/gid 0, no names, gzip mtime 0) and prints its sha256, which is every record's `method.code_sha256` and
   what `GET /v1/methods` reports.
 
+## judge.supports
+
+Slice B6 (SPEC §4 and §5, DECISIONS BD2 and BD3). A statement in the submitter's own words and 1 to 5 evidence items, judged by
+one to three language models. `claim_witness/methods/judge_supports.py` holds everything that decides, standard library only,
+and ships in the methods tarball. `claim_witness/judge.py` makes the model calls and computes the price.
+
+- **The claim.** `{"method": "judge.supports", "method_major": 1, "params": {}, "assertion": true|false, "statement": "..."}`.
+  The statement is required: 1 to 4,000 characters of NFC text. The record's `statement` is that text, prefixed
+  `Asserted false: ` when the assertion is false. Findings are `judged-supports` (+), `judged-contradicted` (−) and
+  `judged-silent` (○), and the outcome follows the §2.4 table.
+- **Evidence.** One slot, `evidence`, takes 1 to 5 items. The method's schema accepts `object` and `observation`, but this
+  witness serves `object` only: an `observation` item is 422 `wrong-evidence-slots` until B2b. `url` and `record` evidence is
+  also 422 `wrong-evidence-slots`. Each item's visible text is its canon/1 text. For an HTML object, the elements canon/1 drops
+  for being hidden are kept apart as hidden nodes and never sent to a model. `item_from_observation` reads an observation's
+  `text.canonical.txt` and the excerpts in its `hidden-nodes.json`, so observations plug in when B2b serves them.
+- **What runs, in order.** These steps run before any model is called:
+  1. evidence that is not UTF-8 text gives `unreadable`;
+  2. an input over 200,000 tokens gives `too-large` (the estimate is ceil(characters / 4) of the prompt plus the input);
+  3. the injection rules run, and any hard flag gives `possible-injection`;
+  4. an item with no visible text gives `unreadable`.
+
+  Then each model gets the fixed prompt (`claim_witness/methods/prompts/judge.supports-1.0.0.txt`, whose sha256 is the
+  record's `prompt_sha256`) and the input. The input holds the statement and the assertion, then each item, between marker
+  lines whose nonce comes from the content, with every space written as U+02C6. The marking keeps lengths, so offsets hold.
+  Every quote is verified, and a model run is then decided. Last, the runs are combined.
+- **The model's answer.** The witness reads the first JSON object in the text and strips a Markdown code fence:
+  `{"finding": ..., "quotes": [{"source": i, "start": s, "end": e, "text": "..."}]}`. A quote verifies when the source is an
+  item, `0 <= start < end <=` the length of that item's visible text, the span holds at least 2 non-space characters, and
+  `text`, when given, equals the span. A positive or negative finding with no verified quote is no finding (`undecided`, run
+  note `no-verified-quote`). A finding word outside the vocabulary is its own note (`finding-not-in-vocabulary`). Garbage,
+  the wrong shape, an HTTP error, a dead endpoint and a timeout are each a note on that run, never a 5xx.
+- **Injection rules (§5.5).** Hard flags are checked in the visible text and in the hidden nodes:
+  - `instruction-override` ("ignore previous instructions");
+  - `role-marker` (`system:`, `assistant:` or `developer:` at the start of a line);
+  - `chat-token` (`<|im_start|>`, `[INST]`, `<<SYS>>`);
+  - `addressed-to-model` ("Dear AI assistant,", "You are now an AI judge");
+  - `verdict-instruction` ("answer SUPPORTED");
+  - `new-instructions`;
+  - `statement-in-hidden`: the statement word for word in a hidden node, or at least 90% of its content words when it has
+    four or more.
+
+  The soft signal is `verdict-word` (SUPPORTED, NOT_SUPPORTED, EVIDENCED, judged-supports and the like). It is recorded and
+  does not block. Flags hold names, item indices and offsets only.
+- **The model setup (BD2).** `options.models: {"count": 1|2|3, "require": n}`, with `require <= count` and a default `require`
+  equal to `count`, strict integers. The legacy `panel: n` means `{count: n, require: n}`, and a `panel` that disagrees with
+  `models.count` is 422. Models are picked one per vendor in list order while vendors last, then the rest of the list. A
+  finding needs `require` runs agreeing and no other finding as large. Two findings with no winner give `judges-disagree`.
+  Otherwise the runs' failure decides: `undecided`, `timeout` or `model-unavailable`. `options_used` is
+  `{accept_untrusted, allow_provider, models: {count, require}}`.
+- **The record.** `judgment` holds:
+  - `models`: `{id, provider, version}`, where `version` is the dated model id the endpoint answered with;
+  - `prompt_sha256`, `rubric_version` and `sampling`;
+  - `runs`: `{model, raw_output_sha256, finding, quotes, note, rejected}`;
+  - `agreement`, `injection_flags` and `input_sha256`.
+
+  `detail` holds counts only: `evidence_items`, `visible_chars`, `input_tokens_est`, `injection_hard`, `injection_soft`,
+  `models`, `require`, `models_run` and `agreeing`. A private record carries the judgment in the body only (§2.6).
+- **Private claims (§5.7).** A private claim is 422 `provider-not-allowed` unless `options.allow_provider` is true, which
+  `options_used` records. Raw model outputs of a private record are discarded. The body has each one's sha256, and nothing is
+  stored in the clear. A public record's raw outputs go to `judge_outputs` (migration `002_judge.sql`) with an `expires_at`
+  24 h on, and the purge removes them.
+- **Attempts (§7.3).** Every judge run counts in the attempt table. That includes private runs with fresh salts (TS-21p),
+  because the tag is computed on the plaintext claim. A judge claim is never answered from the object-only idempotency cache.
+- **Price (BD3).** Every answer, mechanical ones included, carries `price: {credits, lines}` beside the envelope. The price is
+  1 credit for the check, plus `ceil(10 × price_factor)` for each model run made. A run that timed out or failed was still
+  made, so it counts. `possible-injection`, `too-large` and `unreadable` make no run. `GET /v1/price` and `GET /v1/methods`
+  publish the list: check 1, observation 5, model run 10, kept evidence 1 per MB-month, and each model's `credits_per_run`.
+  `WITNESS_PRICE_LIST_FILE` can override it. There is no balance logic here: the BFF holds the credits.
+- **The backend.** Any OpenAI-compatible `POST <base>/chat/completions`, configured by env only:
+  - `WITNESS_JUDGE_BASE_URL`, for example `https://openrouter.ai/api/v1`, or the host's vLLM in standalone;
+  - `WITNESS_JUDGE_API_KEY_FILE`, a key file and never an env value;
+  - `WITNESS_JUDGE_MODELS_FILE`, `[{"id", "vendor", "price_factor", "timeout"}]`;
+  - optionally `WITNESS_JUDGE_MAX_TOKENS`, which defaults to 1024.
+
+  The request is the model id, the two messages, `temperature: 0` and `max_tokens`: no tools, no functions and no user field.
+  It never carries the account, the agent, key ids, the options or the label. Each call is held to its model's `timeout`
+  seconds. A router, an alias or a variant (`openrouter/auto`, `~...`, `...-latest`, `...:free`) is refused when the list is
+  loaded. If any of the three settings is unset, or a mounted file is absent, `judge.supports` answers 503
+  `judge-not-configured` and nothing is signed.
+- **On dev** (`k8s/claim-dev.yaml`), the api container names the backend. The key comes from Secret
+  `onedroid-witness-openrouter` (key `key`) at `/etc/claim-witness/judge-key/key`. The model list comes from ConfigMap
+  `claim-witness-judge-models` (key `models.json`) at `/etc/claim-witness/judge-models/models.json`. Both are optional
+  volumes, so the pod starts without them. Only names are in the manifest. For example:
+
+  ```
+  kubectl -n witness-dev create configmap claim-witness-judge-models --from-file=models.json=models.json
+  # models.json: [{"id": "<provider>/<dated model id>", "vendor": "<vendor>", "price_factor": 1, "timeout": 60}, ...]
+  ```
+
+The tests never call a model. `tests_claim/fake_models.py` is a local OpenAI-compatible server on 127.0.0.1, which
+`test_judge_unit.py`, `test_judge_api.py` and the Postgres end-to-end test in `test_storage.py` use.
+
 ## Running the tests
 
 ```
@@ -80,7 +172,7 @@ is the same commands as the manifest: `python3 -m claim_witness signer serve` wi
 `WITNESS_DEV_KEYS_FILE`, optionally `WITNESS_CALLER_KEYS_URL`.
 
 Verify an answer offline: `python3 -m claim_witness.verify --envelope answer.json --keys keys.json` (keys.json = the
-`key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.0.0.tar.gz` and
+`key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.1.0.tar.gz` and
 `--evidence FILE` as needed, or `--bundle DIR`.
 
 ## Deploying on dev
@@ -192,3 +284,49 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     JSON nor multipart is 400 `malformed` (SPEC §3 lists no 415).
 20. **The rate ceiling** is `WITNESS_RATE_PER_MINUTE` (default 60), so a holdout run from one account can be given room
     without a code change.
+
+### Builder decisions, B6 (judge.supports)
+
+21. **Two test fixes after the RED commit**, each in its own commit, with no test removed and no assertion changed. The fake
+    server's `status()` answered with the request body: its lambda argument shadowed the default. One test passed `label` as
+    an option. The manifest test read the pod's `volumes` list as part of the signer container. One B1 test changed by one
+    line: `test_methods_registry_with_tarball_digest` asserted the registry holds exactly the three B1 methods, and it now
+    names `judge.supports` too.
+22. **The methods library is 1.1.0** (`witness-methods-1.1.0.tar.gz`). The library gained a method and its prompt file, so
+    its tarball, and therefore every record's `code_sha256`, changed. The B1 methods keep version 1.0.0. The tarball now ships
+    `.py` and `.txt` files, sorted by path. `vectors.json` was regenerated: the B1 vectors' envelopes name the new
+    `code_sha256`, and a `judge` section was added.
+23. **Templates**: T is `{statement}` and F is `Asserted false: {statement}`, through the same renderer as every method.
+24. **Slots with counts**: `Method.slot_counts` is `(min, max)` per slot, `(1, 1)` for every mechanical slot and `(1, 5)` for
+    `judge.supports`. `GET /v1/methods` shows it. `observation` evidence is in the schema, and the service answers 422
+    `wrong-evidence-slots` for it until B2b.
+25. **Order of the judge steps**: unreadable bytes, then too-large, then the injection rules, then empty visible text, then
+    the models. A hard flag stops the run before any model call, so no provider sees a page that tries to steer it, and the run
+    costs no model credits.
+26. **The token estimate** is ceil(characters / 4) of the prompt plus the input. It is not a real tokenizer: a model-specific
+    tokenizer would make `too-large` depend on the model.
+27. **The assertion is sent** (the `ASSERTION:` line) because SPEC §5.2 lists it. The prompt says the finding is always
+    about the statement as written.
+28. **Quotes**: `text` is optional. Without it, a quote is checked by its offsets alone: a non-blank span of at least 2
+    characters inside the item. With it, `text` must equal the span exactly, as plain text or datamarked. Offsets that are
+    wrong are never moved to where the text sits. At most 10 quotes per run are read. Verified quotes go into the record;
+    rejected ones are only counted in `rejected`.
+29. **Hidden-node rules** apply to HTML objects as well as observations. The elements canon/1 drops for being hidden are the
+    hidden nodes. Hard-flag patterns are matched in them too. A short statement, under four content words, flags only word
+    for word, so a hidden menu that shares a word is not a flag.
+30. **Agreement with failures**: failed runs count for no finding. If the runs that answered agree but are fewer than
+    `require`, the failures decide the reason, in this order: undecided, then timeout, then model-unavailable. A tie is
+    `judges-disagree`, even with `require` 1.
+31. **Errors before anything is signed**: no backend is 503 `judge-not-configured`. More models than configured is 422
+    `invalid-options`. A private claim without `allow_provider` is 422 `provider-not-allowed`. These checks run in
+    validation, so neither the nonce nor an attempt is used.
+32. **`allow_provider` is required for every private judge claim**, whatever the backend. Standalone vLLM could later be
+    exempt by configuration.
+33. **No response_format is sent.** Some OpenAI-compatible backends refuse it, and the parse rule copes with prose and fences.
+34. **Raw outputs** are the model's message content only, kept 24 h (`judge_output_ttl`) for public records. A private
+    record's raw outputs are discarded rather than put in the body, because the body would publish them on a later
+    `record.disclose`. There is no route to read raw outputs yet.
+35. **Price**: integer credits, with the factor applied in decimal arithmetic and rounded up. The base for a judge claim is
+    `check` (1): BD3's base for a check over objects. Every answer reports a price, mechanical ones included.
+36. **`witness-verify`** skips the re-run of `judge.supports` ("not a pure-Python method"). The vectors replay the decision
+    from fixed model outputs in the witness and from the tarball, which is the reproducible part.

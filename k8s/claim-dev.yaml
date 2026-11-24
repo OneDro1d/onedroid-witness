@@ -5,6 +5,8 @@
 #   claim-pg       Postgres 16 + pgvector, one replica, its own PVC (BD7)
 #   claim-witness  the API container plus the signer sidecar; they share an emptyDir holding only the signer's Unix socket.
 #                  The signing key is mounted into the signer container alone. The Service exposes the API port only.
+#                  B6: the model backend's key (Secret onedroid-witness-openrouter) and model list (ConfigMap
+#                  claim-witness-judge-models) are mounted into the api container alone, both optional.
 apiVersion: v1
 kind: Service
 metadata:
@@ -101,11 +103,20 @@ spec:
             # BD8: set WITNESS_CALLER_KEYS_URL to the BFF's published service key list once its /bff/v1/witness routes exist;
             # unset, only the dev keys above are accepted.
             - {name: WITNESS_PORT, value: "8080"}
+            # B6 judge.supports: any OpenAI-compatible endpoint, by env only. The key file comes from Secret
+            # onedroid-witness-openrouter (key `key`) and the model list from ConfigMap claim-witness-judge-models (key
+            # models.json). Both volumes are optional: until the orchestrator creates them, judge.supports answers 503
+            # judge-not-configured and every other method works as before. README_CLAIM.md, "judge.supports".
+            - {name: WITNESS_JUDGE_BASE_URL, value: "https://openrouter.ai/api/v1"}
+            - {name: WITNESS_JUDGE_API_KEY_FILE, value: /etc/claim-witness/judge-key/key}
+            - {name: WITNESS_JUDGE_MODELS_FILE, value: /etc/claim-witness/judge-models/models.json}
           volumeMounts:
             - {name: socket, mountPath: /run/claim-witness}
             - {name: attempt-key, mountPath: /etc/claim-witness/attempt, readOnly: true}
             - {name: master-key, mountPath: /etc/claim-witness/master, readOnly: true}
             - {name: dev-keys, mountPath: /etc/claim-witness/dev-keys, readOnly: true}
+            - {name: judge-key, mountPath: /etc/claim-witness/judge-key, readOnly: true}
+            - {name: judge-models, mountPath: /etc/claim-witness/judge-models, readOnly: true}
           readinessProbe:
             httpGet: {path: /healthz, port: 8080}
             initialDelaySeconds: 3
@@ -154,6 +165,19 @@ spec:
           secret: {secretName: claim-witness-master-key, defaultMode: 0440}
         - name: dev-keys
           secret: {secretName: claim-witness-dev-keys, defaultMode: 0440}
+        - name: judge-key
+          secret:
+            secretName: onedroid-witness-openrouter
+            optional: true
+            defaultMode: 0440
+            items:
+              - {key: key, path: key}
+        - name: judge-models
+          configMap:
+            name: claim-witness-judge-models
+            optional: true
+            items:
+              - {key: models.json, path: models.json}
 ---
 apiVersion: v1
 kind: Service

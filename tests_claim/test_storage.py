@@ -112,6 +112,20 @@ class Contract:
         st.purge(jobs_before=0, nonces_before=0, attempts_before=250)
         self.assertEqual(st.count_attempts("t", since=0), {"SUPPORTED": 0, "NOT_SUPPORTED": 0, "CANNOT_WITNESS": 1})
 
+    def test_judge_outputs_expire(self):
+        """B6 (SPEC §5.8, §8): raw judge outputs of public records, kept 24 h with an expiry column."""
+        st = self.make()
+        st.add_judge_output({"record_id": "r1", "model": "acme/j", "provider": "P", "served_model": "acme/j-1", "raw": "{\"a\": 1}",
+                             "created_at": 1000, "expires_at": 1000 + 86400})
+        st.add_judge_output({"record_id": "r2", "model": "beta/j", "provider": None, "served_model": None, "raw": "x",
+                             "created_at": 2000, "expires_at": 2000 + 86400})
+        rows = st.judge_outputs()
+        self.assertEqual([(r["record_id"], r["model"], r["raw"], r["expires_at"]) for r in rows],
+                         [("r1", "acme/j", "{\"a\": 1}", 87400), ("r2", "beta/j", "x", 88400)])
+        self.assertEqual([r["record_id"] for r in st.judge_outputs(record_id="r2")], ["r2"])
+        st.purge(jobs_before=0, nonces_before=0, attempts_before=0, outputs_expired_at=88000)
+        self.assertEqual([r["record_id"] for r in st.judge_outputs()], ["r2"])
+
     def test_key_lists(self):
         st = self.make()
         self.assertIsNone(st.latest_key_list())
@@ -181,6 +195,50 @@ class PostgresContract(Contract, unittest.TestCase):
             self.assertEqual(stj["state"], "done")
         finally:
             s.close()
+
+    def test_judge_end_to_end_on_postgres(self):
+        """B6: judge.supports through the real HTTP API on Postgres, with the local fake model server: a public record with its
+        raw output stored (24 h), a 2-model disagreement, and a private run whose raw output is not stored."""
+        import json
+        from claim_witness import judge
+        from tests_claim import fake_models as fm
+        st = self.make()
+        fake = fm.FakeModels()
+        d = pathlib.Path(tempfile.mkdtemp(prefix="cw-pg-judge-"))
+        (d / "key").write_text(fake.api_key)
+        (d / "models.json").write_text(json.dumps([{"id": "acme/judge-1", "vendor": "acme", "price_factor": 1, "timeout": 5},
+                                                   {"id": "beta/judge-2", "vendor": "beta", "price_factor": 1, "timeout": 5}]))
+        j = judge.from_env({"WITNESS_JUDGE_BASE_URL": fake.base_url, "WITNESS_JUDGE_API_KEY_FILE": str(d / "key"),
+                            "WITNESS_JUDGE_MODELS_FILE": str(d / "models.json")})
+        s = h.Stack(storage=st, config_overrides={"judge": j})
+        try:
+            text = "The Model X widget ships with a two-year warranty."
+            good = fm.answer("judged-supports", [fm.quote(0, text, "two-year warranty")])
+            fake.script("acme/judge-1", good)
+            fake.script("beta/judge-2", fm.answer("judged-silent"))
+            body = h.request(h.claim("judge.supports", {}, True, "The widget has a two-year warranty."),
+                             [h.obj_item("evidence", text.encode())], "public")
+            code, out, _ = s.witness_call(body)
+            self.assertEqual(code, 200, out)
+            p = h.payload_of(out["envelope"])["predicate"]
+            self.assertEqual((p["outcome"], p["finding"]), ("SUPPORTED", "judged-supports"))
+            self.assertEqual(st.signing_log()[-1]["payload_id"], out["record_id"])
+            rows = st.judge_outputs(record_id=out["record_id"])
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["expires_at"] - rows[0]["created_at"], 86400)
+            body["options"]["models"] = {"count": 2}
+            code, out2, _ = s.witness_call(body)
+            p2 = h.payload_of(out2["envelope"])["predicate"]
+            self.assertEqual((p2["reason"], p2["attempt"]["n"]), ("judges-disagree", 2))
+            n = len(st.judge_outputs())
+            body["options"] = {"visibility": "private", "allow_provider": True}
+            code, out3, _ = s.witness_call(body)
+            self.assertEqual(code, 200, out3)
+            self.assertEqual(h.payload_of(out3["envelope"])["predicate"]["attempt"]["n"], 3)
+            self.assertEqual(len(st.judge_outputs()), n, "a private record's raw outputs are not stored")
+        finally:
+            s.close()
+            fake.close()
 
 
 if __name__ == "__main__":

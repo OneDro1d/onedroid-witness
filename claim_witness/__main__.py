@@ -2,7 +2,9 @@
 
   api      the HTTP API. Env: WITNESS_ID, WITNESS_SIGNER_SOCKET (the signer sidecar's Unix socket), WITNESS_DATABASE_URL
            (Postgres, migrated on start), WITNESS_ATTEMPT_KEY_FILE, WITNESS_MASTER_KEY_FILE, WITNESS_REDACT_BIN,
-           WITNESS_DEV_KEYS_FILE (optional), WITNESS_CALLER_KEYS_URL (optional), WITNESS_HOST (0.0.0.0), WITNESS_PORT (8080).
+           WITNESS_DEV_KEYS_FILE (optional), WITNESS_CALLER_KEYS_URL (optional), WITNESS_HOST (0.0.0.0), WITNESS_PORT (8080);
+           for judge.supports WITNESS_JUDGE_BASE_URL, WITNESS_JUDGE_API_KEY_FILE, WITNESS_JUDGE_MODELS_FILE (all three, else
+           judge.supports answers 503), optionally WITNESS_JUDGE_MAX_TOKENS and WITNESS_PRICE_LIST_FILE (claim_witness/judge.py).
   signer   the signer sidecar (`signer serve`) and the operator key-list commands (`signer keylist init|rotate|show`); see
            claim_witness/signer.py.
   dev      API and signer in one process for a laptop: memory storage unless WITNESS_DATABASE_URL is set, a throwaway
@@ -29,10 +31,12 @@ def _auth(env):
 
 
 def run_api(env, signer_client, storage, attempt_key, master_key):
-    from . import api, service
+    from . import api, judge, service
+    log = lambda line: print(line, flush=True)  # noqa: E731
     cfg = service.Config(witness_id=env.get("WITNESS_ID") or "witness:onedroid", attempt_key=attempt_key, master_key=master_key,
                          redact_bin=(env.get("WITNESS_REDACT_BIN") or "").strip() or None,
-                         rate_per_minute=int(env.get("WITNESS_RATE_PER_MINUTE") or 60))
+                         rate_per_minute=int(env.get("WITNESS_RATE_PER_MINUTE") or 60),
+                         judge=judge.from_env(env, log=log), price=judge.price_from_env(env))
     witness = service.Witness(storage, signer_client, cfg)
     host, port = env.get("WITNESS_HOST") or "0.0.0.0", int(env.get("WITNESS_PORT") or 8080)
     srv = api.make_server(witness, _auth(env), host, port)

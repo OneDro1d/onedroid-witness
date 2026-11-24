@@ -1,18 +1,20 @@
-"""The witness method library (SPEC §4), B1 methods: match.exact, quote.in-source, tests.pass.
+"""The witness method library (SPEC §4): match.exact, quote.in-source, tests.pass (B1) and judge.supports (B6: its pure part
+here, its model calls in claim_witness/judge.py).
 
 Pure functions over bytes, standard library only, relative imports only: this package is published as the reproducible
 tarball witness-methods-<LIBRARY_VERSION>.tar.gz whose sha256 is every method's `code_sha256` (SPEC §9.4), and
 witness-verify imports it from that tarball to re-run a method offline.
 
-Evidence passed to run(): {slot: {"slot", "kind", "sha256", "media_type", "name", "data": bytes}}.
+Evidence passed to run(): {slot: {"slot", "kind", "sha256", "media_type", "name", "data": bytes}}. A slot takes
+slot_counts[slot] = (min, max) items; every mechanical slot takes exactly one.
 """
 import re
 import unicodedata
 
-from . import match_exact, quote_in_source, tests_pass
+from . import judge_supports, match_exact, quote_in_source, tests_pass
 from .result import Result
 
-LIBRARY_VERSION = "1.0.0"
+LIBRARY_VERSION = "1.1.0"
 POSITIVE, NEGATIVE, NEUTRAL = "positive", "negative", "neutral"
 HEX_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_QUOTE = 4000
@@ -24,11 +26,12 @@ class ParamsError(ValueError):
 
 class Method:
     def __init__(self, id, major, version, params_schema, slots, templates, findings, limits, run, check_params, mechanical=True,
-                 determinism="pure"):
+                 determinism="pure", slot_counts=None):
         self.id, self.major, self.version = id, major, version
         self.params_schema, self.slots, self.templates = params_schema, slots, templates
         self.findings, self.limits, self._run, self.check_params = findings, limits, run, check_params
         self.mechanical, self.determinism = mechanical, determinism
+        self.slot_counts = {s: tuple((slot_counts or {}).get(s, (1, 1))) for s in slots}
 
     def render(self, assertion, vars_):
         return render_template(self.templates[bool(assertion)], vars_)
@@ -101,6 +104,14 @@ METHODS = {
          False: "The test output {sha} does not report at least one test run and no failures{ for commit {expect_commit}}."},
         {"tests-passed": POSITIVE, "tests-failed": NEGATIVE, "commit-mismatch": NEUTRAL, "commit-absent": NEUTRAL},
         "The log's origin was not verified.", tests_pass.run, _tests_params),
+    "judge.supports": Method(
+        "judge.supports", 1, judge_supports.VERSION, {"type": "object", "properties": {}, "additionalProperties": False},
+        {"evidence": ("object", "observation")},
+        {True: "{statement}", False: "Asserted false: {statement}"},
+        {"judged-supports": POSITIVE, "judged-contradicted": NEGATIVE, "judged-silent": NEUTRAL},
+        "A language model's reading of the visible text of the evidence, kept only with exact quotes the witness verified. "
+        "It is not proof that the statement is true, and another model may read the evidence differently.",
+        judge_supports.run, _no_params, mechanical=False, determinism="model", slot_counts={"evidence": (1, 5)}),
 }
 
 

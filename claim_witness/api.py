@@ -5,7 +5,8 @@ style): one JSON answer per request, one log line per request with no bodies and
                                   its sha256)
     GET  /v1/jobs/{id}            job status (the caller's own jobs only)
     POST /v1/agent-keys           register an agent's Ed25519 public key for the calling account
-    GET  /v1/methods              the method registry and the methods tarball's code_sha256
+    GET  /v1/methods              the method registry, the methods tarball's code_sha256, the judge's models and the price list
+    GET  /v1/price                the price list in credits (BD3) with each model run's price
     GET  /.well-known/witness.json
     GET  /v1/key-lists/{seq}
     GET  /healthz
@@ -163,6 +164,8 @@ def make_handler(witness, auth):
                     return self._send(200 if ok else 503, out)
                 if path == "/v1/methods":
                     return self._send(200, witness.methods_registry())
+                if path == "/v1/price":
+                    return self._send(200, witness.price_view())
                 if path == "/.well-known/witness.json":
                     return self._send(200, witness.well_known())
                 m = KEYLIST_PATH.match(path)
