@@ -57,7 +57,7 @@ class PersonalDataTS22(Base):
     def test_hashes_and_ordinary_numbers_pass(self):
         code, out = self.call(self.quote("revenue grew 12% in 2026-11, see build 1.2.3"))
         self.assertEqual(code, 200, out)
-        code, out = self.s.witness_call(request(claim("tests.pass", {"expect_commit": "0e0bbf9a1b2c3d4e5f6071829304"}),
+        code, out, _ = self.s.witness_call(request(claim("tests.pass", {"expect_commit": "0e0bbf9a1b2c3d4e5f6071829304"}),
                                                 [obj_item("log", h.GO_TEST_PASS, "application/json")]))
         self.assertEqual(code, 200, out)
 
