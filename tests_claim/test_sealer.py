@@ -253,6 +253,13 @@ class VerifySeal(unittest.TestCase):
             self.assertEqual(code, 1, text)
             self.assertIn("FAIL seal", text)
 
+    def test_an_anchor_before_the_record_time_fails_key_validity(self):
+        bad = copy.deepcopy(self.seal)
+        bad["notary"]["anchors"][0]["block_time"] = "2020-01-01T00:00:00Z"
+        code, text = self.run_with(bad)
+        self.assertEqual(code, 1, text)
+        self.assertIn("FAIL key-validity", text)
+
     def test_pending_seal_is_skipped(self):
         code, text = self.run_with({"state": "pending"})
         self.assertEqual(code, 0, text)

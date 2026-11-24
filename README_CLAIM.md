@@ -1,7 +1,8 @@
-# claim-witness, slices B1, B6 and B2b (integrated)
+# claim-witness, slices B1, B6, B2b (integrated) and B3
 
 The single-claim witness (SPEC Draft 3, `.df/missions/M-20261124-CLAIM-WITNESS/SPEC.md` in the claims notepad, plus
-`M-20261124-WITNESS-BUILD/DECISIONS.md` BD1-BD12, which wins where they differ). One claim in, one signed record out. The old
+`M-20261124-WITNESS-BUILD/DECISIONS.md` BD1-BD14, which wins where they differ). Branch `v1/claim-keep` adds B3 on
+`v1/claim-integrate`: keep, the private store, delete and takedown, the sealer and n-dim ("Keep" to "n-dim" below). One claim in, one signed record out. The old
 `onedroid_witness/` package is untouched and keeps running until cut-over (B8).
 
 Branch `v1/claim-integrate` joins two separately verified slices on the B1 core (`v1/claim-witness`): B6, `judge.supports`
@@ -39,8 +40,8 @@ slice's own list, renumbered so that no two share a number.
   under a key derived from the master key, BD1).
 - **witness-verify** (`claim_witness/verify.py`, standard library only; `cryptography` when importable, else a pure RFC 8032
   Ed25519, BD10): §6 steps 1 (key list), 2 (signature), 3 (payload canonical, record id, claim id or both commitments), 5 (key
-  validity, unsealed), 6 (files and a re-run of the method from the tarball), 7 (agent signature). Step 4 (the seal) prints
-  SKIP until S3. Every check prints `PASS`, `FAIL` or `SKIP` with its name; any FAIL exits 1.
+  validity), 6 (files and a re-run of the method from the tarball), 7 (agent signature). Step 4 (the seal) came with B3:
+  see "Sealer". Every check prints `PASS`, `FAIL` or `SKIP` with its name; any FAIL exits 1.
 - **Test vectors** (`claim_witness/vectors/vectors.json`): RFC 8785, canon/1, claim ids, record ids and leaves, commitments,
   attempt tags, templates for every method and both assertions, and a signed public and private record with their key list.
   `python3 -m claim_witness.vectors --check` reproduces each one in the witness and in witness-verify.
@@ -281,6 +282,137 @@ each model's `credits_per_run`, and the free fresh observations a day. `WITNESS_
   seven methods. `vectors.json` was regenerated with both slices' sections (`judge`, `thresholds`, `observation`).
 - **One price object**: "Price" above.
 
+## Keep
+
+Slice B3 (SPEC §2.6 as changed by DECISIONS BD1, §3, TS-13). `claim_witness/records.py`.
+
+`POST /v1/records/{id}/keep` with `{envelope, disclosure? (private), keep_evidence_days?, evidence?: [{sha256, content_b64}]}`
+as JSON, or multipart (a part `request` holding that JSON and one part per evidence object, named by its sha256).
+
+- The request has no visibility field: the record's visibility is signed. Unknown fields are 422.
+- The id is H(the envelope's payload) (else 422 `record-mismatch`). The envelope must be a claim record signed by this
+  witness's key and present in its signing log (else 422 `not-witnessed-here`).
+- A private record needs its disclosure, and both commitments are checked: the claim commitment against the subject, the
+  body commitment against the predicate (else 422 `disclosure-required` / `disclosure-mismatch`). A public record has none.
+- Only the account that made the record keeps it (`submitter.account`, from the payload or the disclosed body), else 403.
+- `keep_evidence_days` (1 to 3,650) keeps evidence bytes: each must be one of the record's object evidence items (422
+  `evidence-not-in-record`) and hash to its sha256 (400 `hash-mismatch`). The answer carries `evidence_key` once.
+- Keeping twice is idempotent: the second answer is the first keep's state with `already_kept: true` and no `evidence_key`.
+  A record whose owner deleted it is 410.
+- TS-13: a record kept after its batch closed is already sealed; the answer's `seal` says so.
+- The answer: `{record_id, visibility, link, kept_at, already_kept, seal, ndim, evidence?: {expires_at}, evidence_key?}`, with
+  `link` = `{WITNESS_LINK_BASE}/r/{id}` (default `https://evidence.onedroid.ai`).
+- Observations the record relied on are marked kept, so their files stay beyond 24 h (SPEC §8).
+- `options.keep` on `POST /v1/witness` stays 422 `keep-not-served`, pointing to this route.
+
+## Private store
+
+BD1 custody. The witness holds, for each kept record:
+
+- a random 32-byte **data key**, stored only wrapped by the master key (AES-256-GCM under HKDF-SHA256(master key,
+  `claim-witness/kek/1`), the record id as associated data);
+- for a private record, the disclosure `{salt, body}` encrypted under the data key;
+- with kept evidence, a random **evidence key** encrypted under the data key, and each evidence file encrypted under the
+  evidence key, with its media type and name inside the ciphertext. `evidence_key` (base64url) is that key, returned once:
+  with it the holder reads the evidence ciphertext wherever it is (also as an n-dim object), without this witness.
+
+Reads, all under `GET /v1/records/{id}`:
+
+- anyone: the envelope and the seal. A private envelope holds commitments only (TS-10: without a token, only fingerprints);
+- the owner (API key) and a share-token holder: also `disclosure` and the kept evidence list;
+- `GET /v1/records/{id}/evidence/{sha256}`: one kept file. A public record's (screened, public evidence) to anyone; a private
+  record's to the owner and to holders of a token made with `evidence: true`.
+
+**Share tokens** (capabilities, one record each): `POST /v1/records/{id}/shares {days?: 1-365 (30), evidence?: false}` answers
+`{token_id, token, link, expires_at, evidence}` once; `GET .../shares` lists them without the token; `DELETE
+.../shares/{token_id}` revokes. The token goes in `?token=` (the link) or the `X-Witness-Share-Token` header. The witness keeps
+only its sha256; the request log never prints the query string. A revoked, expired or foreign token is 403.
+
+**Owner search**: `GET /v1/records?q=&method=&outcome=&since=` lists the caller's own kept, undeleted private records, newest
+first, with the statement and the label. It is plaintext and server-side: every word of `q` must be in the record's index,
+then the phrase must occur in the opened body (statement, claim statement, params, label, evidence names and URLs). The index
+rows are HMAC(HKDF(master key, `claim-witness/owner-index/1`), account || NUL || word): no word is stored, and only the owning
+account's tokens can match. Other accounts and public reads never see these records or their count.
+
+## Delete
+
+Wording rule (Michal, armarium item 3): an answer never says private data is "gone", "erased" or "permanently removed". It
+states exactly what the witness deleted and what stays. Where n-dim holds bytes it says "the key is deleted; the encrypted
+bytes stay on the chain", and only when armarium reported the key deleted.
+
+- **Owner delete**, `DELETE /v1/records/{id}`, private records only (a public record is 422 `use-takedown`). The witness
+  deletes the wrapped data key, the encrypted body and salt, the kept evidence and the evidence key, the owner index rows,
+  the share tokens, the stored job answers of that record, and the account's private observations the record relied on.
+  It writes a tombstone version of the record's n-dim object. The answer lists each of these with counts (`deleted`), and
+  what stays (`kept`): the signed envelope (commitments only) and its seal, still served and verifiable; the signing-log row
+  and the batch leaf; the attempt tag (an HMAC, 30 days); copies readers already took and the owner's own disclosure. After
+  it `GET /v1/records/{id}` answers the envelope and the seal with `deleted_at`. Deleting again gives the same `deleted_at`.
+- **Evidence delete**, `DELETE /v1/records/{id}/evidence` (owner): the kept evidence files and the evidence key. The record
+  and its seal stay valid. With `NDIM_STORE_EVIDENCE` the evidence object gets armarium's DELETED marker, and the answer
+  repeats armarium's `dek`: "deleted" gives "the key is deleted; the encrypted bytes stay on the chain"; "on-chain" (a legacy
+  chain) says the key was not deleted and the encrypted bytes stay on the chain. The `evidence_key` the owner was given
+  still decrypts the chain's ciphertext wherever someone holds a copy of it.
+- **Takedown**, `POST /v1/records/{id}/takedown {reason?}`: the owner, or an account in `WITNESS_OPERATOR_ACCOUNTS` after a
+  subject's request. The record view and the bundle answer 410 to everyone but the owner; `/seal` is still served; the signed
+  record stays valid wherever someone holds it. The reason is not stored.
+- Kept evidence past its `keep_evidence_days` is deleted by the minute purge the same way (files and key).
+
+## Sealer
+
+SPEC §7.1, §7.2. `claim_witness/sealer.py`, `merkle.py`; a thread of the API process (`WITNESS_SEALER=0` turns it off).
+
+- **Leaf**: every signing-log row stores `leaf = H(0x00 || payload)` when it is signed, where payload is the signed bytes:
+  the canonical statement of a record, observation or key list, the canonical header of a batch header (migration
+  `004_keep.sql`). Rows signed before B3 have no leaf and are never batched.
+- **Tree**: RFC 9162 §2.1 over the batch's leaves in signing-log order. A leaf is its own subtree hash;
+  `MTH(D[n]) = H(0x01 || MTH(D[0:k]) || MTH(D[k:n]))` with k the largest power of two below n. A path is RFC 9162's
+  `PATH(m, D[n])`, bottom up, lowercase hex, and is checked by §2.1.3.2 (`merkle.root_from_path`,
+  `verify.merkle_root_from_path`). The RFC 6962 reference roots are in `test_merkle.py`.
+- **Closing**: a tick (`WITNESS_SEALER_POLL_S`, 30 s) closes a batch of the unbatched leaves when it holds
+  `WITNESS_BATCH_MAX_LEAVES` (100,000) or its oldest leaf is `WITNESS_BATCH_INTERVAL_S` (3,600 s on dev) old. The headers
+  signed during a tick wait for the next one.
+- **Header**: `{witness, batch_id, root, size, opened_at, closed_at, interval_s, key_id}` with `batch_id = H(canonical
+  {witness, first_seq, last_seq, root})`, `opened_at` the first leaf's time and `closed_at` the tick's. The signer signs it
+  (predicateType `batch-header/v1`, PAE(`application/vnd.onedroid.witness.batch-header+json`, canonical header)); the seal
+  carries it with its `sig`.
+- **Notary** (`claim_witness/notary.py`, the onedroid-audit client): `POST /notary/v1/seals {"profile": "hash/1", "key":
+  "<hex>", "payload": base64 of {"over": "sha256:<hex>"}}` with hex = H(canonical signed header). Settings
+  `WITNESS_NOTARY_URL` (https), `WITNESS_NOTARY_TOKEN_FILE`, `WITNESS_NOTARY_CA_FILE`, `WITNESS_NOTARY_TIMEOUT_S`. A batch
+  whose notary has not landed stays pending and is repeated each tick with the same key. Without a token file the batches
+  close and their proofs are served, never anchored (`notary.status: off`).
+- **Seal**: `GET /v1/records/{id}/seal`, open, for any record or observation id in the signing log, kept or not:
+  `{"state": "pending"}` before the batch closes, then `{state: pending|anchored, leaf_index, path, batch_header, notary}`
+  (the notary result copied as it answered: `status, profile, over, key, anchors[{chain, state, tx_hash, block, block_time,
+  explorer_url, final}]`). `anchored` means every chain landed; `final` is the notary's word.
+- **witness-verify step 4** (`seal`): the leaf and its path give the header's root; the header verifies under its key in the
+  key list and names that witness; the notary's `over` is sha256 of the canonical signed header and every anchor landed.
+  Then key validity is judged at the anchor time (the earliest landed `block_time`): a key revoked at or before it fails
+  (TS-20, VR-16); `FLAG seal-delay` marks an anchor more than `interval_s` + 15 min after the payload's time. The anchor
+  transaction itself is not read by the verifier (`SKIP seal-chain`; check it with armarium's `POST /notary/v1/verify`). Give
+  the seal with `--seal`, inside the answer file, or as `seal.json` of a bundle.
+
+## n-dim
+
+BD4, SPEC §7.5. `claim_witness/ndim.py`: an `ArmariumClient` interface (create object, put version, delete = the DELETED
+marker of a version, get) and `HttpArmarium` over armarium's `POST /chain/{name}/object` and `GET/PUT/DELETE
+/chain/{name}/object/{id}?block=`. Settings `ARMARIUM_URL` (https), `ARMARIUM_TOKEN_FILE` (an object:write and object:read
+token bound to the chain), `ARMARIUM_CA_FILE`, `ARMARIUM_CHAIN`. `ndim.chain_for(account, chain)` is the one place a per-owner
+claimant chain (armarium's recommended model) would be picked; today every owner writes to `ARMARIUM_CHAIN`.
+
+- The sealer writes each kept record's object once its batch has closed: `{kind: "claim-witness/record/1", record_id,
+  envelope, seal}`. A private envelope holds commitments only.
+- An owner delete puts a tombstone version `{kind: "claim-witness/record-tombstone/1", record_id, deleted_at}` after it; the
+  earlier version stays on the chain and holds commitments only.
+- `NDIM_STORE_EVIDENCE=1` (default 0, BD4 option C) also writes one evidence object per record with kept evidence:
+  `{kind: "claim-witness/evidence/1", record_id, box_b64}`, the box being AES-256-GCM under the evidence key, so armarium
+  sees ciphertext only (and encrypts it again). An evidence or owner delete sends the object's DELETE; see "Delete" for what
+  the answer says.
+- With `ARMARIUM_URL` unset (or its token file not mounted) nothing is written, and `GET /v1/records/{id}` says
+  `ndim.state: "not-configured"`. The record view never claims a write that did not happen: `pending`, `written`,
+  `tombstoned`, with the object id and the last error code of a failed attempt (retried each tick).
+- armarium's facts (24 Nov): an object DELETE removes the version's key only on a claimant chain created with ARMARIUM_KMS
+  (`dek: "deleted"`); on a legacy (service-owned) chain the key stays under the shared KEK (`dek: "on-chain"`).
+
 ## Running locally with the real fetcher
 
 ```
@@ -355,6 +487,8 @@ delete the files afterwards. Values on hosted come from Key Vault `kv-pww-poland
 | `claim-witness-master-key` | `key` | api, `/etc/claim-witness/master/key` | base64 of 32 random bytes, wraps stored job answers (BD1) |
 | `claim-witness-dev-keys` | `dev-keys.json` | api, `/etc/claim-witness/dev-keys/` | `{"<api key, 16+ chars>": "<account id>", ...}` (dev only, BD8) |
 | `claim-fetcher-secret` | `secret` | api, `/etc/claim-witness/fetcher/secret` (and the claim-fetcher Deployment) | the fetcher's shared secret (B2a creates it) |
+| `claim-witness-notary-token` | `token` | api, `/etc/claim-witness/notary/token` (optional) | armarium's notary token (`anchor:write`, profile `hash/1`), B3 |
+| `claim-witness-armarium-token` | `token` | api, `/etc/claim-witness/armarium/token` (optional) | armarium object token (`object:write`, `object:read`, bound to `ARMARIUM_CHAIN`), B3 |
 | `claim-pg-credentials` | `username`, `password`, `database`, `url` | claim-pg (first three), api and signer (`url`) | `url` = `postgresql://<username>:<password>@claim-pg.witness-dev.svc.cluster.local:5432/<database>` |
 
 ```
@@ -372,6 +506,11 @@ kubectl -n witness-dev create secret generic claim-pg-credentials --from-literal
   --from-literal=database=claim_witness --from-file=password=pg.password --from-file=url=url.txt
 shred -u signing.key attempt.key master.key pg.password url.txt dev-keys.json
 ```
+
+B3 (the orchestrator, when armarium mints the tokens; until then the pod runs with the notary off and n-dim not configured):
+set `NOTARY_URL_PLACEHOLDER` and `ARMARIUM_URL_PLACEHOLDER` in the manifest, then
+`kubectl -n witness-dev create secret generic claim-witness-notary-token --from-file=token=notary.token`, the same for
+`claim-witness-armarium-token`, and ConfigMap `armarium-ca` (key `ca.crt`) for armarium's private CA.
 
 On its first start, with no key list in the database, the signer signs key list 1 itself (`WITNESS_SIGNER_BOOTSTRAP=1`, dev
 only). Otherwise run `kubectl exec ... -c signer -- python3 -m claim_witness signer keylist init --key-file <seed file>
@@ -570,3 +709,77 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     B2b's `observation-not-found`); B6's `test_library_version_bumped_for_the_new_method` pins 1.2.0 instead of 1.1.0; and
     B1's registry test in `test_api_auth.py` pins exactly the seven methods (B6 pinned four, B2b asked for a subset). New:
     `test_integration.py` (judge.supports over observations, trust, price, library) and `test_migrations_upgrade.py`.
+
+### Builder decisions, B3 (keep, private store, delete, sealer, n-dim: 63-88)
+
+63. **One test fix after the RED commit**, in its own commit, no assertion changed: `test_share_tokens` made its second
+    private record with the identical request, so the object-only idempotency rule answered the same record; it now differs
+    by its label.
+64. **Keeping is the route only.** `options.keep` / `keep_evidence_days` on `POST /v1/witness` stay 422 `keep-not-served`
+    (B1's test unchanged), now pointing to `POST /v1/records/{id}/keep`, where the disclosure and the evidence bytes are given.
+65. **The leaf is stored at signing time** (`signing_log.leaf`), because the log keeps no payloads. Rows signed before B3
+    have none and are never sealed: their seal stays `pending` ("time not proven").
+66. **Batches**: closed when full or when the oldest leaf is `batch_interval_s` old; a tick's own header leaves wait for the
+    next tick (so a full batch does not chase its own headers). `batch_id = H(canonical {witness, first_seq, last_seq,
+    root})`, `opened_at` the first leaf's time, `closed_at` the tick's time. Two sealers racing: the loser's write is a
+    Conflict and its signed header is only a log row.
+67. **over** is sha256 of the canonical header including `sig` (SPEC §2.5 "signed batch header"); the notary key is that
+    hex, so a repeat is the same request. A failed or unanswered notary call leaves the batch pending (proofs served) and is
+    repeated each tick; without a notary the state is `unanchored` and the seal's notary is `{status: off}`.
+68. **Seal state** is `anchored` only when the notary result is `landed` (every chain with a transaction). `final` is
+    copied as the notary answered; nothing waits for finality.
+69. **witness-verify step 4 is one check, `seal`**, which fails by name for a wrong path hash, index, root, header signature
+    or `over`. The anchor transaction is not read (`SKIP seal-chain`): the brief keeps the verifier offline and no Base
+    Sepolia decoder vector is available to this builder. The anchor time is the earliest landed `block_time`.
+70. **Key validity, sealed**: a key revoked at or before the anchor time fails; otherwise `witnessed_at` (or `fetched_at`)
+    must lie in the key's validity, so a plain rotation after signing still passes. The batch header's key is held to the
+    same rule at `closed_at`. `FLAG seal-delay` is a line, not a failure.
+71. **The sealer is a thread of the API process** (one replica, `Recreate`), not a third container: it needs the signer
+    socket, the storage and the notary, which the API already has. `WITNESS_SEALER=0` turns it off.
+72. **Keep owner** is `submitter.account` of the public predicate or of the disclosed private body; the BFF account is the
+    same id. A record whose owner deleted it cannot be kept again (410).
+73. **Custody keys**: one data key per kept record, public records too (it wraps their evidence key). Associated data binds
+    every ciphertext to its record id (and evidence sha256), so boxes cannot be swapped between records.
+74. **`evidence_key` is returned once and also kept wrapped** under the data key: SPEC §2.6 returns it once, and BD1 has the
+    owner read without holding anything. Its own use is to read the evidence ciphertext independently of this witness.
+75. **Kept evidence** is limited to the record's own object evidence, hash checked. A public record's kept evidence is read
+    by anyone (it was screened public evidence and lets TS-12 re-run the method from the bundle); a private one's by the
+    owner and by tokens made with `evidence: true`. Expired evidence is deleted by the minute purge.
+76. **Private reads without a token** give the envelope and the seal (TS-10: "without it, only fingerprints"), never the
+    evidence list or the disclosure. After an owner delete the same holds, with `deleted_at` (BD1).
+77. **Share tokens** are `wst_` + 32 random bytes, stored as sha256, id `tok_` + 16 hex, 1 to 365 days (30), private records
+    only. A bad token is 403 rather than a silent fingerprints-only answer, so a broken link is visible.
+78. **Links** are `{WITNESS_LINK_BASE}/r/{id}` and, for a share, `?token=`; BD1 drops the URL fragment scheme.
+79. **Owner search** covers the caller's own kept private records (public records are left to S5's public search): all
+    words through the HMAC index, then the phrase in the opened body. Evidence content is not searched (it is not part of
+    the body).
+80. **Owner delete is for private records**; a public record's content is public, so it is taken down instead. Jobs are
+    found by a new `jobs.record_id` column. The account's private observations the record relied on are deleted too.
+    Deleting twice answers the first `deleted_at`.
+81. **Tombstones**: the record object gets a tombstone *version* (BD1), not armarium's DELETE, because its envelope holds
+    commitments only and stays served. The evidence object gets armarium's DELETE, and the answer repeats armarium's `dek`.
+82. **The record object is written after its batch closes**, so it carries the seal; failures keep the state and are
+    retried each tick. It is written by the sealer only (keep does not call armarium); an owner delete writes its tombstone at
+    once and leaves a failure to the sealer.
+83. **NDIM_STORE_EVIDENCE** writes one evidence object per record, ciphertext under the evidence key with names and media
+    types inside, so no evidence metadata reaches the chain in the clear.
+84. **Takedown** is the owner's or an operator's (`WITNESS_OPERATOR_ACCOUNTS`); the reason is accepted but not stored
+    (it may carry a subject's personal data). The owner still reads a taken-down record.
+85. **The bundle's keys.json is the latest key list** (the one in force now), because it carries revocations made after the
+    record; `keys-seal.json` is its own seal. Observations relied on are included when the reader may see them.
+86. **Optional volumes**: a token or CA file that is not mounted means off (notary off, n-dim `not-configured`, system
+    trust), not a crash. A placeholder URL with a mounted token fails the start, loudly.
+87. **FileStorage** (the laptop CLI) does not persist the B3 tables; `dev` mode on memory or Postgres has them all.
+88. **Not changed**: `claim_witness/judge.py` and `claim_witness/methods/` (so the methods tarball and every `code_sha256`
+    are unchanged; `vectors.json` gained the `seal` section only, 150 lines added and none changed).
+89. **An anchor before the payload's own time fails key validity** (beyond the signer's 300 s clock tolerance): a block
+    cannot carry a hash that did not exist yet, so such a seal or clock is not consistent. Found by the local end-to-end
+    run, whose first fake notary answered a fixed block time.
+90. **The local end-to-end** is `tools/e2e_keep_seal.py [--postgres]`: the real API, the real notary and armarium HTTP
+    clients against local HTTPS fakes (`tests_claim/fake_seal.py`), a check, keep, a batch close, the anchored seal, and
+    witness-verify on the bundle passing `seal`, then failing it by name with one path hash changed.
+91. **One existing test changed**, in its own commit: `test_migrations_upgrade.py` pinned the sequence to exactly three
+    files; it pins the same exact lists with `004_keep.sql` added. `jobs.record_id` is written only when set, so a row can
+    still be written to a database that has not run 004 yet (that test writes into the B6-era dev schema).
+92. **Migration 004** is all `ADD COLUMN IF NOT EXISTS` / `CREATE ... IF NOT EXISTS`, so the dev database (001 to 003
+    recorded) gains 004 alone and keeps its rows.

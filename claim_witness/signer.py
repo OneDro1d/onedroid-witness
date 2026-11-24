@@ -67,7 +67,7 @@ def _keylist_envelope(storage, predicate, signers, now):
     raw = jcs.canonical(stmt)
     env = dsse.sign(raw, signers)
     storage.put_key_list(predicate["seq"], env, ids.sha256_hex(raw), now)
-    storage.append_signing_log(ids.record_id(raw), KEYLIST_TYPE, now)
+    storage.append_signing_log(ids.record_id(raw), KEYLIST_TYPE, now, leaf=ids.leaf_hash(raw))
     return env
 
 
@@ -160,11 +160,11 @@ class SignerCore:
             pid = ids.record_id(raw)
             if predicate_type == BATCH_TYPE:
                 sig = crypto.ed25519_sign(self.seed, dsse.pae(BATCH_PAYLOAD_TYPE, raw))
-                seq = self.storage.append_signing_log(pid, predicate_type, now)
+                seq = self.storage.append_signing_log(pid, predicate_type, now, leaf=ids.leaf_hash(raw))
                 return {"keyid": self.key_id, "sig": base64.b64encode(sig).decode(), "payload_id": pid, "log_seq": seq,
                         "payloadType": BATCH_PAYLOAD_TYPE}
             env = dsse.sign(raw, [(self.key_id, self.seed)])
-            seq = self.storage.append_signing_log(pid, predicate_type, now)
+            seq = self.storage.append_signing_log(pid, predicate_type, now, leaf=ids.leaf_hash(raw))
             return {"envelope": env, "payload_id": pid, "log_seq": seq}
 
     def handle(self, req):

@@ -214,8 +214,8 @@ class HttpsArmarium(HttpsFake):
 class HttpsNotary(HttpsFake):
     """POST /notary/v1/seals {profile, key, payload}: 200 with every chain landed (or `answer_status` to force another)."""
 
-    def __init__(self, tls):
-        self.answer_status = 200
+    def __init__(self, tls, block_time="2026-11-24T12:00:00Z"):
+        self.answer_status, self.block_time = 200, block_time
         super().__init__(tls)
 
     def handle(self, method, path, q, body):
@@ -231,4 +231,4 @@ class HttpsNotary(HttpsFake):
         return self.answer_status, {"profile": req["profile"], "key": req["key"], "anchors": [
             {"chain": "base-sepolia", "state": "landed" if self.answer_status == 200 else "in_doubt",
              "ref": {"chain": "base-sepolia", "correlation_id": "c1", "block": 4242, "tx_hash": tx},
-             "signer": "0x" + "1" * 40, "block_time": "2026-11-24T12:00:00Z", "final": False}]}
+             "signer": "0x" + "1" * 40, "block_time": self.block_time, "final": False}]}

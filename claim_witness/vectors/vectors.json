@@ -1283,6 +1283,156 @@
    "record_id": "20676b411820380eba83689bc5907655d5d222ce08e83c83cd57fbc7bdc75479"
   }
  ],
+ "seal": {
+  "batch_header": {
+   "batch_id": "40ffe33f870c7aa93b004e6c65f4c846059a71c39e229b486dfb93bc8ffc73f7",
+   "closed_at": "2026-11-25T10:48:20Z",
+   "interval_s": 3600,
+   "key_id": "witness:vectors:2026a",
+   "opened_at": "2026-11-25T09:47:40Z",
+   "root": "01572629518039cc4336375652cb79c42d88c0940badfbefdf0245c74abb03bf",
+   "sig": "u+MuervyVA6Copms5wmIpu594o11dAQwqN/4kxVq7f1beBqJdwMdjee9HDjO2/Id4FsNcaQaUIMad3f34sV0AA==",
+   "size": 5,
+   "witness": "witness:vectors"
+  },
+  "leaves": [
+   "1a50b28dbb7e83e6836e37fc055b1a9c7828e8019e60b0118d4244bfd928576f",
+   "c240fb8fd4361c2599ee74a2e32c1ba9d9d379157f8dad622f8943fb5dfcfbbc",
+   "cad4ef5c52432870c4c7612f73ad30dac801c269e5ee313b422765f6df82c837",
+   "3b1e9346aba0e6602f6f30016c5c5ec99a9058d993d5d7b74c3289185d3655e3",
+   "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+  ],
+  "notary": {
+   "anchors": [
+    {
+     "block": 4242,
+     "block_time": "2026-11-25T10:49:20Z",
+     "chain": "base-sepolia",
+     "explorer_url": null,
+     "final": false,
+     "state": "landed",
+     "tx_hash": "0xd3f9be982454a455a00242c6e868029c8af76fe31656dfe09ed4c0e79c787150"
+    }
+   ],
+   "key": "cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+   "over": "sha256:cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+   "profile": "hash/1",
+   "reason": null,
+   "status": "landed"
+  },
+  "over": "sha256:cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+  "paths": [
+   [
+    "c240fb8fd4361c2599ee74a2e32c1ba9d9d379157f8dad622f8943fb5dfcfbbc",
+    "0a72f366894a7d27999ab6f08688f0f250ecf70001928dff31a8ca0bd6e24251",
+    "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+   ],
+   [
+    "1a50b28dbb7e83e6836e37fc055b1a9c7828e8019e60b0118d4244bfd928576f",
+    "0a72f366894a7d27999ab6f08688f0f250ecf70001928dff31a8ca0bd6e24251",
+    "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+   ],
+   [
+    "3b1e9346aba0e6602f6f30016c5c5ec99a9058d993d5d7b74c3289185d3655e3",
+    "48139499a0b5a0f4ff774c8e8013f25361a1f762f4e3443f4b5ca8acdddd5231",
+    "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+   ],
+   [
+    "cad4ef5c52432870c4c7612f73ad30dac801c269e5ee313b422765f6df82c837",
+    "48139499a0b5a0f4ff774c8e8013f25361a1f762f4e3443f4b5ca8acdddd5231",
+    "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+   ],
+   [
+    "fa50d1391d890f37304e39de5c4b979eae53c0b2aae3800ade424c34c0e3ceb1"
+   ]
+  ],
+  "payloads_b64": [
+   "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiIxODY0NDgxNTVjNGJhZmYzMTNhM2E3Y2I3YmJiMzZjNWYyZGY2M2MzN2FkYTYxMWNmMDU3NWE1YWM4ZjBjMWU0IiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
+   "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiNGZjNTMxZWRjZmYxMTVlZDE2OWU1YzkzYWU5Yzc1ZTZiY2YyZmVmMjE5Y2NhMzNkODA4NDg0MjU1MmYwMzQ3NCIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiMTg2NDQ4MTU1YzRiYWZmMzEzYTNhN2NiN2JiYjM2YzVmMmRmNjNjMzdhZGE2MTFjZjA1NzVhNWFjOGYwYzFlNCIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
+   "eyJmaWxsZXIiOjB9",
+   "eyJmaWxsZXIiOjF9",
+   "eyJmaWxsZXIiOjJ9"
+  ],
+  "root": "01572629518039cc4336375652cb79c42d88c0940badfbefdf0245c74abb03bf",
+  "seals": [
+   {
+    "batch_header": {
+     "batch_id": "40ffe33f870c7aa93b004e6c65f4c846059a71c39e229b486dfb93bc8ffc73f7",
+     "closed_at": "2026-11-25T10:48:20Z",
+     "interval_s": 3600,
+     "key_id": "witness:vectors:2026a",
+     "opened_at": "2026-11-25T09:47:40Z",
+     "root": "01572629518039cc4336375652cb79c42d88c0940badfbefdf0245c74abb03bf",
+     "sig": "u+MuervyVA6Copms5wmIpu594o11dAQwqN/4kxVq7f1beBqJdwMdjee9HDjO2/Id4FsNcaQaUIMad3f34sV0AA==",
+     "size": 5,
+     "witness": "witness:vectors"
+    },
+    "leaf_index": 0,
+    "notary": {
+     "anchors": [
+      {
+       "block": 4242,
+       "block_time": "2026-11-25T10:49:20Z",
+       "chain": "base-sepolia",
+       "explorer_url": null,
+       "final": false,
+       "state": "landed",
+       "tx_hash": "0xd3f9be982454a455a00242c6e868029c8af76fe31656dfe09ed4c0e79c787150"
+      }
+     ],
+     "key": "cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+     "over": "sha256:cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+     "profile": "hash/1",
+     "reason": null,
+     "status": "landed"
+    },
+    "path": [
+     "c240fb8fd4361c2599ee74a2e32c1ba9d9d379157f8dad622f8943fb5dfcfbbc",
+     "0a72f366894a7d27999ab6f08688f0f250ecf70001928dff31a8ca0bd6e24251",
+     "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+    ],
+    "state": "anchored"
+   },
+   {
+    "batch_header": {
+     "batch_id": "40ffe33f870c7aa93b004e6c65f4c846059a71c39e229b486dfb93bc8ffc73f7",
+     "closed_at": "2026-11-25T10:48:20Z",
+     "interval_s": 3600,
+     "key_id": "witness:vectors:2026a",
+     "opened_at": "2026-11-25T09:47:40Z",
+     "root": "01572629518039cc4336375652cb79c42d88c0940badfbefdf0245c74abb03bf",
+     "sig": "u+MuervyVA6Copms5wmIpu594o11dAQwqN/4kxVq7f1beBqJdwMdjee9HDjO2/Id4FsNcaQaUIMad3f34sV0AA==",
+     "size": 5,
+     "witness": "witness:vectors"
+    },
+    "leaf_index": 1,
+    "notary": {
+     "anchors": [
+      {
+       "block": 4242,
+       "block_time": "2026-11-25T10:49:20Z",
+       "chain": "base-sepolia",
+       "explorer_url": null,
+       "final": false,
+       "state": "landed",
+       "tx_hash": "0xd3f9be982454a455a00242c6e868029c8af76fe31656dfe09ed4c0e79c787150"
+      }
+     ],
+     "key": "cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+     "over": "sha256:cb80b3258682c28df8dcfa3430fd9f179d79dc2f26e17a1cbb52090b811398bb",
+     "profile": "hash/1",
+     "reason": null,
+     "status": "landed"
+    },
+    "path": [
+     "1a50b28dbb7e83e6836e37fc055b1a9c7828e8019e60b0118d4244bfd928576f",
+     "0a72f366894a7d27999ab6f08688f0f250ecf70001928dff31a8ca0bd6e24251",
+     "e1155fd891f0ba85a3214fc0b8e6a410258bb5742e9d35c2a2f0ca5930b2c9f0"
+    ],
+    "state": "anchored"
+   }
+  ]
+ },
  "templates": [
   {
    "assertion": true,

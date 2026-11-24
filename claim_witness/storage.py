@@ -10,8 +10,15 @@ import os
 import threading
 
 OUTCOMES = ("SUPPORTED", "NOT_SUPPORTED", "CANNOT_WITNESS")
-JOB_FIELDS = ("id", "account", "state", "created_at", "idem_key", "request_sha256", "auto_fp", "http_status", "answer", "error")
+JOB_FIELDS = ("id", "account", "state", "created_at", "idem_key", "request_sha256", "auto_fp", "http_status", "answer", "error",
+              "record_id")
 OBS_FIELDS = ("id", "account", "visibility", "lookup_tag", "fetched_at", "created_at", "envelope", "body_box", "signer", "kept")
+# B3: batches and proofs (SPEC §7.2), kept records with the BD1 custody, the owner index, share tokens
+BATCH_FIELDS = ("id", "first_seq", "last_seq", "size", "root", "header", "notary", "state", "created_at")
+KEPT_FIELDS = ("record_id", "account", "visibility", "method", "outcome", "witnessed_at", "envelope", "wrapped_key", "body_box",
+               "evidence_key_box", "evidence_expires_at", "evidence_deleted_at", "kept_at", "deleted_at", "taken_down_at",
+               "takedown_by", "ndim")
+SHARE_FIELDS = ("token_id", "token_hash", "record_id", "account", "evidence", "created_at", "expires_at", "revoked_at")
 
 
 class Conflict(Exception):
@@ -48,6 +55,33 @@ class Storage:
     def find_observation(self, tags, since): raise NotImplementedError
     def bump_fresh(self, account, day): raise NotImplementedError
     def fresh_count(self, account, day): raise NotImplementedError
+    def set_observation_kept(self, obs_id, kept): raise NotImplementedError
+    def delete_observation(self, obs_id): raise NotImplementedError
+    # B3, the sealer: append_signing_log(..., leaf=H(0x00 || payload)); leaves not yet in a batch; a batch and its proofs
+    def log_has(self, payload_id): raise NotImplementedError
+    def pending_leaves(self, limit, max_seq=None): raise NotImplementedError
+    def write_batch(self, batch, proofs): raise NotImplementedError
+    def update_batch(self, batch_id, **fields): raise NotImplementedError
+    def get_batch(self, batch_id): raise NotImplementedError
+    def batches(self, state=None): raise NotImplementedError
+    def get_seal(self, payload_id): raise NotImplementedError
+    # B3, kept records (BD1): ciphertext and wrapped keys only, the owner index as keyed tokens, share tokens as hashes
+    def put_kept(self, row): raise NotImplementedError
+    def get_kept(self, record_id): raise NotImplementedError
+    def update_kept(self, record_id, **fields): raise NotImplementedError
+    def kept_list(self, account=None, visibility=None): raise NotImplementedError
+    def put_kept_evidence(self, record_id, rows): raise NotImplementedError
+    def get_kept_evidence(self, record_id): raise NotImplementedError
+    def delete_kept_evidence(self, record_id): raise NotImplementedError
+    def put_index(self, record_id, account, tokens): raise NotImplementedError
+    def find_index(self, account, tokens): raise NotImplementedError
+    def delete_index(self, record_id): raise NotImplementedError
+    def put_share(self, row): raise NotImplementedError
+    def get_share(self, token_hash): raise NotImplementedError
+    def shares_of(self, record_id): raise NotImplementedError
+    def update_share(self, token_id, **fields): raise NotImplementedError
+    def delete_shares(self, record_id): raise NotImplementedError
+    def delete_jobs_for_record(self, record_id): raise NotImplementedError
 
 
 OUTPUT_FIELDS = ("record_id", "model", "provider", "served_model", "raw", "created_at", "expires_at")
@@ -59,6 +93,7 @@ class MemoryStorage(Storage):
         self.jobs, self.log, self.agent_keys, self.nonces, self.attempts, self.key_lists = {}, [], {}, {}, [], {}
         self.outputs = []
         self.observations, self.obs_files, self.fresh = {}, {}, {}
+        self.batch_rows, self.seal_rows, self.kept, self.kept_ev, self.index, self.shares = {}, {}, {}, {}, set(), {}
 
     def _changed(self):
         pass
@@ -98,10 +133,11 @@ class MemoryStorage(Storage):
                     return dict(j)
         return None
 
-    def append_signing_log(self, payload_id, predicate_type, at):
+    def append_signing_log(self, payload_id, predicate_type, at, leaf=None):
         with self.lock:
             seq = len(self.log) + 1
-            self.log.append({"seq": seq, "payload_id": payload_id, "predicate_type": predicate_type, "at": int(at)})
+            self.log.append({"seq": seq, "payload_id": payload_id, "predicate_type": predicate_type, "at": int(at), "leaf": leaf,
+                             "batch_id": None})
             self._changed()
             return seq
 
@@ -219,6 +255,168 @@ class MemoryStorage(Storage):
     def fresh_count(self, account, day):
         with self.lock:
             return self.fresh.get((account, int(day)), 0)
+
+
+    def set_observation_kept(self, obs_id, kept):
+        with self.lock:
+            if obs_id in self.observations:
+                self.observations[obs_id]["kept"] = bool(kept)
+                self._changed()
+
+    def delete_observation(self, obs_id):
+        with self.lock:
+            self.observations.pop(obs_id, None)
+            self.obs_files.pop(obs_id, None)
+            self._changed()
+
+    # ------------------------------------------------------------------------------------------------- B3: the sealer
+
+    def log_has(self, payload_id):
+        with self.lock:
+            return any(r["payload_id"] == payload_id for r in self.log)
+
+    def pending_leaves(self, limit, max_seq=None):
+        with self.lock:
+            rows = [dict(r) for r in self.log if r.get("leaf") and r.get("batch_id") is None
+                    and (max_seq is None or r["seq"] <= max_seq)]
+            return rows[:limit]
+
+    def write_batch(self, batch, proofs):
+        with self.lock:
+            by_seq = {r["seq"]: r for r in self.log}
+            if batch["id"] in self.batch_rows or any(by_seq[p["seq"]].get("batch_id") for p in proofs):
+                raise Conflict("a leaf is already in a batch")
+            self.batch_rows[batch["id"]] = copy.deepcopy({k: batch.get(k) for k in BATCH_FIELDS})
+            for p in proofs:
+                by_seq[p["seq"]]["batch_id"] = batch["id"]
+                self.seal_rows.setdefault(p["payload_id"], {"batch_id": batch["id"], "leaf_index": p["leaf_index"],
+                                                            "path": list(p["path"])})
+            self._changed()
+
+    def update_batch(self, batch_id, **fields):
+        with self.lock:
+            self.batch_rows[batch_id].update(copy.deepcopy(fields))
+            self._changed()
+
+    def get_batch(self, batch_id):
+        with self.lock:
+            b = self.batch_rows.get(batch_id)
+            return copy.deepcopy(b) if b else None
+
+    def batches(self, state=None):
+        with self.lock:
+            return [copy.deepcopy(b) for b in self.batch_rows.values() if state is None or b["state"] == state]
+
+    def get_seal(self, payload_id):
+        with self.lock:
+            s = self.seal_rows.get(payload_id)
+            return copy.deepcopy(s) if s else None
+
+    # ------------------------------------------------------------------------------------------------- B3: kept records
+
+    def put_kept(self, row):
+        with self.lock:
+            if row["record_id"] in self.kept:
+                raise Conflict("kept already")
+            self.kept[row["record_id"]] = copy.deepcopy({k: row.get(k) for k in KEPT_FIELDS})
+            self._changed()
+
+    def get_kept(self, record_id):
+        with self.lock:
+            r = self.kept.get(record_id)
+            return copy.deepcopy(r) if r else None
+
+    def update_kept(self, record_id, **fields):
+        with self.lock:
+            for k in fields:
+                if k not in KEPT_FIELDS or k == "record_id":
+                    raise KeyError(k)
+            self.kept[record_id].update(copy.deepcopy(fields))
+            self._changed()
+
+    def kept_list(self, account=None, visibility=None):
+        with self.lock:
+            rows = [copy.deepcopy(r) for r in self.kept.values()
+                    if (account is None or r["account"] == account) and (visibility is None or r["visibility"] == visibility)]
+            return sorted(rows, key=lambda r: (r["kept_at"], r["record_id"]))
+
+    def put_kept_evidence(self, record_id, rows):
+        with self.lock:
+            for r in rows:
+                self.kept_ev[(record_id, r["sha256"])] = bytes(r["box"])
+            self._changed()
+
+    def get_kept_evidence(self, record_id):
+        with self.lock:
+            return [{"sha256": s, "box": b} for (rid, s), b in sorted(self.kept_ev.items()) if rid == record_id]
+
+    def delete_kept_evidence(self, record_id):
+        with self.lock:
+            gone = [k for k in self.kept_ev if k[0] == record_id]
+            for k in gone:
+                del self.kept_ev[k]
+            self._changed()
+            return len(gone)
+
+    def put_index(self, record_id, account, tokens):
+        with self.lock:
+            for t in tokens:
+                self.index.add((record_id, account, t))
+            self._changed()
+
+    def find_index(self, account, tokens):
+        with self.lock:
+            tokens = set(tokens)
+            have = {}
+            for rid, acct, t in self.index:
+                if acct == account and t in tokens:
+                    have.setdefault(rid, set()).add(t)
+            return {rid for rid, ts in have.items() if ts == tokens}
+
+    def delete_index(self, record_id):
+        with self.lock:
+            gone = {x for x in self.index if x[0] == record_id}
+            self.index -= gone
+            self._changed()
+            return len(gone)
+
+    def put_share(self, row):
+        with self.lock:
+            self.shares[row["token_id"]] = {k: row.get(k) for k in SHARE_FIELDS}
+            self._changed()
+
+    def get_share(self, token_hash):
+        with self.lock:
+            for r in self.shares.values():
+                if r["token_hash"] == token_hash:
+                    return dict(r)
+            return None
+
+    def shares_of(self, record_id):
+        with self.lock:
+            return sorted((dict(r) for r in self.shares.values() if r["record_id"] == record_id),
+                          key=lambda r: (r["created_at"], r["token_id"]))
+
+    def update_share(self, token_id, **fields):
+        with self.lock:
+            self.shares[token_id].update(fields)
+            self._changed()
+
+    def delete_shares(self, record_id):
+        with self.lock:
+            gone = [k for k, r in self.shares.items() if r["record_id"] == record_id]
+            for k in gone:
+                del self.shares[k]
+            self._changed()
+            return len(gone)
+
+    def delete_jobs_for_record(self, record_id):
+        with self.lock:
+            gone = [k for k, j in self.jobs.items() if j.get("record_id") == record_id]
+            for k in gone:
+                del self.jobs[k]
+            self._changed()
+            return len(gone)
 
 
 class FileStorage(MemoryStorage):
