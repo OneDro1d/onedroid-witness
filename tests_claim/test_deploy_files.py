@@ -99,7 +99,8 @@ class JudgeManifest(unittest.TestCase):
     def setUp(self):
         text = (h.ROOT / "k8s" / "claim-dev.yaml").read_text()
         self.dep = [d for d in docs(text) if kind_of(d) == "Deployment" and "name: claim-witness" in d][0]
-        self.api, self.signer = self.dep.split('args: ["signer", "serve"]')
+        self.api, rest = self.dep.split('args: ["signer", "serve"]')
+        self.signer = rest.split("      volumes:")[0]  # the signer container alone; the pod's volumes follow it
         self.text = text
 
     def test_api_env_names_the_backend(self):
