@@ -166,6 +166,11 @@ def check_observation(stmt, witness=None):
     _str(p["requested_url"], "requested_url")
     _str(p["final_url"], "final_url")
     _need(stmt["subject"][0]["name"] == p["final_url"], "subject name must be the final URL")
+    _need(stmt["subject"][0]["digest"]["sha256"] == ids.sha256_hex(jcs.canonical(p)),
+          "subject digest must be H(canonical manifest)")
+    _need(p["visibility"] == "public", "visibility")
+    _need(p["platform"] is None or isinstance(p["platform"], dict), "platform: null or an object")
+    _keys(p["fetcher"], ("id", "version", "browser", "viewport"), "fetcher")
     _time(p["fetched_at"], "fetched_at")
     _int(p["fetch_ms"], "fetch_ms")
     _int(p["status"], "status")

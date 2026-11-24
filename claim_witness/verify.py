@@ -3,6 +3,12 @@
 unsealed record), 6 (bundle files and the re-run of a pure-Python method from the tarball pinned by code_sha256) and 7 (the
 agent's signature). Step 4 (the seal) comes with the sealer in S3 and is reported as SKIP.
 
+B2b: an observation envelope (predicateType observation/v1) is verified too: signature, payload canonical, observation id,
+manifest digest (a public observation's subject is H(canonical manifest)), key validity at fetched_at, every file given with
+--evidence against the manifest, and text.canonical.txt recomputed from rendered.html with the tarball's canon/1. A record
+whose evidence is an observation or a URL is not re-run here (the observations come in the bundle with S3), and
+match.screenshot is never re-run by this verifier: "re-run skipped (needs image)".
+
 One module, Python 3.10+ standard library only, importing nothing from its own package, so it can be copied and run alone:
 
     python3 -m claim_witness.verify --envelope answer.json --keys keys.json [--disclosure d.json] [--agent-key a.json]
@@ -31,6 +37,8 @@ import tempfile
 PAYLOAD_TYPE = "application/vnd.in-toto+json"
 STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 CLAIM_TYPE = "https://onedroid.ai/witness/claim/v1"
+OBSERVATION_TYPE = "https://onedroid.ai/witness/observation/v1"
+NEEDS_IMAGE = ("match.screenshot",)
 KEYLIST_TYPE = "https://onedroid.ai/witness/key-list/v1"
 MAX_INT = 2 ** 53 - 1
 
@@ -247,7 +255,8 @@ def outcome_for(finding_class, assertion):
 
 
 def agent_message(witness_id, claim, evidence, nonce, agent_time):
-    refs = sorted([e["sha256"] for e in evidence if e.get("kind") == "object"] + [e["url"] for e in evidence if e.get("kind") == "url"])
+    refs = sorted([e["sha256"] for e in evidence if e.get("kind") == "object"] + [e["url"] for e in evidence if e.get("kind") == "url"]
+                  + [e["id"] for e in evidence if e.get("kind") == "observation"])
     return canonical({"witness_id": witness_id, "claim_id": claim_id(claim), "evidence": refs, "nonce": nonce, "agent_time": agent_time})
 
 
@@ -360,6 +369,12 @@ def _load_methods(tar_bytes):
 def rerun(r, view, files, tar_bytes):
     """Step 6: files are fingerprinted; the method re-runs from the tarball and must give the record's finding."""
     method, claim, evidence = view["method"], view["claim"], view["evidence"]
+    if method["id"] in NEEDS_IMAGE:
+        r.skip("method-rerun", "re-run skipped (needs image)")
+        return
+    if any(e.get("kind") != "object" for e in evidence):
+        r.skip("method-rerun", "the evidence is an observation: its re-run needs the observation files (the bundle, S3)")
+        return
     by_sha = {sha256_hex(b): b for b in files}
     wanted = {e["sha256"] for e in evidence if e.get("kind") == "object"}
     if files:
@@ -401,6 +416,77 @@ def rerun(r, view, files, tar_bytes):
     r.check("method-rerun", not diffs, "; ".join(diffs), f"{method['id']} {m.version} re-ran to {res.finding or res.reason}")
 
 
+def _key_validity(r, entry, kid, at):
+    if entry.get("revoked_at"):
+        r.fail("key-validity", f"key {kid} was revoked at {entry['revoked_at']} ({entry.get('revoke_reason')}); an unsealed "
+                               "payload cannot prove it was signed before that")
+    else:
+        ok = entry.get("valid_from", "") <= at and (entry.get("valid_to") is None or at <= entry["valid_to"])
+        r.check("key-validity", ok, f"{at} is outside the key's validity {entry.get('valid_from')}..{entry.get('valid_to')}",
+                f"{kid} valid at the payload's own time {at} (not proven until sealed)")
+
+
+def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, disclosure=None):
+    """An observation envelope: id, manifest digest, key validity at fetched_at, files, text.canonical.txt."""
+    oid = sha256_hex(raw)
+    r.line(f"observation id: {oid}")
+    sig = (env.get("signatures") or [{}])[0]
+    kid = sig.get("keyid")
+    entry = keys.get(kid) if keys else None
+    if entry is None:
+        r.fail("signature", f"key {kid!r} is not in the key list")
+    else:
+        r.check("signature", _verify_sig(env, kid, base64.b64decode(entry["public"])), f"does not verify with {kid}", f"by {kid}")
+    try:
+        canon_ok = canonical(st) == raw
+    except ValueError:
+        canon_ok = False
+    r.check("payload-canonical", canon_ok, "the payload is not RFC 8785 canonical JSON with integers only")
+    r.check("record-id", expect_id is None or expect_id == oid, f"recomputed {oid}, expected {expect_id}",
+            oid if expect_id is None else "matches the expected id")
+    pred = st["predicate"]
+    subject = st.get("subject", [{}])[0].get("digest", {}).get("sha256")
+    manifest = None
+    if pred.get("visibility") == "public":
+        if r.check("manifest-digest", subject == sha256_hex(canonical(pred)), "the subject digest is not H(canonical manifest)"):
+            manifest = pred
+    elif disclosure is not None:
+        try:
+            salt, body = b64url_decode(disclosure["salt"]), disclosure["body"]
+            if r.check("body-commitment", subject == pred.get("body_commitment") == body_commitment(salt, body),
+                       "the body commitment does not match the disclosure"):
+                manifest = body
+        except (KeyError, TypeError, ValueError) as e:
+            r.fail("body-commitment", f"unreadable disclosure: {e}")
+    else:
+        r.skip("manifest-digest", "private observation and no disclosure given (--disclosure)")
+    r.skip("seal", "pending: this observation is signed by its key; its time is not proven (sealing comes with S3)")
+    if entry is not None:
+        _key_validity(r, entry, kid, pred.get("fetched_at", ""))
+    if manifest is None:
+        return
+    listed = {f["name"]: f["sha256"] for f in manifest.get("files") or []}
+    by_sha = {sha256_hex(b): b for b in files}
+    if files:
+        stray = sorted(x[:12] for x in set(by_sha) - set(listed.values()))
+        r.check("observation-files", not stray, f"file(s) {', '.join(stray)} match no fingerprint in the manifest",
+                f"{len(by_sha)} file(s) match the manifest")
+    else:
+        r.skip("observation-files", "no files given (--evidence)")
+    named = {n: by_sha[h] for n, h in listed.items() if h in by_sha}
+    if tar_bytes is None or "rendered.html" not in named or "text.canonical.txt" not in listed:
+        r.skip("text-canonical", "needs rendered.html (--evidence) and the methods tarball (--methods)")
+        return
+    try:
+        lib = _load_methods(tar_bytes)
+        text = lib.canon.canon1(named["rendered.html"], "text/html", layer="rendered").encode("utf-8")
+    except Exception as e:  # noqa: BLE001
+        r.fail("text-canonical", f"canon/1 from the tarball did not run: {type(e).__name__}")
+        return
+    r.check("text-canonical", sha256_hex(text) == listed["text.canonical.txt"],
+            "canon/1 of rendered.html is not the manifest's text.canonical.txt", "canon/1 of rendered.html is text.canonical.txt")
+
+
 def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None, files=(), tar_bytes=None, expect_id=None):
     r.line("ed25519: " + ("cryptography" if _backend() is not None else "pure-python"))
     kl, keys = check_key_list(r, keys_env, trusted) if keys_env is not None else (None, None)
@@ -412,6 +498,11 @@ def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None,
         pred = st["predicate"]
     except (KeyError, TypeError, ValueError) as e:
         r.fail("payload", f"unreadable envelope payload: {e}")
+        return
+    if st.get("predicateType") == OBSERVATION_TYPE:
+        if env.get("payloadType") != PAYLOAD_TYPE:
+            r.fail("signature", f"payloadType {env.get('payloadType')!r} is not {PAYLOAD_TYPE}")
+        run_observation_checks(r, env, keys, st, raw, list(files), tar_bytes, expect_id, disclosure)
         return
     rid = sha256_hex(raw)
     r.line(f"record id: {rid}")
@@ -521,7 +612,7 @@ def main(argv=None, out=None):
     try:
         env = _read_json(env_path)
         disclosure = _read_json(disc_path) if disc_path else None
-        if isinstance(env, dict) and "envelope" in env:  # a whole POST /v1/witness answer
+        if isinstance(env, dict) and "envelope" in env:  # a whole POST /v1/witness or /v1/observe answer
             disclosure = disclosure or env.get("disclosure")
             env = env["envelope"]
         trusted = bool(a.trust)

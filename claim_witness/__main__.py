@@ -1,8 +1,12 @@
 """python3 -m claim_witness api | signer ... | dev
 
   api      the HTTP API. Env: WITNESS_ID, WITNESS_SIGNER_SOCKET (the signer sidecar's Unix socket), WITNESS_DATABASE_URL
-           (Postgres, migrated on start), WITNESS_ATTEMPT_KEY_FILE, WITNESS_MASTER_KEY_FILE, WITNESS_REDACT_BIN,
-           WITNESS_DEV_KEYS_FILE (optional), WITNESS_CALLER_KEYS_URL (optional), WITNESS_HOST (0.0.0.0), WITNESS_PORT (8080).
+           (Postgres, first connection retried up to WITNESS_DB_START_TIMEOUT_S = 120, then migrated), WITNESS_ATTEMPT_KEY_FILE,
+           WITNESS_MASTER_KEY_FILE, WITNESS_REDACT_BIN, WITNESS_DEV_KEYS_FILE (optional), WITNESS_CALLER_KEYS_URL (optional),
+           WITNESS_HOST (0.0.0.0), WITNESS_PORT (8080). B2b: FETCHER_URL and FETCHER_SECRET_FILE (url evidence),
+           WITNESS_RESOLVERS (1.1.1.1,8.8.8.8), WITNESS_CONFIRM_DELAY_S (60), WITNESS_FREE_OBSERVATIONS_PER_DAY (50),
+           WITNESS_OBSERVATION_PRICE (5), WITNESS_HOST_FETCHES_PER_MINUTE (6), WITNESS_IMAGE_DIGEST and WITNESS_TESSERACT_BIN
+           (match.screenshot).
   signer   the signer sidecar (`signer serve`) and the operator key-list commands (`signer keylist init|rotate|show`); see
            claim_witness/signer.py.
   dev      API and signer in one process for a laptop: memory storage unless WITNESS_DATABASE_URL is set, a throwaway
@@ -29,10 +33,22 @@ def _auth(env):
 
 
 def run_api(env, signer_client, storage, attempt_key, master_key):
-    from . import api, service
+    import shutil
+
+    from . import api, dns, fetcher, service
     cfg = service.Config(witness_id=env.get("WITNESS_ID") or "witness:onedroid", attempt_key=attempt_key, master_key=master_key,
                          redact_bin=(env.get("WITNESS_REDACT_BIN") or "").strip() or None,
-                         rate_per_minute=int(env.get("WITNESS_RATE_PER_MINUTE") or 60))
+                         rate_per_minute=int(env.get("WITNESS_RATE_PER_MINUTE") or 60),
+                         fetcher=fetcher.FetcherClient.from_env(env), resolvers=dns.resolvers_from_env(env),
+                         confirm_delay_s=int(env.get("WITNESS_CONFIRM_DELAY_S") or 60),
+                         free_observations_per_day=int(env.get("WITNESS_FREE_OBSERVATIONS_PER_DAY") or 50),
+                         observation_price=int(env.get("WITNESS_OBSERVATION_PRICE") or 5),
+                         image_digest=(env.get("WITNESS_IMAGE_DIGEST") or "").strip() or None,
+                         tesseract_bin=(env.get("WITNESS_TESSERACT_BIN") or "").strip() or shutil.which("tesseract"),
+                         host_fetches_per_minute=int(env.get("WITNESS_HOST_FETCHES_PER_MINUTE") or 6))
+    print(f"claim-witness: fetcher {'configured' if cfg.fetcher else 'not configured (url evidence answers 503)'}; "
+          f"match.screenshot {'ready' if cfg.image_digest and cfg.tesseract_bin else 'unavailable (needs WITNESS_IMAGE_DIGEST and tesseract)'}",
+          flush=True)
     witness = service.Witness(storage, signer_client, cfg)
     host, port = env.get("WITNESS_HOST") or "0.0.0.0", int(env.get("WITNESS_PORT") or 8080)
     srv = api.make_server(witness, _auth(env), host, port)

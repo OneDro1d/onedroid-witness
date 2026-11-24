@@ -1,4 +1,4 @@
-# claim-witness, slice B1
+# claim-witness, slices B1 and B2b
 
 The single-claim witness (SPEC Draft 3, `.df/missions/M-20261124-CLAIM-WITNESS/SPEC.md` in the claims notepad, plus
 `M-20261124-WITNESS-BUILD/DECISIONS.md` BD1-BD12, which wins where they differ). One claim in, one signed record out. The old
@@ -43,6 +43,114 @@ The single-claim witness (SPEC Draft 3, `.df/missions/M-20261124-CLAIM-WITNESS/S
   sorted, mtime 0, uid/gid 0, no names, gzip mtime 0) and prints its sha256, which is every record's `method.code_sha256` and
   what `GET /v1/methods` reports.
 
+## What B2b adds (branch v1/claim-observe)
+
+Observations of web pages through the fetcher (`claim_fetcher`, branch v1/claim-fetcher, `README_FETCHER.md`), `url` and
+`observation` evidence, and three methods: `page.live`, `match.text`, `match.screenshot`. Also the Postgres start-up retry.
+
+- **Fetcher client** (`claim_witness/fetcher.py`): `POST $FETCHER_URL/v1/capture` with `X-Fetcher-Secret` (from
+  `FETCHER_SECRET_FILE`); reads the tar (`manifest.json` first, every file checked against the manifest). Error codes map to
+  the SPEC reasons: `blocked` (also `scheme`, `port`, `bad-request`), `robots-disallowed`, `timeout`, `too-large`,
+  `unreachable`. The optional partial `manifest` of an error answer is read when present. Fetcher-side failures (busy after
+  two retries, unauthorized, internal, no answer, an answer that does not check out) are `unreachable` with
+  `detail.fetch_error = "fetcher-unavailable"`. A fetch failure is always a signed CANNOT_WITNESS, never a 5xx.
+- **DNS** (`claim_witness/dns.py`): a standard-library UDP client for page.live's "NXDOMAIN from two resolvers"
+  (`WITNESS_RESOLVERS`, default `1.1.1.1,8.8.8.8`).
+- **Storage**: migration `002_observations.sql` (observations, their files, the per-account daily count of fresh
+  observations), the same contract in memory and on Postgres.
+- **Start-up**: `storage.from_env` retries the first Postgres connection with doubling waits (1 s up to 15 s) for at most
+  `WITNESS_DB_START_TIMEOUT_S` (120) seconds, one log line per attempt (never the DSN), then exits. The API and the signer
+  both start through it.
+
+### Observations
+
+`claim_witness/observation.py`, SPEC §2.3 and §2.6.
+
+- The witness computes `text.canonical.txt` itself: canon/1 of `rendered.html` at the rendered layer, so every element the
+  fetcher marked `data-witness-hidden` is left out with its text. A page with no `rendered.html` (not HTML) takes its text
+  from `response.body`. `hidden-nodes.json` is kept as the fetcher wrote it.
+- The manifest is the §2.3 predicate with exactly its fields. `fetcher` is `{id, version, browser, viewport}`. `files` lists
+  `capture.wacz`, `response.body`, `screenshot.png`, `rendered.html`, `hidden-nodes.json` and `text.canonical.txt`, each with
+  `sha256`, `size` and `media_type`. `canonicaliser` is `canon/1`, `platform` is null.
+- Public: subject `[{name: final URL, digest: H(canonical manifest)}]` (the signer refuses any other digest). Private (made for
+  a private claim, or `POST /v1/observe` with `visibility: private`, the default): the payload is `{visibility,
+  body_commitment, fetched_at, fetcher: {id, version}}` and the subject is `observation` with the body commitment.
+- Signed by the signer sidecar as `https://onedroid.ai/witness/observation/v1`; one signing-log row each.
+- Stored in Postgres with its files for 24 h (`observation_ttl`), unless a kept record uses them (S3). A private
+  observation's body and files are sealed (AES-256-GCM under keys derived from the master key, BD1). The reuse lookup is a
+  keyed tag, never the URL in the clear.
+- `POST /v1/observe {url, capture: "page", visibility?, max_age?, wait?}` answers `{observation_id, envelope, seal, reused,
+  price, disclosure?}`; a failed fetch is 422 with the reason as `error`, and nothing is signed.
+  `GET /v1/observations/{id}` (and `/files/{name}`) serves a public observation to anyone and a private one to its account.
+- **`url` evidence**: `{slot, kind: "url", url, capture: "page", max_age?}`. `max_age` (seconds, default 0 = fresh) reuses the
+  newest observation of that URL the reader may see: public ones and, for a private claim, the account's own private ones.
+  A public claim never rests on a private observation. Reuse is free; `max_age` is not in the claim id.
+  In the record the item becomes `{slot, kind: "url", url, capture, observations: [ids]}`, and `relied_on` lists each
+  observation with its signer and `trusted`.
+- **`observation` evidence**: `{slot, kind: "observation", id}` loads one from this witness (same visibility rule, else 422
+  `observation-not-found`), or `{..., envelope, key_list?, files?}` checks it under the Evidence-trust rule: a bad signature,
+  an unknown signer, an id that is not the payload's hash, a bad manifest digest or a file that does not match the manifest
+  gives `evidence-untrusted`, and nothing is fetched. A valid observation from another witness (its key list sent with it) is
+  outside the trust list: used only with `options.accept_untrusted: true`, recorded in `options_used`, `trusted: false`.
+- **Price** (BD3): beside the envelope, never signed: `price: {credits, fresh_observations, reused_observations,
+  free_left_today}`. Each account has 50 free fresh observations per UTC day (`WITNESS_FREE_OBSERVATIONS_PER_DAY`), then 5
+  credits each (`WITNESS_OBSERVATION_PRICE`); a reused observation is free. `/v1/methods` publishes both numbers.
+
+### page.live
+
+Params `{url}`, slot `page` (`url`, capture `page`; its url is `params.url`). T: "{url} was live when observed at
+{fetched_at}." F: "{url} was not live when observed at {fetched_at}."
+
+- `live` (+): a 2xx answer with at least one visible character of `text.canonical.txt`. detail `{status, text_chars}`.
+- `not-live` (−): 404 or 410 on the exact URL (no redirects), or NXDOMAIN (the fetcher's `host-not-found`) from both
+  resolvers, each confirmed by a second fetch at least `WITNESS_CONFIRM_DELAY_S` (60) seconds after the first. The job sleeps
+  meanwhile, so the caller has a 202 and polls `GET /v1/jobs/{id}`. detail `{status | dns: "nxdomain", resolvers,
+  confirm_after_s}`.
+- No finding: 401, 403, 407, 429, 451 and challenge pages (`blocked`); 5xx, other statuses, a 404 after a redirect and a
+  resolver that finds the name (`unreachable`); a fetcher refusal (its reason, with `detail.fetch_error`, and
+  `detail.redirects` / `detail.robots` from a partial manifest); a 2xx with no visible text (`unreadable`); a first answer the
+  second fetch does not confirm (`undecided`, with `detail.confirm_status`).
+
+### match.text
+
+Slots `submitted` (object) and `page` (url or observation). SPEC §9.3, `claim_witness/methods/match_text.py`.
+
+- A `text/html` submission is compared first with the response layer (canon/1 of `response.body`, no render marks), then, if
+  that does not match, with the rendered layer (`text.canonical.txt`). Other text is compared with the rendered layer only.
+- Rungs: `exact` (sha256 equal to `response.body`, resp. `text.canonical.txt` or `rendered.html`), `canonical`, `similar`
+  (≥ T), `differs` (< F, `detail.first_diff_token`), `undecided` (between). detail: `layer`, `rung`, `similarity_bp`,
+  `submitted_tokens`, `page_tokens`, `T_bp`, `F_bp`. Over 50,000 tokens: `too-large`.
+- **T = 9700, F = 9600** basis points for 1.0.0, from the calibration set `tests_claim/fixtures/calibration/` (`build.py`
+  writes `cases.json`): 20 honest copies (script-rendered pages, CSS-hidden menus, saved HTML, static text with typographic
+  changes) scored 9765 to 9967 at the deciding layer; 20 one-paragraph forgeries scored 6666 to 9387. T sits under the lowest
+  honest copy and F above the highest forgery. Published in `/v1/methods` (`thresholds`) and in the vectors.
+- A page that did not answer 2xx, or a challenge page, gives no finding (`unreachable` / `blocked`).
+
+### match.screenshot
+
+Slots `submitted` (an image object, so private claims only: VR-21 refuses images on public claims) and `page`.
+
+- OCR: `tesseract stdin stdout -l eng --psm 3` (`tesseract-ocr` and `tesseract-ocr-eng` in `Dockerfile.claim`,
+  `WITNESS_TESSERACT_BIN`), then canon/1. The OCR tokens are compared with the span of the page's tokens they line up with
+  (a screenshot shows part of a page): `consistent` (≥ T = 8500), `differs` (< F = 6500), else `undecided`; no text read is
+  `unreadable`.
+- `method.code_sha256` is the image digest from `WITNESS_IMAGE_DIGEST` (`sha256:<hex>`; the orchestrator sets it at
+  rollout, `IMAGE_DIGEST_PLACEHOLDER` in the manifest), `runtime` is `python3.12+tesseract-<version>`. Without the digest or
+  Tesseract the method answers 503 `ocr-unavailable` and signs nothing. witness-verify prints `SKIP method-rerun: re-run
+  skipped (needs image)`.
+
+### Running B2b locally with the real fetcher
+
+```
+git -C <repo> archive --format=tar -o /tmp/f.tar v1/claim-fetcher      # read-only export
+mkdir /tmp/f; tar -xf /tmp/f.tar -C /tmp/f
+uv venv --python 3.12 /tmp/f-venv; uv pip install --python /tmp/f-venv/bin/python -r /tmp/f/requirements-fetcher.txt
+/tmp/f-venv/bin/python -m playwright install chromium
+FETCHER_SECRET_FILE=/tmp/fsecret FETCHER_PORT=8090 PYTHONPATH=/tmp/f /tmp/f-venv/bin/python -m claim_fetcher
+FETCHER_URL=http://127.0.0.1:8090 FETCHER_SECRET_FILE=/tmp/fsecret WITNESS_DEV_KEYS_FILE=/tmp/dev-keys.json \
+  WITNESS_REDACT_BIN=/tmp/redact-copy .venv/bin/python -m claim_witness dev
+```
+
 ## Running the tests
 
 ```
@@ -55,7 +163,8 @@ python3 -m venv .venv                       # once; .venv/ is gitignored
 `tests_claim/test_storage.py` runs the storage contract against real Postgres 16: a throwaway cluster from `initdb` and
 `pg_ctl` on PATH, from `WITNESS_TEST_PG_BIN`, or from the `pgserver` wheel's binaries; it is skipped only when none exists.
 `tests_claim/test_screen.py` builds the real `tools/redact-copy` with Go when Go is installed. Nothing in the suite uses the
-network.
+network: `tests_claim/fakefetch.py` is a local HTTP server speaking the fetcher API (prepared tars), and the end-to-end
+tests run through the real witness API against it, on memory and on Postgres.
 
 ## Running it locally
 
@@ -88,7 +197,9 @@ Verify an answer offline: `python3 -m claim_witness.verify --envelope answer.jso
 `k8s/claim-dev.yaml`, namespace witness-dev: StatefulSet `claim-pg` (`pgvector/pgvector:pg16`, PVC from
 `volumeClaimTemplates`), Deployment `claim-witness` (container `api`, args `["api"]`, and container `signer`, args
 `["signer", "serve"]`, sharing an in-memory emptyDir at `/run/claim-witness` for the socket), Service `claim-witness`
-(port 80 to 8080 only). Replace `IMAGE_PLACEHOLDER` with the image built from `Dockerfile.claim`.
+(port 80 to 8080 only). Replace `IMAGE_PLACEHOLDER` with the image built from `Dockerfile.claim` and
+`IMAGE_DIGEST_PLACEHOLDER` with that image's digest (`sha256:...`, match.screenshot's `code_sha256`). The api container
+reaches the fetcher at `FETCHER_URL=http://claim-fetcher.witness-dev.svc.cluster.local`.
 
 ## Secrets
 
@@ -101,6 +212,7 @@ delete the files afterwards. Values on hosted come from Key Vault `kv-pww-poland
 | `claim-witness-attempt-key` | `key` | api, `/etc/claim-witness/attempt/key` | base64 of 32 random bytes, the HMAC key of the attempt table |
 | `claim-witness-master-key` | `key` | api, `/etc/claim-witness/master/key` | base64 of 32 random bytes, wraps stored job answers (BD1) |
 | `claim-witness-dev-keys` | `dev-keys.json` | api, `/etc/claim-witness/dev-keys/` | `{"<api key, 16+ chars>": "<account id>", ...}` (dev only, BD8) |
+| `claim-fetcher-secret` | `secret` | api, `/etc/claim-witness/fetcher/secret` (and the claim-fetcher Deployment) | the fetcher's shared secret (B2a creates it) |
 | `claim-pg-credentials` | `username`, `password`, `database`, `url` | claim-pg (first three), api and signer (`url`) | `url` = `postgresql://<username>:<password>@claim-pg.witness-dev.svc.cluster.local:5432/<database>` |
 
 ```
@@ -192,3 +304,57 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     JSON nor multipart is 400 `malformed` (SPEC §3 lists no 415).
 20. **The rate ceiling** is `WITNESS_RATE_PER_MINUTE` (default 60), so a holdout run from one account can be given room
     without a code change.
+
+### B2b builder decisions
+
+21. **One RED test fix**, in its own commit (no test removed): B1's `test_methods_registry_with_tarball_digest` pinned the
+    registry to exactly the three B1 methods; it now asks for those three among the methods.
+22. **Fetcher failures are records.** Every fetcher error code maps to a SPEC reason (`scheme`, `port` and `bad-request` are
+    `blocked`); the fetcher's own failures (busy after two retries, 401, 500, no answer, a tar whose files do not match its
+    manifest) are `unreachable` with `detail.fetch_error = "fetcher-unavailable"`, and an HTTP timeout talking to the fetcher
+    is `timeout`. The one 5xx is a witness with no `FETCHER_URL` at all: 503 `fetcher-not-configured`, nothing signed (a
+    configuration error, not a fetch failure).
+23. **The partial manifest** of an error answer goes into the record as counts and enums only: `detail.redirects` (how many)
+    and `detail.robots`. Its URLs and addresses are never signed (`detail` holds no evidence text).
+24. **URL validation** (422 `invalid-params` / `invalid-evidence`): an absolute http(s) URL with a host, at most 4,096
+    characters, NFC, no spaces. Ports, credentials and private addresses are the fetcher's to refuse, which gives a signed
+    `blocked`.
+25. **The signed manifest** keeps the §2.3 fields only (the fetcher's `user_agent` and `isolation` are dropped). It lists
+    `rendered.html` too, so `text.canonical.txt` can be recomputed by anyone. No `phash` is computed for the screenshot yet.
+26. **Record evidence for a url item** is `{slot, kind: "url", url, capture, observations: [ids]}`: the requested URL stays,
+    because the agent signature and the attempt tag are over requested URLs (§2.4, §7.3). `observations` holds one id, two
+    for a confirmed page.live, none when every fetch failed. `max_age` is not recorded.
+27. **Agent signature and attempt tag** cover object sha256s, requested URLs and the ids of observation evidence (sorted);
+    witness-verify computes the same.
+28. **Visibility of observations.** A public claim reuses or names public observations only; a private claim also the
+    account's own private ones. Anything else by id is 422 `observation-not-found`. Reuse needs the files (24 h), re-checks
+    the stored envelope's signature, and is free. An identical payload (the same capture in the same second) is stored once.
+29. **Private observations** made inside a private claim are not disclosed separately: the owner reads them with
+    `GET /v1/observations/{id}` (the witness holds the body sealed, BD1). `POST /v1/observe` returns `disclosure` once.
+30. **page.live details**: not-live needs the exact URL (no redirects); a 404 after a redirect is `unreachable`. A first
+    "gone" that the second fetch does not confirm is `undecided`. The second fetch never reuses. The wait runs inside the
+    job thread (a restart loses that job; it stays `running` until purged). The configured delay is passed to the method as
+    the minimum, so tests can run it at 5 s. 401/403/407/429/451 and challenge markers (Cloudflare, Incapsula,
+    PerimeterX, DataDome, "please verify you are a human") are `blocked`; a 2xx with no visible text is `unreadable`.
+31. **NXDOMAIN** comes from the fetcher's `host-not-found` detail and is confirmed by asking every configured resolver
+    (default two) on both attempts; all must say NXDOMAIN. No observation exists for it (the fetcher captured nothing).
+32. **match.text** compares the submission's canon/1 text at the response layer (no render marks) with each layer. A
+    too-large response layer moves on to the rendered layer. `detail` carries `T_bp` and `F_bp` so a record reads alone.
+    Global similarity cannot see a small edit in a very long page; T and F were set so that the calibration forgeries
+    differ and the honest copies match, with a narrow undecided band.
+33. **match.screenshot** compares OCR tokens with the aligned window of the page's tokens. T = 8500 and F = 6500 are
+    provisional: Tesseract was not installed where B2b was built, so OCR noise was not measured (the tests use a stand-in
+    binary with the same command line). Recalibrate in the image before relying on it.
+34. **Evidence trust.** This witness's keys come from its own key lists only. A key list sent with a foreign envelope must
+    verify (its own signatures, its subject digest) and must name another witness; its observations are valid but untrusted
+    (the trust list holds witness ids, no pinned keys yet), so they count only with `accept_untrusted`. A foreign private
+    observation is `unreadable`; so is a trusted observation whose files are gone.
+35. **Price** is reported beside the envelope when the evidence includes a url or an observation: observation credits only.
+    Every fresh fetch that produced a signed observation counts, the page.live confirmation included; failed fetches and
+    reuse are free. BD3's 1 credit per mechanical check is left to the BFF (B4), which knows the method.
+36. **Host limit**: at most `WITNESS_HOST_FETCHES_PER_MINUTE` (6) fetches a minute per target host; a job over it waits.
+    SPEC §8's 20 fresh observations a minute per account is not enforced yet (the 60 checks a minute ceiling is).
+37. **witness-verify** also verifies observation envelopes (id, manifest digest, key validity at `fetched_at`, files,
+    `text.canonical.txt` recomputed with the tarball's canon/1). It does not re-run a record whose evidence is an observation
+    (the bundle with the observations comes in S3), and never match.screenshot: "re-run skipped (needs image)".
+38. **`methods/__init__.py` imports `canon` itself**, so the tarball package exposes it even when loaded twice in one process.

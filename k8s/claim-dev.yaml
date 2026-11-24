@@ -1,4 +1,4 @@
-# claim-witness slice B1 on the DEV cluster, namespace witness-dev (DECISIONS BD6, BD7), beside the old onedroid-witness until
+# claim-witness slices B1 and B2b on the DEV cluster, namespace witness-dev (DECISIONS BD6, BD7), beside the old onedroid-witness until
 # B8. The orchestrator sets the image at rollout time (IMAGE_PLACEHOLDER). Secrets are referenced by NAME only; how to create
 # each one is in README_CLAIM.md, "Secrets". Nothing here holds a secret value.
 #
@@ -101,11 +101,20 @@ spec:
             # BD8: set WITNESS_CALLER_KEYS_URL to the BFF's published service key list once its /bff/v1/witness routes exist;
             # unset, only the dev keys above are accepted.
             - {name: WITNESS_PORT, value: "8080"}
+            # B2b: the page fetcher (Deployment claim-fetcher, k8s/fetcher-dev.yaml) and its shared secret: Secret
+            # claim-fetcher-secret, key `secret`, mounted read-only at /etc/claim-witness/fetcher (volume fetcher-secret)
+            - {name: FETCHER_URL, value: "http://claim-fetcher.witness-dev.svc.cluster.local"}
+            - {name: FETCHER_SECRET_FILE, value: /etc/claim-witness/fetcher/secret}
+            # match.screenshot's code_sha256: the digest of this image (sha256:...), set by the orchestrator at rollout
+            - {name: WITNESS_IMAGE_DIGEST, value: "IMAGE_DIGEST_PLACEHOLDER"}
+            - {name: WITNESS_RESOLVERS, value: "1.1.1.1,8.8.8.8"}
+            - {name: WITNESS_CONFIRM_DELAY_S, value: "60"}
           volumeMounts:
             - {name: socket, mountPath: /run/claim-witness}
             - {name: attempt-key, mountPath: /etc/claim-witness/attempt, readOnly: true}
             - {name: master-key, mountPath: /etc/claim-witness/master, readOnly: true}
             - {name: dev-keys, mountPath: /etc/claim-witness/dev-keys, readOnly: true}
+            - {name: fetcher-secret, mountPath: /etc/claim-witness/fetcher, readOnly: true}
           readinessProbe:
             httpGet: {path: /healthz, port: 8080}
             initialDelaySeconds: 3
@@ -154,6 +163,9 @@ spec:
           secret: {secretName: claim-witness-master-key, defaultMode: 0440}
         - name: dev-keys
           secret: {secretName: claim-witness-dev-keys, defaultMode: 0440}
+        # the fetcher's shared secret (the same Secret the claim-fetcher Deployment reads), key `secret`
+        - name: fetcher-secret
+          secret: {secretName: claim-fetcher-secret, defaultMode: 0440, items: [{key: secret, path: secret}]}
 ---
 apiVersion: v1
 kind: Service

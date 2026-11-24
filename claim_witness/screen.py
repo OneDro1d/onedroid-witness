@@ -153,6 +153,7 @@ class Screener:
         if statement:
             texts.append(statement)
         texts += [e["name"] for e in evidence if isinstance(e.get("name"), str)]
+        texts += [e["url"] for e in evidence if e.get("kind") == "url" and isinstance(e.get("url"), str)]
         rules = set()
         for t in texts:
             rules.update(personal_data_hits(t))
