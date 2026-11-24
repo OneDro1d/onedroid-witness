@@ -4,3 +4,4 @@ keys/
 jobs/
 ledger.json
 *.tmp
+.venv/
