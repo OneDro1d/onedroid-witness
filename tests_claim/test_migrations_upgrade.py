@@ -44,14 +44,16 @@ class MigrationUpgrade(unittest.TestCase):
 
     def test_the_sequence_is_ordered_and_numbered_once(self):
         names = sorted(f.name for f in MIGRATIONS.glob("*.sql"))
-        self.assertEqual(names, ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql"])
+        self.assertEqual(names, ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql",
+                         "005_ndim_chains.sql"])
         self.assertEqual(len({n.split("_")[0] for n in names}), len(names), "no two files share a number")
 
     def test_fresh_database_gets_all_three(self):
         st = pg.PostgresStorage(self.database([]))
         st.migrate()
         st.migrate()
-        self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql"])
+        self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql",
+                         "005_ndim_chains.sql"])
         self.assertTrue({"jobs", "judge_outputs", "observations", "observation_files", "fresh_observations"} <= self.tables(st))
 
     def test_dev_database_at_001_and_002_judge_upgrades_and_keeps_its_rows(self):
@@ -64,7 +66,8 @@ class MigrationUpgrade(unittest.TestCase):
         st.add_judge_output({"record_id": "r" * 64, "model": "acme/judge-1", "provider": "acme", "served_model": "acme/judge-1-x",
                              "raw": "{}", "created_at": 1000, "expires_at": 1000 + 86400})
         st.migrate()
-        self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql"])
+        self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql",
+                         "005_ndim_chains.sql"])
         self.assertEqual(st.get_job("j" * 32)["answer"], b"\x01sealed")
         self.assertEqual(len(st.judge_outputs(record_id="r" * 64)), 1)
         st.put_observation({"id": "o" * 64, "account": "acct_a", "visibility": "public", "lookup_tag": "t", "fetched_at": 1000,
@@ -72,7 +75,8 @@ class MigrationUpgrade(unittest.TestCase):
         self.assertEqual(st.get_observation_files("o" * 64), {"text.canonical.txt": b"x"})
         self.assertEqual(st.bump_fresh("acct_a", 20000), 1)
         st.migrate()  # idempotent after the upgrade
-        self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql"])
+        self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "003_observations.sql", "004_keep.sql",
+                         "005_ndim_chains.sql"])
 
     def test_database_from_the_b2b_branch_upgrades_too(self):
         # B2b's branch named the observations file 002_observations.sql; its SQL is the same as 003_observations.sql
@@ -81,7 +85,7 @@ class MigrationUpgrade(unittest.TestCase):
                             "created_at": 1, "envelope": {"payload": "e30"}, "signer": "w:k"}, {"a": b"a"})
         st.migrate()
         self.assertEqual(st.applied_migrations(), ["001_init.sql", "002_judge.sql", "002_observations.sql", "003_observations.sql",
-                                                   "004_keep.sql"])
+                                                   "004_keep.sql", "005_ndim_chains.sql"])
         self.assertEqual(st.get_observation("p" * 64)["id"], "p" * 64)
         self.assertIn("judge_outputs", self.tables(st))
 
