@@ -1,6 +1,7 @@
 """The witness method library (SPEC §4): match.exact, quote.in-source, tests.pass (B1); judge.supports (B6: its pure part
 here, its model calls in claim_witness/judge.py); page.live, match.text, match.screenshot (B2b); post.by-author (B5a, Bluesky:
-it reads the platform fields of a `capture: post` observation, post_by_author.py).
+it reads the platform fields of a `capture: post` observation, post_by_author.py); record.valid and record.disclose (B5b:
+they read kept records: record_valid.py, record_disclose.py, recordcheck.py).
 
 Pure functions over bytes, standard library only, relative imports only: this package is published as the reproducible
 tarball witness-methods-<LIBRARY_VERSION>.tar.gz whose sha256 is every method's `code_sha256` (SPEC §9.4), and
@@ -16,10 +17,10 @@ import urllib.parse
 import unicodedata
 
 from . import (canon, judge_supports, match_exact, match_screenshot, match_text, page_live, post_by_author,  # noqa: F401
-               quote_in_source, tests_pass)
+               quote_in_source, record_disclose, record_valid, recordcheck, tests_pass)
 from .result import Result
 
-LIBRARY_VERSION = "1.4.0"
+LIBRARY_VERSION = "1.5.0"
 POSITIVE, NEGATIVE, NEUTRAL = "positive", "negative", "neutral"
 HEX_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_QUOTE = 4000
@@ -194,6 +195,18 @@ METHODS = {
          "signature-unverifiable": NEUTRAL, "handle-unresolved": NEUTRAL},
         "Proves which account key or platform account published the post, not who controls the account. The post time is the "
         "author's own claim.", post_by_author.run, _handle_params, determinism="observed"),
+    "record.valid": Method(
+        "record.valid", 1, "1.0.0", NO_PARAMS, {"record": ("record",), "key_list": ("object",)},
+        {True: "Record {id} is validly signed under key list {key_list_sha} and sealed.",
+         False: "Record {id} is not validly signed under key list {key_list_sha} and sealed."},
+        {"record-valid": POSITIVE, "record-invalid": NEGATIVE},
+        "Checks signature, key validity and seal under the given key list only, not the record's content.",
+        record_valid.run, _no_params),
+    "record.disclose": Method(
+        "record.disclose", 1, "1.0.0", NO_PARAMS, {"record": ("record",), "disclosure": ("object",)},
+        {True: "Record {id}, sealed at {anchor_time}, had the content shown here.", False: None},
+        {"disclosed": POSITIVE},
+        "Publishes an earlier private record unchanged. No new check was made.", record_disclose.run, _no_params),
 }
 
 

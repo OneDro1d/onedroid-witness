@@ -555,6 +555,13 @@ class Records:
                 if o["visibility"] == "private":
                     data = crypto.open_box(self.w.cfg.master_key, f"observation/{o['id']}/{name}", data)
                 files[base + "files/" + name] = data
+        # B5b: the record a record.valid or record.disclose names: its envelope (commitments only if private) and its seal as now
+        for r in (view or {}).get("evidence") or []:
+            if isinstance(r, dict) and r.get("kind") == "record" and isinstance(r.get("id"), str):
+                o = st.get_kept(r["id"])
+                if o is not None and (o["taken_down_at"] is None or o["account"] == row["account"]):
+                    files[f"records/{o['record_id']}/envelope.json"] = json.dumps(o["envelope"], indent=1).encode()
+                    files[f"records/{o['record_id']}/seal.json"] = json.dumps(self.w.sealer.seal_view(o["record_id"]), indent=1).encode()
         files[tarball.tarball_name()] = tarball.build_methods_tarball()
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w", format=tarfile.USTAR_FORMAT) as tf:

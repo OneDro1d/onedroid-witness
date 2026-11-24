@@ -353,7 +353,75 @@ def generate():
     doc["observation"] = _observation_vectors()
     doc["envelope"] = _record_envelopes()
     doc["seal"] = _seal_vectors(doc["envelope"])
+    doc["record_methods"] = _record_method_vectors(doc["envelope"], doc["seal"])
     return doc
+
+
+def _flip_payload(env):
+    raw = bytearray(base64.b64decode(env["payload"]))
+    raw[raw.index(b"SUPPORTED")] ^= 0x01  # still canonical JSON: only the signature can notice
+    return dict(env, payload=_b64(bytes(raw)))
+
+
+def _record_method_vectors(envelopes, sv):
+    """B5b: record.valid and record.disclose over the public and the private vector record and their anchored seal (and a pending
+    one), under the vector key list, a list without the signer, a list that revokes the key before the anchor, and bytes that
+    are no key list; each with its finding, outcome and statement. Both sides re-run them (witness and tarball)."""
+    from .. import crypto, jcs, methods, record, signer, storage
+    pub, priv = envelopes
+    seals = {"anchored": sv["seals"][0], "pending": {"state": "pending"}}
+    clock = _Clock(T0)
+    kl1 = json.dumps(pub["key_list"]).encode()
+    other = signer.keylist_init(storage.MemoryStorage(), hashlib.sha256(b"vector-other-key").digest(), "witness:vectors:other",
+                                WITNESS_ID, clock=clock)
+    st = storage.MemoryStorage()
+    signer.keylist_init(st, SEED, KEY_ID, WITNESS_ID, clock=clock)
+    clock.t = T0 + 120
+    revoked = signer.keylist_rotate(st, SEED, KEY_ID, hashlib.sha256(b"vector-next-key").digest(), "witness:vectors:2026b",
+                                    WITNESS_ID, clock=clock, revoke_reason="vector revocation")
+    bad = {"salt": priv["disclosure"]["salt"], "body": dict(priv["disclosure"]["body"], statement="edited")}
+    disclosure = json.dumps(priv["disclosure"], sort_keys=True).encode()
+    cases = []
+
+    def valid(name, env, seal, kl, assertion=True):
+        cases.append({"name": name, "method": "record.valid", "assertion": assertion,
+                      "record": {"id": jcs_id(env), "envelope": env, "seal": seal}, "objects": [_obj("key_list", kl, "application/json", "keys.json")]})
+
+    def disclose(name, env, seal, data):
+        cases.append({"name": name, "method": "record.disclose", "assertion": True,
+                      "record": {"id": jcs_id(env), "envelope": env, "seal": seal}, "objects": [_obj("disclosure", data, "application/json", "d.json")]})
+
+    def jcs_id(env):
+        return hashlib.sha256(base64.b64decode(env["payload"])).hexdigest()
+
+    valid("public, anchored", pub["envelope"], seals["anchored"], kl1)
+    valid("public, anchored, assertion false", pub["envelope"], seals["anchored"], kl1, False)
+    valid("private envelope, anchored", priv["envelope"], sv["seals"][1], kl1)
+    valid("public, seal pending", pub["envelope"], seals["pending"], kl1)
+    valid("public, one payload byte flipped", _flip_payload(pub["envelope"]), seals["anchored"], kl1)
+    valid("public, key list without the signer", pub["envelope"], seals["anchored"], json.dumps(other).encode())
+    valid("public, key revoked before the anchor", pub["envelope"], seals["anchored"], json.dumps(revoked).encode())
+    valid("public, key list unreadable", pub["envelope"], seals["anchored"], b"not a key list")
+    disclose("private, anchored, matching", priv["envelope"], sv["seals"][1], disclosure)
+    disclose("private, anchored, body edited", priv["envelope"], sv["seals"][1], json.dumps(bad, sort_keys=True).encode())
+    disclose("private, seal pending", priv["envelope"], seals["pending"], disclosure)
+    disclose("public record", pub["envelope"], seals["anchored"], disclosure)
+    out = []
+    for c in cases:
+        res = _run_record_method(methods, crypto.ed25519_verify, c)
+        out.append(dict(c, finding=res.finding, reason=res.reason, detail=res.detail,
+                        outcome=record.outcome_for(methods.finding_class(c["method"], res.finding), c["assertion"]),
+                        statement=methods.render_statement(c["method"], c["assertion"], res.vars),
+                        limits=methods.get(c["method"]).limits))
+    return out
+
+
+def _run_record_method(mod, ed25519_verify, c):
+    ev = {o["slot"]: {"slot": o["slot"], "kind": "object", "sha256": o["sha256"], "media_type": o["media_type"], "name": o["name"],
+                      "data": base64.b64decode(o["data_b64"])} for o in c["objects"]}
+    ev["record"] = {"slot": "record", "kind": "record", "id": c["record"]["id"], "envelope": c["record"]["envelope"],
+                    "seal": c["record"]["seal"], "ed25519_verify": ed25519_verify}
+    return mod.run(c["method"], {}, ev)
 
 
 SEAL_FILLERS = [{"filler": i} for i in range(3)]
@@ -430,7 +498,7 @@ def _run_witness(mid, params, ev):
 
 def check(doc, out):
     """Every vector against the witness and against witness-verify; returns the number of failures."""
-    from .. import attempts, canon, dsse, ids, jcs, methods, record, tarball, verify
+    from .. import attempts, canon, crypto, dsse, ids, jcs, methods, record, tarball, verify
     fails, n = [], 0
 
     def expect(name, got, want):
@@ -478,6 +546,26 @@ def check(doc, out):
             for k in got:
                 expect(f"{name} {side} {k}", got[k], v[k])
     _check_judge(doc, lib, expect, verify.outcome_for)
+    for i, v in enumerate(doc.get("record_methods") or []):
+        name = f"record_methods[{i}] {v['method']} ({v['name']})"
+        for side, mod, ed, outcome_for in (("witness", methods, crypto.ed25519_verify, record.outcome_for),
+                                           ("tarball", lib, verify.ed25519_verify, verify.outcome_for)):
+            res = _run_record_method(mod, ed, v)
+            got = {"finding": res.finding, "reason": res.reason, "detail": res.detail,
+                   "outcome": outcome_for(mod.finding_class(v["method"], res.finding), v["assertion"]),
+                   "statement": mod.render_statement(v["method"], v["assertion"], res.vars), "limits": mod.get(v["method"]).limits}
+            for k in got:
+                expect(f"{name} {side} {k}", got[k], v[k])
+        if v["method"] == "record.valid" and v["reason"] != "unreadable":
+            # witness-verify reaches the same verdict on the same inputs: a FAIL line exactly when the record is invalid
+            buf = io.StringIO()
+            key_list = json.loads(base64.b64decode(v["objects"][0]["data_b64"]))
+            verify.run_checks(verify.Report(buf), v["record"]["envelope"], key_list, False, None, None, [], None, v["record"]["id"],
+                              v["record"]["seal"])
+            expect(f"{name} witness-verify agrees", any(x.startswith("FAIL") for x in buf.getvalue().splitlines()),
+                   v["finding"] == "record-invalid")
+    for i, c in enumerate(JCS_CASES):
+        expect(f"jcs[{i}] tarball recordcheck", lib.recordcheck.canonical(c).decode("utf-8"), jcs.canonical(c).decode("utf-8"))
     for mid, th in (doc.get("thresholds") or {}).items():
         expect(f"thresholds {mid} witness", methods.get(mid).thresholds, th)
         expect(f"thresholds {mid} tarball", lib.get(mid).thresholds, th)

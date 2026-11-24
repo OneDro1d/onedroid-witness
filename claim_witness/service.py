@@ -37,7 +37,7 @@ import urllib.parse
 from . import (attempts, crypto, dsse, ids, jcs, judge as judge_mod, methods, observation, ocr, record, screen,
                signer as signer_mod, tarball)
 from .fetcher import FetchFailed
-from .methods import judge_supports, page_live, post_by_author
+from .methods import judge_supports, page_live, post_by_author, recordcheck
 from .methods.result import Result
 from .schemas import CLAIM_TYPE, KEYLIST_TYPE, OBSERVATION_TYPE
 from .storage import Conflict
@@ -59,6 +59,7 @@ OBJECT_KEYS = {"slot", "kind", "sha256", "media_type", "name", "content_b64"}
 AGENT_KEYS = {"agent_key_id", "agent_sig", "nonce", "agent_time"}
 OPTION_KEYS = {"keep", "visibility", "keep_evidence_days", "allow_provider", "accept_untrusted", "panel", "wait", "models"}
 URL_ITEM_KEYS = {"slot", "kind", "url", "capture", "max_age"}
+RECORD_ITEM_KEYS = {"slot", "kind", "id"}
 OBS_ITEM_KEYS = {"slot", "kind", "id", "envelope", "key_list", "files"}
 OBSERVE_KEYS = {"url", "capture", "handle", "visibility", "max_age", "wait"}
 FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -137,7 +138,7 @@ def _text_ok(s, max_len):
 class Prepared:
     """A validated request: everything the job needs."""
     __slots__ = ("account", "claim", "method", "label", "evidence", "objects", "options", "agent", "agent_row", "request_sha256",
-                 "auto_fp", "idem_key", "models", "given_files", "given_rows")
+                 "auto_fp", "idem_key", "models", "given_files", "given_rows", "record_rows", "disclosure", "disclosed_texts")
 
 
 class HostLimit:
@@ -356,6 +357,7 @@ class Witness:
         p = self.prepare(account, body, parts or {})
         p.request_sha256, p.idem_key = req_sha, idem_key
         self._resolve_ids(p)
+        self._resolve_records(p)
         if p.options["visibility"] == "public":
             self._screen(p, statement=None)
         self._require_services(p)
@@ -455,7 +457,7 @@ class Witness:
         else:  # BD2 replaces §5.6's panel: the record says how many models ran and how many had to agree
             options_used = {"accept_untrusted": p.options["accept_untrusted"], "allow_provider": p.options["allow_provider"],
                             "models": dict(p.models)}
-        objs = [e["sha256"] for e in p.evidence if e["kind"] == "object"] + [e["id"] for e in p.evidence if e["kind"] == "observation"]
+        objs = [e["sha256"] for e in p.evidence if e["kind"] == "object"] + [e["id"] for e in p.evidence if e["kind"] in ("observation", "record")]
         urls = [e["url"] for e in p.evidence if e["kind"] == "url"]
         tag = attempts.attempt_tag(self.cfg.attempt_key, p.claim, objs, urls, m.id, p.account)
         code, runtime = self._code_of(m)
@@ -476,7 +478,7 @@ class Witness:
                 if text is not None:
                     self.storage.add_judge_output({"record_id": rid, "model": spec.id, "provider": provider, "served_model": served,
                                                    "raw": text, "created_at": now, "expires_at": now + self.cfg.judge_output_ttl})
-        observed = any(e["kind"] != "object" for e in p.evidence)
+        observed = any(e["kind"] in ("url", "observation") for e in p.evidence)
         answer = {"record_id": rid, "envelope": env, "seal": {"state": "pending"},
                   "price": self._price(p.account, ctx, check=not m.mechanical or not observed, model_runs=model_runs,
                                        observations=observed)}
@@ -551,8 +553,8 @@ class Witness:
             for e in p.evidence:
                 if e["kind"] == "object":
                     rec.append({k: e[k] for k in ("slot", "kind", "sha256", "media_type", "name")})
-                elif e["kind"] == "observation":
-                    rec.append({"slot": e["slot"], "kind": "observation", "id": e["id"]})
+                elif e["kind"] in ("observation", "record"):
+                    rec.append({"slot": e["slot"], "kind": e["kind"], "id": e["id"]})
                 else:
                     rec.append({"slot": e["slot"], "kind": "url", "url": e["url"], "capture": e["capture"], "observations": []})
             vars_ = dict(base_vars, **{k: v for k, v in u.vars.items() if isinstance(v, str)})
@@ -563,6 +565,13 @@ class Witness:
             if e["kind"] == "object":
                 ev[e["slot"]] = dict(e, data=p.objects[e["sha256"]])
                 rec.append({k: e[k] for k in ("slot", "kind", "sha256", "media_type", "name")})
+                if m.id == "record.disclose" and e["slot"] == "disclosure":
+                    rec[-1]["content"] = p.disclosure  # B5b: the disclosed body, in the clear, in the signed public record
+            elif e["kind"] == "record":
+                row = p.record_rows[_index_of(p, e)]
+                ev[e["slot"]] = {"slot": e["slot"], "kind": "record", "id": e["id"], "envelope": row["envelope"],
+                                 "seal": self.sealer.seal_view(e["id"]), "ed25519_verify": crypto.ed25519_verify}
+                rec.append({"slot": e["slot"], "kind": "record", "id": e["id"]})
             elif e["kind"] == "url":
                 if m.id == "page.live":
                     ev[e["slot"]] = self._page_live_attempts(p, e, ctx)
@@ -826,6 +835,47 @@ class Witness:
                                                                      "this account may use (kept 24 h unless a kept record uses it)")
                 p.given_rows[i] = row
 
+    def _resolve_records(self, p):
+        """`record` evidence (B5b) names a record this witness keeps. record.valid reads its envelope and seal only, so any reader may
+        name any kept record (a private record's envelope holds commitments only) except one taken down, which only its owner may
+        still name. record.disclose is checked here, before anything runs or is signed: one of the caller's own private records,
+        not deleted or taken down, anchored, and the disclosure matching both commitments."""
+        p.record_rows, p.disclosure, p.disclosed_texts = {}, None, []
+        for i, e in enumerate(p.evidence):
+            if e["kind"] != "record":
+                continue
+            row = self.storage.get_kept(e["id"])
+            owner = row is not None and hmac.compare_digest(row["account"], p.account)
+            if row is None or (p.method.id == "record.valid" and row["taken_down_at"] is not None and not owner):
+                raise WitnessError(422, "record-not-found", f"evidence {e['slot']}: no kept record {e['id'][:12]}... this account may "
+                                                            "use (a record is named once it is kept: POST /v1/records/{id}/keep)")
+            p.record_rows[i] = row
+        if p.method.id == "record.disclose":
+            self._preflight_disclose(p)
+
+    def _preflight_disclose(self, p):
+        i, e = next((i, e) for i, e in enumerate(p.evidence) if e["kind"] == "record")
+        row = p.record_rows[i]
+        if row["visibility"] != "private":
+            raise WitnessError(422, "public-record", "a public record is already public: only a private record is disclosed")
+        if not hmac.compare_digest(row["account"], p.account):
+            raise WitnessError(403, "not-owner", "only the account that kept a private record may disclose it")
+        if row["deleted_at"] is not None:
+            raise WitnessError(410, "deleted", "the owner deleted this record's private data; it cannot be disclosed")
+        if row["taken_down_at"] is not None:
+            raise WitnessError(410, "taken-down", "this record was taken down; it cannot be disclosed")
+        sub = next(x for x in p.evidence if x["slot"] == "disclosure")
+        verdict, d, _ = recordcheck.assess_disclose(row["envelope"], self.sealer.seal_view(e["id"]), p.objects[sub["sha256"]], e["id"])
+        if verdict == "mismatch":
+            raise WitnessError(422, "disclosure-mismatch", "the disclosure does not match the record's claim and body commitments")
+        if verdict == "not-anchored":
+            raise WitnessError(422, "record-not-anchored", "the record's seal is not anchored yet: disclose it once its batch has "
+                                                           "been sealed (GET /v1/records/{id}/seal), so the new record can say when")
+        if verdict != "disclosed":
+            raise WitnessError(422, "invalid-record", f"the record cannot be disclosed ({verdict})")
+        p.disclosure = d
+        p.disclosed_texts = list(screen._strings(d["body"]))
+
     def _require_services(self, p):
         if any(e["kind"] == "url" for e in p.evidence) and self.cfg.fetcher is None:
             raise WitnessError(503, "fetcher-not-configured", "url evidence needs the fetcher (FETCHER_URL); nothing was signed")
@@ -962,6 +1012,9 @@ class Witness:
         p.options = self._options(body.get("options"))
         p.label = self._label(body.get("label"))
         p.claim, p.method = self._claim(body["claim"])
+        if p.method.id == "record.disclose" and p.options["visibility"] != "public":
+            raise WitnessError(422, "invalid-options", "record.disclose makes a public record: send options.visibility: \"public\" "
+                                                       "(publishing is a deliberate act)")
         p.given_files = {}
         p.evidence = self._evidence(p.method, body["evidence"], p)
         p.objects = self._objects([e for e in body["evidence"] if e.get("kind") == "object"], parts)
@@ -1042,6 +1095,9 @@ class Witness:
             raise WitnessError(422, "unknown-method", f"no method {c['method']!r} major {c['method_major']} (GET /v1/methods)")
         if not isinstance(c["assertion"], bool):
             raise WitnessError(422, "invalid-claim", "claim.assertion: true or false")
+        if m.templates[False] is None and c["assertion"] is not True:
+            raise WitnessError(422, "assertion-not-allowed", f"{m.id} has no false template: a false assertion is refused, "
+                                                              "send assertion: true")
         if not isinstance(c["params"], dict):
             raise WitnessError(422, "invalid-params", "claim.params: an object")
         try:
@@ -1107,6 +1163,9 @@ class Witness:
             if e["kind"] == "observation":
                 out.append(self._obs_item(e, p, len(out)))
                 continue
+            if e["kind"] == "record":
+                out.append(self._record_item(e))
+                continue
             extra = set(e) - OBJECT_KEYS
             if extra:
                 raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: unknown field(s) {', '.join(sorted(extra))}")
@@ -1140,6 +1199,14 @@ class Witness:
         if not isinstance(max_age, int) or isinstance(max_age, bool) or not 0 <= max_age <= MAX_AGE:
             raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: max_age, seconds from 0 to {MAX_AGE}")
         return {"slot": e["slot"], "kind": "url", "url": e["url"], "capture": capture, "max_age": max_age}
+
+    def _record_item(self, e):
+        extra = set(e) - RECORD_ITEM_KEYS
+        if extra:
+            raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: unknown field(s) {', '.join(sorted(extra))}")
+        if not isinstance(e.get("id"), str) or not HEX64.match(e["id"]):
+            raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: id is the record id, 64 lowercase hex")
+        return {"slot": e["slot"], "kind": "record", "id": e["id"]}
 
     def _obs_item(self, e, p, idx=None):
         extra = set(e) - OBS_ITEM_KEYS
@@ -1217,7 +1284,7 @@ class Witness:
 
     def agent_message(self, p):
         refs = sorted([e["sha256"] for e in p.evidence if e["kind"] == "object"] + [e["url"] for e in p.evidence if e["kind"] == "url"]
-                      + [e["id"] for e in p.evidence if e["kind"] == "observation"])
+                      + [e["id"] for e in p.evidence if e["kind"] in ("observation", "record")])
         return jcs.canonical({"witness_id": self.cfg.witness_id, "claim_id": ids.claim_id(p.claim), "evidence": refs,
                               "nonce": p.agent["nonce"], "agent_time": p.agent["agent_time"]})
 
@@ -1241,7 +1308,7 @@ class Witness:
     def _screen(self, p, statement):
         ev = [dict(e, data=p.objects[e["sha256"]]) if e["kind"] == "object" else dict(e) for e in p.evidence]
         try:
-            self.screener.screen_public(p.claim, statement, ev)
+            self.screener.screen_public(p.claim, statement, ev, extra_texts=getattr(p, "disclosed_texts", None) or ())
         except screen.ScreenRefused as e:
             raise WitnessError(422, e.code, e.detail) from None
         except screen.ScreenUnavailable as e:

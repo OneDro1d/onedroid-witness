@@ -46,6 +46,7 @@ STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 CLAIM_TYPE = "https://onedroid.ai/witness/claim/v1"
 OBSERVATION_TYPE = "https://onedroid.ai/witness/observation/v1"
 NEEDS_IMAGE = ("match.screenshot",)
+RECORD_METHODS = ("record.valid", "record.disclose")  # B5b: their evidence names records, given with --record or a bundle
 KEYLIST_TYPE = "https://onedroid.ai/witness/key-list/v1"
 BATCH_PAYLOAD_TYPE = "application/vnd.onedroid.witness.batch-header+json"
 MAX_INT = 2 ** 53 - 1
@@ -266,7 +267,7 @@ def outcome_for(finding_class, assertion):
 
 def agent_message(witness_id, claim, evidence, nonce, agent_time):
     refs = sorted([e["sha256"] for e in evidence if e.get("kind") == "object"] + [e["url"] for e in evidence if e.get("kind") == "url"]
-                  + [e["id"] for e in evidence if e.get("kind") == "observation"])
+                  + [e["id"] for e in evidence if e.get("kind") in ("observation", "record")])
     return canonical({"witness_id": witness_id, "claim_id": claim_id(claim), "evidence": refs, "nonce": nonce, "agent_time": agent_time})
 
 
@@ -516,9 +517,77 @@ def _load_methods(tar_bytes):
     return mod
 
 
-def rerun(r, view, files, tar_bytes):
+def _record_of(doc):
+    """(record id, {envelope, seal}) from a JSON document holding a record's envelope (an answer, a record view, a bundle's
+    envelope.json with its seal.json beside it), or None."""
+    try:
+        env = doc["envelope"] if "envelope" in doc else doc
+        return sha256_hex(_envelope_payload(env)), {"envelope": env, "seal": doc.get("seal") if "envelope" in doc else None}
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return None
+
+
+def _compare(r, lib, method, claim, view, res):
+    outcome = outcome_for(lib.finding_class(method["id"], res.finding), claim["assertion"])
+    statement = lib.render_statement(method["id"], claim["assertion"], res.vars)
+    diffs = []
+    for name, got, want in (("finding", res.finding, view["finding"]), ("reason", res.reason, view["reason"]),
+                            ("outcome", outcome, view["outcome"]), ("detail", res.detail, view["detail"]),
+                            ("statement", statement, view.get("statement", statement)), ("limits", lib.get(method["id"]).limits,
+                                                                                         view["limits"])):
+        if got != want:
+            diffs.append(f"{name}: re-run gives {got!r}, record has {want!r}")
+    r.check("method-rerun", not diffs, "; ".join(diffs), f"{method['id']} {lib.get(method['id']).version} re-ran to "
+                                                         f"{res.finding or res.reason}")
+
+
+def rerun_record_method(r, view, files, tar_bytes, records):
+    """B5b: record.valid and record.disclose re-run from the tarball over the record they name (its envelope and seal, given
+    with --record or in a bundle's records/<id>/) and the object they carry (the key list, or the disclosure), pure over those
+    inputs. A record's seal is the one the check saw: a seal that has moved on (pending, then anchored) gives another answer."""
+    method, claim, evidence = view["method"], view["claim"], view["evidence"]
+    by_sha = {sha256_hex(b): b for b in files}
+    wanted = {e["sha256"] for e in evidence if e.get("kind") == "object"}
+    if files:
+        extra = sorted(set(by_sha) - wanted)
+        r.check("bundle-files", not extra, f"file(s) {', '.join(x[:12] for x in extra)} match no evidence fingerprint in the record",
+                f"{len(by_sha)} file(s) match their fingerprints")
+    if tar_bytes is None:
+        r.skip("method-rerun", "no methods tarball given (--methods)")
+        return
+    if not r.check("methods-tarball", sha256_hex(tar_bytes) == method["code_sha256"],
+                   f"tarball sha256 {sha256_hex(tar_bytes)[:16]}... is not the record's code_sha256 {method['code_sha256'][:16]}..."):
+        return
+    ref = next((e for e in evidence if e.get("kind") == "record"), None)
+    if ref is None or ref["id"] not in (records or {}):
+        r.skip("method-rerun", "the checked record is not given (--record FILE, or a bundle's records/<id>/envelope.json)")
+        return
+    missing = sorted(wanted - set(by_sha))
+    if missing:
+        r.skip("method-rerun", f"evidence bytes not given for {', '.join(m[:12] for m in missing)}")
+        return
+    try:
+        lib = _load_methods(tar_bytes)
+    except Exception as e:  # noqa: BLE001
+        r.fail("method-rerun", f"the tarball does not load: {type(e).__name__}: {e}")
+        return
+    m = lib.get(method["id"])
+    if m is None or m.version != method["version"]:
+        r.fail("method-rerun", f"the tarball has {method['id']} {m.version if m else None}, the record names {method['version']}")
+        return
+    ev = {e["slot"]: dict(e, data=by_sha[e["sha256"]]) for e in evidence if e.get("kind") == "object"}
+    got = records[ref["id"]]
+    ev[ref["slot"]] = {"slot": ref["slot"], "kind": "record", "id": ref["id"], "envelope": got["envelope"], "seal": got["seal"],
+                       "ed25519_verify": ed25519_verify}
+    _compare(r, lib, method, claim, view, lib.run(method["id"], claim["params"], ev))
+
+
+def rerun(r, view, files, tar_bytes, records=None):
     """Step 6: files are fingerprinted; the method re-runs from the tarball and must give the record's finding."""
     method, claim, evidence = view["method"], view["claim"], view["evidence"]
+    if method["id"] in RECORD_METHODS:
+        rerun_record_method(r, view, files, tar_bytes, records)
+        return
     if method["id"] in NEEDS_IMAGE:
         r.skip("method-rerun", "re-run skipped (needs image)")
         return
@@ -639,7 +708,7 @@ def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, d
 
 
 def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None, files=(), tar_bytes=None, expect_id=None,
-               seal=None):
+               seal=None, records=None):
     r.line("ed25519: " + ("cryptography" if _backend() is not None else "pure-python"))
     kl, keys = check_key_list(r, keys_env, trusted) if keys_env is not None else (None, None)
     if keys_env is None:
@@ -705,7 +774,7 @@ def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None,
     # step 6
     if view is not None:
         rerun(r, dict(view, method=pred["method"], finding=pred["finding"], outcome=pred["outcome"], reason=pred["reason"],
-                      detail=pred["detail"], limits=pred["limits"]), list(files), tar_bytes)
+                      detail=pred["detail"], limits=pred["limits"]), list(files), tar_bytes, records)
     elif files or tar_bytes:
         r.skip("method-rerun", "private record and no disclosure given")
     # step 7
@@ -737,6 +806,8 @@ def main(argv=None, out=None):
     ap.add_argument("--methods")
     ap.add_argument("--evidence", action="append", default=[])
     ap.add_argument("--record-id")
+    ap.add_argument("--record", action="append", default=[],
+                    help="a record record.valid or record.disclose names: its envelope (an answer or a record view, with its seal)")
     ap.add_argument("--seal", help="the seal JSON (GET /v1/records/{id}/seal); a whole answer's own seal is used otherwise")
     try:
         a = ap.parse_args(argv)
@@ -755,6 +826,13 @@ def main(argv=None, out=None):
         tar_path = tar_path or (str(tars[0]) if tars else None)
         if (b / "evidence").is_dir():
             files += [p.read_bytes() for p in sorted((b / "evidence").iterdir()) if p.is_file()]
+        if (b / "records").is_dir():
+            for d in sorted(p for p in (b / "records").iterdir() if p.is_dir()):
+                if (d / "envelope.json").is_file():
+                    one = {"envelope": _read_json(d / "envelope.json")}
+                    if (d / "seal.json").is_file():
+                        one["seal"] = _read_json(d / "seal.json")
+                    a.record.append(one)
     if not env_path:
         print("witness-verify: give --envelope or --bundle", file=sys.stderr)
         return 2
@@ -769,12 +847,17 @@ def main(argv=None, out=None):
         trusted = bool(a.trust)
         keys_env = _read_json(a.trust or keys_path) if (a.trust or keys_path) else None
         agent_key = _read_json(agent_path) if agent_path else None
+        records = {}
+        for x in a.record:
+            got = _record_of(x if isinstance(x, dict) else _read_json(x))
+            if got is not None:
+                records[got[0]] = got[1]
         tar_bytes = pathlib.Path(tar_path).read_bytes() if tar_path else None
     except (OSError, ValueError) as e:
         print(f"witness-verify: cannot read input: {e}", file=sys.stderr)
         return 2
     r = Report(out)
-    run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id, seal)
+    run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id, seal, records)
     r.line("RESULT: " + ("FAIL" if r.failed else "PASS"))
     return 1 if r.failed else 0
 

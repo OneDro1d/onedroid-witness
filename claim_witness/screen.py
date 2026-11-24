@@ -141,8 +141,9 @@ class Screener:
         except (ValueError, KeyError, TypeError):
             raise ScreenUnavailable("the redact helper's answer is not {text, matches}") from None
 
-    def screen_public(self, claim, statement, evidence):
-        """Raise ScreenRefused or ScreenUnavailable; return None when the public claim may be signed."""
+    def screen_public(self, claim, statement, evidence, extra_texts=()):
+        """Raise ScreenRefused or ScreenUnavailable; return None when the public claim may be signed. `extra_texts` are more
+        signed strings to screen the same way (B5b: the body a record.disclose publishes in the clear)."""
         for e in evidence:
             if e.get("kind") == "object" and is_image_or_pdf(e.get("media_type"), e.get("data") or b""):
                 raise ScreenRefused("media-not-allowed", "Image and PDF objects are not accepted on a public claim in v1. "
@@ -154,6 +155,7 @@ class Screener:
             texts.append(statement)
         texts += [e["name"] for e in evidence if isinstance(e.get("name"), str)]
         texts += [e["url"] for e in evidence if e.get("kind") == "url" and isinstance(e.get("url"), str)]
+        texts += [t for t in extra_texts if isinstance(t, str)]
         rules = set()
         for t in texts:
             rules.update(personal_data_hits(t))

@@ -298,6 +298,38 @@ v1/claim-fetcher, "capture: post"), which proves the post from AT Protocol and r
 - **witness-verify** checks the record (signature, ids, key validity; the re-run is skipped because the evidence is an
   observation) and the observation with its files (`platform.json` among them).
 
+## What B5b adds (branch v1/claim-b5b): record.valid and record.disclose
+
+SPEC §4. Both are pure methods in the tarball (library 1.5.0: `methods/record_valid.py`, `record_disclose.py`, and `recordcheck.py`
+that holds their shared checks), and both take the `record` evidence kind (§2.2): `{slot, kind: "record", id}`, nothing else. A
+record is named by id and must be kept (POST /v1/records/{id}/keep): the witness reads its envelope and its seal from the store.
+They never read a private record's plaintext.
+
+**record.valid** (params `{}`; slots `record` and `key_list`, an object: the signer's key list envelope as JSON). It checks, under
+that list only: the list itself (subject digest, key shapes, its signatures), the record's signature, the list's witness against
+the record's, the id against the payload, the seal (leaf path, header signature, notary `over`, landed anchors) and the key's
+validity at the anchor time (a key revoked at or before it fails). Findings: + `record-valid` (detail `{seal: anchored,
+anchor_time}`); - `record-invalid` (detail `{failed: "signature,seal,..."}`, from `key-list, signature, key-list-witness,
+record-id, seal, key-validity`). A record whose seal is not anchored yet gets **no finding**: reason `undecided`, detail
+`{seal: pending}` (it cannot be called "sealed", and "NOT_SUPPORTED" would be a negative the witness did not find: VR-6). Bytes
+that are no key list (or no record) give no finding, reason `unreadable`. The Evidence-trust rule does not apply (VR-9): an
+invalid record is a `record-invalid` answer. The Ed25519 primitive is not in the tarball: the caller puts `ed25519_verify` in the
+record evidence (the witness: `crypto.ed25519_verify`; witness-verify: its own, the pure-Python one under WITNESS_VERIFY_PURE=1).
+
+**record.disclose** (params `{}`; slots `record` and `disclosure`, an object: the disclosure JSON `{salt, body}`). The request must
+say `options.visibility: "public"`. Refused before anything is signed: an unknown or unkept id (422 `record-not-found`), a public
+record (422 `public-record`), a record of another account (403 `not-owner`), a deleted or taken-down one (410), a disclosure that
+fails either commitment (422 `disclosure-mismatch`), an original whose seal is not anchored (422 `record-not-anchored`: the
+statement says when it was sealed), a false assertion (422 `assertion-not-allowed`), personal data or a credential anywhere in the
+body (422 `personal-data`, the same screening as any public claim, run over every string of the body). Otherwise the record is
+public, finding `disclosed`, and the disclosure evidence item carries the disclosure JSON in the clear as `content`, inside the
+signed payload, so a reader checks both commitments from the new record alone. It names the original (`evidence[0].id` and the
+statement), makes no new judgment (`judgment: null`, `relied_on: []`), and leaves the original private and unchanged.
+
+witness-verify re-runs both from the tarball: `--record FILE` (repeatable) gives the checked record's envelope and seal (an answer
+or a record view), a bundle carries `records/<id>/envelope.json` and `seal.json`, and the key list or the disclosure comes with
+`--evidence` (or `evidence/<sha256>`). Without the record it prints `SKIP method-rerun`.
+
 ## Price
 
 Every answer of `POST /v1/witness` and `POST /v1/observe` carries one `price` object beside the envelope. It is never signed,
@@ -985,3 +1017,45 @@ unchanged.
 115. **Live smoke**: `tools/live_armarium_smoke.py`, run from a short-lived pod in witness-dev (the tokens are only there):
      1 claimant create for a throwaway owner, POST, PUT, GET, DELETE, GET (410), 1 notary seal (at most 2 requests) and its verify.
      It prints no token. The throwaway claimant chain stays.
+
+### Builder decisions, B5b (record.valid, record.disclose: 116-)
+
+116. **`record` evidence is by id only, and the id must be a kept record.** SPEC §2.2 gives the kind one field, `id`, so there is
+     no envelope by value (unlike observations). The witness holds an envelope only for kept records (the job answer is purged
+     after 24 h), so an unkept id is 422 `record-not-found` with the hint to keep it.
+117. **record.valid on someone else's record is allowed** (it reads the envelope and seal, which GET /v1/records/{id} serves to
+     anyone, and a private envelope holds commitments only). A record taken down is not found for anyone but its owner; a deleted
+     private record still checks (its envelope and seal stay).
+118. **An unanchored record: `undecided`, not `record-invalid`.** "Validly signed and sealed" cannot be said without an anchor, and
+     a failure to be anchored yet is no negative finding (VR-6). Reason `undecided` is already in the closed list, so the signer's
+     schema is unchanged. A bad signature, a bad path or a revoked key on a record not yet anchored is still `record-invalid`
+     (those are real negatives; an unsealed record is judged at its own time, as witness-verify does).
+119. **A key list that parses but does not verify is `record-invalid`** (check `key-list`: nothing can be validated under it); bytes
+     that are not a key-list envelope at all are `unreadable`, no finding. A list for another witness is `record-invalid`
+     (`key-list-witness`), like witness-verify's.
+120. **The checks are restated in `methods/recordcheck.py`, not imported.** The tarball cannot import `verify.py` (standard library
+     only, relative imports only), so the canonical JSON, merkle path, PAE, commitments and the seal and key-validity logic are
+     restated, as verify.py itself restates jcs and ids. The vectors check the restatement both ways: every `record_methods`
+     vector must give the same answer in the witness and the tarball, and for record.valid witness-verify's own run on the same
+     inputs must print a FAIL exactly when the finding is `record-invalid`. Ed25519 is not restated: it is passed in by the caller (see the section above).
+121. **record.disclose's statement carries `anchor_time`**, the earliest landed `block_time` of the original's seal. Whether that seal
+     verifies is record.valid's question; disclose reads the witness's own stored seal and says it made no new check. The method
+     has no F template (`templates.false` is null in GET /v1/methods) and a false assertion is 422.
+122. **Publishing is deliberate.** record.disclose without `options.visibility: "public"` (default is private) is 422 `invalid-options`
+     rather than being quietly made public.
+123. **The body travels in the signed record.** The public record's schema has no body field, and `detail` takes enums only, so the
+     disclosure JSON is the `content` of the disclosure evidence item (the schema only asks an evidence item for `slot` and `kind`).
+     `sha256` stays the hash of the bytes the caller sent. The salt is published with the body: it is what lets a reader recompute
+     the commitments, and a disclosed record has nothing left to hide with it.
+124. **Screening runs over every string of the disclosed body** (`screen_public(..., extra_texts=)`), including its evidence names,
+     label, statement and params. A hit is 422 `personal-data` before anything is signed and the answer names rules, not values.
+125. **The agent's signature covers record ids** (`agent_message` in the witness and in verify.py), the same way it covers object
+     hashes, URLs and observation ids. The attempt tag counts record ids too. Nobody signed over a `record` item before B5b.
+126. **Price.** Both are one `check`; `observed` (the fresh/reused observation fields) is now only for `url` and `observation`
+     evidence, so a record item does not drop the check line.
+127. **No new route and no storage change.** Bundles of a record.valid or record.disclose record also carry the checked record
+     (`records/<id>/envelope.json`, `seal.json`; the seal as it is when the bundle is built). The Postgres run of the same cases is
+     `test_record_methods_pg.py`.
+128. **Library 1.4.0 -> 1.5.0**, both methods 1.0.0. `methods_code_sha256` changes from 7f39d394... (every pure method's
+     `code_sha256` moves with it); the existing tests that pin the library version are changed in their own commit,
+     "test change for B5b".

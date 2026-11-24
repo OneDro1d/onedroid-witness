@@ -409,7 +409,6 @@ class RerunInWitnessVerify(Base, unittest.TestCase):
     def test_the_bundle_carries_the_checked_record_and_reruns(self):
         rec = self.sealed_public()
         code, out = self.run_valid(rec["record_id"])
-        self.keep(out)
         self.s.call("POST", f"/v1/records/{out['record_id']}/keep", {"envelope": out["envelope"], "keep_evidence_days": 30,
                                                                      "evidence": [{"sha256": h.sha(json.dumps(
                                                                          self.s.storage.get_key_list(1)).encode()),
