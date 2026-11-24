@@ -1,0 +1,26 @@
+{
+ "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+ "author_handles": [
+  "bsky.app"
+ ],
+ "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+ "commit_rev": "3n33iqqwfgk2i",
+ "created_at_claimed": "2026-11-19T18:33:36.813Z",
+ "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+ "handle": "bsky.app",
+ "handle_did_doc_sha256": null,
+ "handle_resolution": {
+  "at": "2026-11-24T21:21:49Z",
+  "bidirectional": true,
+  "method": "dns-txt",
+  "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+ },
+ "key_type": "secp256k1",
+ "name": "bluesky",
+ "pds": "https://puffball.us-east.host.bsky.network",
+ "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+ "record_cid": "bafyreihjpuz225u5djer7b6oqj5aszoqcblsjogyzlkr2ipw65cz3sk45m",
+ "signature": "verified",
+ "signature_reason": null,
+ "url_actor": "bsky.app"
+}

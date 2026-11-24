@@ -38,6 +38,18 @@ def page(html=b"<html><body><h1>Example</h1><p>This page is live.</p></body></ht
             "screenshot": screenshot, "robots": robots, "tamper": tamper}
 
 
+PLATFORM_FIELDS = ("name", "post_uri", "author_did", "handle", "handle_resolution", "did_doc_sha256", "signature",
+                   "commit_cid", "created_at_claimed")
+
+
+def post_page(platform, html=b"<html><body><p>Bluesky</p><p>v1.138 is live!</p></body></html>", **kw):
+    """A `capture: post` answer (B5a): the page capture plus platform.json (the whole dict given) and manifest.platform (its
+    SPEC §2.3 fields), as claim_fetcher's capture_post builds them."""
+    spec = page(html, **kw)
+    spec["platform"] = dict(platform)
+    return spec
+
+
 def error(code, detail="", status=None, manifest=None):
     """A fetcher error answer; manifest is the optional partial manifest the newer fetcher adds."""
     statuses = {"bad-request": 400, "scheme": 400, "port": 400, "unauthorized": 401, "blocked": 403, "robots-disallowed": 403,
@@ -58,12 +70,19 @@ def build_capture(url, spec, fetched_at):
     if spec["media_type"] != "text/html" and spec["rendered"] is None:
         del files["rendered.html"]
     media = {"capture.wacz": "application/wacz", "response.body": spec["media_type"], "screenshot.png": "image/png",
-             "rendered.html": "text/html", "hidden-nodes.json": "application/json"}
+             "rendered.html": "text/html", "hidden-nodes.json": "application/json", "platform.json": "application/json",
+             "post.car": "application/vnd.ipld.car", "did-document.json": "application/did+json"}
+    if spec.get("platform") is not None:
+        files["platform.json"] = json.dumps(spec["platform"], sort_keys=True, indent=1).encode("utf-8")
+        files["post.car"] = b"fake-car:" + url.encode("utf-8")
+        files["did-document.json"] = b'{"id": "did:plc:fake"}'
     entries = [{"name": n, "sha256": hashlib.sha256(b).hexdigest(), "size": len(b), "media_type": media[n]} for n, b in files.items()]
     manifest = {"requested_url": url, "final_url": spec["final_url"] or url, "redirects": list(spec["redirects"]),
                 "fetched_at": fetched_at, "fetch_ms": 1234, "status": spec["status"], "resolved_ips": ["93.184.215.14"],
                 "tls": {"version": "TLS1.3", "leaf_sha256": "c" * 64} if url.startswith("https:") else None,
                 "robots": spec["robots"], "fetcher": dict(FETCHER), "files": entries}
+    if spec.get("platform") is not None:
+        manifest["platform"] = {k: spec["platform"].get(k) for k in PLATFORM_FIELDS}
     if spec["tamper"]:
         files[spec["tamper"]] = files[spec["tamper"]] + b"tampered"
     return manifest, files
@@ -112,7 +131,8 @@ class FakeFetcher:
                 req = json.loads(raw)
                 spec = fake._next(req["url"])
                 with fake.lock:
-                    fake.calls.append({"url": req["url"], "capture": req.get("capture"), "at": int(fake.clock())})
+                    fake.calls.append({"url": req["url"], "capture": req.get("capture"), "handle": req.get("handle"),
+                                       "at": int(fake.clock())})
                 if spec["kind"] == "drop":
                     self.close_connection = True
                     return
