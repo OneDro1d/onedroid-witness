@@ -159,21 +159,28 @@ async def _get_once(proxy_socket, url, user_agent, ssl_context):
             writer.close()
 
 
-async def fetch(proxy_socket, page_url, user_agent, ssl_context=None, max_redirects=addr.MAX_REDIRECTS):
-    """(status, body) of the robots.txt for page_url's origin, following redirects through the proxy; (None, None)
-    when it cannot be read."""
+async def fetch_info(proxy_socket, page_url, user_agent, ssl_context=None, max_redirects=addr.MAX_REDIRECTS):
+    """{"url", "status", "body"} of the robots.txt for page_url's origin, following redirects through the proxy:
+    `url` is the last one asked for; status and body are None when it cannot be read."""
     parts = urllib.parse.urlsplit(page_url)
     url = f"{parts.scheme}://{parts.netloc}/robots.txt"
     for hop in range(max_redirects + 1):
         got = await _get_once(proxy_socket, url, user_agent, ssl_context)
         if got is None:
-            return None, None
+            break
         status, headers, body = got
         if status in (301, 302, 303, 307, 308) and headers.get("location"):
             try:
                 url = addr.next_hop(url, headers["location"], hop + 1, max_redirects)
             except addr.Refused:
-                return None, None
+                break
             continue
-        return status, body
-    return None, None
+        return {"url": url, "status": status, "body": body}
+    return {"url": url, "status": None, "body": None}
+
+
+async def fetch(proxy_socket, page_url, user_agent, ssl_context=None, max_redirects=addr.MAX_REDIRECTS):
+    """(status, body) of the robots.txt for page_url's origin, following redirects through the proxy; (None, None)
+    when it cannot be read."""
+    got = await fetch_info(proxy_socket, page_url, user_agent, ssl_context, max_redirects)
+    return got["status"], got["body"]

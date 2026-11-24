@@ -40,6 +40,10 @@ spec:
             - {name: FETCHER_PORT, value: "8090"}
             - {name: FETCHER_SECRET_FILE, value: /etc/claim-fetcher/secret/secret}
             - {name: FETCHER_BLOCKED_CIDRS, value: "CLUSTER_CIDRS_PLACEHOLDER"}
+            # public DNS resolvers the egress proxy queries directly (UDP, TCP fallback): capture targets are never
+            # resolved through the cluster DNS service (a private address). Each must be public and outside
+            # FETCHER_BLOCKED_CIDRS, or the service refuses to start.
+            - {name: FETCHER_RESOLVERS, value: "1.1.1.1,8.8.8.8"}
             - {name: FETCHER_MAX_CONCURRENT, value: "2"}
             - {name: FETCHER_TIMEOUT_S, value: "15"}
             - {name: FETCHER_MAX_RESPONSE_BYTES, value: "10485760"}

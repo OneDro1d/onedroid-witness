@@ -102,7 +102,10 @@ def numeric_host(host):
 
 def resolve(host):
     """The system resolver, asked for the absolute name (a trailing dot: the pod's DNS search list never expands it).
-    Addresses in the resolver's order, without duplicates."""
+    Addresses in the resolver's order, without duplicates.
+
+    NOT used for capture targets: the system resolver sends queries to the pod's cluster DNS service, a private address
+    (acceptance defect D1, 24 Nov 2026). vet_host, the proxy and the capture use dnsclient.PublicResolver."""
     ips = []
     for info in socket.getaddrinfo(host.rstrip(".") + ".", 443, type=socket.SOCK_STREAM):
         if info[4][0] not in ips:
@@ -124,7 +127,8 @@ def name_refused(host):
 
 
 def vet_host(host, port, resolver=None, extra=()):
-    """The vetted addresses for host:port, in the resolver's order; resolves exactly once. Raises Refused."""
+    """The vetted addresses for host:port, in the resolver's order; resolves exactly once. Raises Refused. Without a
+    resolver, the public default resolvers (dnsclient), never the system resolver."""
     if port not in ALLOWED_PORTS:
         raise Refused("port", str(port))
     num = numeric_host(host)
@@ -135,8 +139,11 @@ def vet_host(host, port, resolver=None, extra=()):
     why = name_refused(host)
     if why:
         raise Refused("blocked", f"{why} {host}")
+    if resolver is None:
+        from . import dnsclient  # dnsclient imports this module for the address rules
+        resolver = dnsclient.default_resolver(extra)
     try:
-        ips = list((resolver or resolve)(host.rstrip(".").lower()))
+        ips = list(resolver(host.rstrip(".").lower()))
     except (OSError, UnicodeError, ValueError):
         raise Refused("unreachable", f"host-not-found {host}") from None
     if not ips:

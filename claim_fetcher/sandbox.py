@@ -386,15 +386,19 @@ async def capture(req):
                     await page.goto(req["url"], wait_until="domcontentloaded", timeout=nav_ms)
                 except Exception as e:  # noqa: BLE001
                     nav_error = str(e).splitlines()[0][:300]
+                # every failure carries the redirect hops recorded so far: the service puts them in the error's
+                # partial manifest (a hop refused by the proxy still leaves the hop before it on record)
                 if len(rec.redirects) > req["max_redirects"]:
-                    return {"ok": False, "code": "too-many-redirects", "chain": rec.chain,
+                    return {"ok": False, "code": "too-many-redirects", "chain": rec.chain, "redirects": rec.redirects,
                             "detail": f"too-many-redirects ({len(rec.redirects)} > {req['max_redirects']})"}
                 if rec.too_large:
-                    return {"ok": False, "code": "too-large", "detail": rec.too_large, "chain": rec.chain}
+                    return {"ok": False, "code": "too-large", "detail": rec.too_large, "chain": rec.chain,
+                            "redirects": rec.redirects}
                 main = rec.req.get(rec.main_id) if rec.main_id else None
                 if nav_error or main is None or main.get("response") is None:
                     code = "timeout" if nav_error and "Timeout" in nav_error else "navigation"
-                    return {"ok": False, "code": code, "detail": nav_error or "no main document", "chain": rec.chain}
+                    return {"ok": False, "code": code, "detail": nav_error or "no main document", "chain": rec.chain,
+                            "redirects": rec.redirects}
                 with contextlib.suppress(Exception):
                     await page.wait_for_load_state("load", timeout=max(1, int((deadline - time.monotonic() - reserve)
                                                                               * 1000)))
@@ -402,7 +406,8 @@ async def capture(req):
                 if settle > 0:
                     await asyncio.sleep(settle)
                 if rec.too_large:
-                    return {"ok": False, "code": "too-large", "detail": rec.too_large, "chain": rec.chain}
+                    return {"ok": False, "code": "too-large", "detail": rec.too_large, "chain": rec.chain,
+                            "redirects": rec.redirects}
                 # screenshot, full page at the viewport width
                 height = await page.evaluate("() => Math.max(document.documentElement.scrollHeight,"
                                              " document.body ? document.body.scrollHeight : 0)")

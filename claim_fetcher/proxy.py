@@ -6,8 +6,10 @@
 - Every request is checked from the start (addr.check_url / addr.vet_host): the host is resolved exactly once, every
   address must be allowed, and the connection goes to a vetted address (pinned), never to a name. A redirect is a new
   request from the browser, so it is checked the same way; DNS rebinding between requests changes nothing.
-- Refusals: a CONNECT gets 403 (502 for unreachable) with X-Fetcher-Refused: <code>, which Chromium reports as a tunnel
-  failure. A plain-HTTP request is refused by closing the connection without a byte: an answer from the proxy would
+- Names are resolved through the configured public resolvers (dnsclient.PublicResolver), never the system resolver.
+- Refusals: a CONNECT gets 403 (502 for unreachable, 504 for timeout) with X-Fetcher-Refused: <code>, which Chromium
+  reports as a tunnel failure. A connect that gets no answer (no SYN-ACK) within connect_timeout on every vetted
+  address is `timeout`; a refused connection, or a mix, is `unreachable`. A plain-HTTP request is refused by closing the connection without a byte: an answer from the proxy would
   look to page script like an answer from the origin (a no-cors fetch would resolve), a closed connection is a network
   error.
 - Caps: a plain-HTTP response over max_response_bytes is cut; all bytes sent back to the browser in one capture are
@@ -16,10 +18,11 @@ Every request leaves one entry in `log`; `resolved` maps each host to the addres
 """
 import asyncio
 import contextlib
+import errno
 import os
 import urllib.parse
 
-from . import addr
+from . import addr, dnsclient
 
 CHUNK = 65536
 HOP_HEADERS = {"proxy-connection", "proxy-authorization", "proxy-authenticate", "connection", "keep-alive", "te",
@@ -35,9 +38,9 @@ class EgressProxy:
     def __init__(self, socket_path, resolver=None, connector=None, extra_cidrs=(), max_response_bytes=10 * 1024 * 1024,
                  max_total_bytes=30 * 1024 * 1024, connect_timeout=5.0, resolve_timeout=5.0, head_timeout=10.0):
         self.socket_path = socket_path
-        self.resolver = resolver
-        self.connector = connector or default_connector
         self.extra = tuple(extra_cidrs)
+        self.resolver = resolver or dnsclient.default_resolver(self.extra)
+        self.connector = connector or default_connector
         self.max_response_bytes, self.max_total_bytes = max_response_bytes, max_total_bytes
         self.connect_timeout, self.resolve_timeout, self.head_timeout = connect_timeout, resolve_timeout, head_timeout
         self.log, self.resolved = [], {}
@@ -92,14 +95,20 @@ class EgressProxy:
         return ips
 
     async def _dial(self, ips, port):
-        last = None
+        """Dial the vetted addresses in order. Refused("timeout") when every one of them timed out (no SYN-ACK within
+        connect_timeout), else Refused("unreachable")."""
+        failures = []
         for ip in ips:
             try:
                 r, w = await asyncio.wait_for(self.connector(ip, port), self.connect_timeout)
                 return ip, r, w
-            except (OSError, asyncio.TimeoutError) as e:
-                last = e
-        raise addr.Refused("unreachable", f"connect-failed {type(last).__name__ if last else ''}".strip())
+            except (OSError, asyncio.TimeoutError) as e:  # TimeoutError is an OSError since Python 3.11
+                timed_out = isinstance(e, (asyncio.TimeoutError, TimeoutError)) or e.errno == errno.ETIMEDOUT
+                failures.append("timeout" if timed_out else type(e).__name__)
+        if failures and all(f == "timeout" for f in failures):
+            raise addr.Refused("timeout", f"connect-timeout {self.connect_timeout:g} s on {len(failures)} address(es)")
+        last = [f for f in failures if f != "timeout"]
+        raise addr.Refused("unreachable", f"connect-failed {last[-1] if last else ''}".strip())
 
     def _budget(self, n):
         """True when n more bytes may go back to the browser."""
@@ -172,8 +181,9 @@ class EgressProxy:
             ip, ur, uw = await self._dial(ips, port)
         except addr.Refused as e:
             entry["result"], entry["detail"] = e.code, e.detail
-            await self._respond(writer, 502 if e.code == "unreachable" else 403,
-                                "Bad Gateway" if e.code == "unreachable" else "Forbidden", e.code)
+            status, reason = {"unreachable": (502, "Bad Gateway"),
+                              "timeout": (504, "Gateway Timeout")}.get(e.code, (403, "Forbidden"))
+            await self._respond(writer, status, reason, e.code)
             return
         entry["pinned"], entry["result"] = ip, "ok"
         self._track(uw)

@@ -1,3 +1,4 @@
 # claim_fetcher runtime (the versions the B2a tests ran green with, 24 Nov 2026)
 playwright==1.65.2
 warcio==1.8.2
+# DNS: no package; claim_fetcher/dnsclient.py is a standard-library client (README_FETCHER.md, builder decision 15)

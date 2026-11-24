@@ -13,9 +13,32 @@ POST /v1/capture    {"url": "https://…", "capture": "page", "viewport": [1280,
                     header X-Fetcher-Secret: <the shared secret>
   200 application/x-tar   manifest.json first, then capture.wacz, response.body, screenshot.png, rendered.html,
                           hidden-nodes.json
-  4xx application/json    {"error": <code>, "detail": "…"}
+  4xx application/json    {"error": <code>, "detail": "…"}                      refused before any request
+                          {"error": <code>, "detail": "…", "manifest": {…}}     after at least one request
 GET  /healthz       {"ok": true, "selftest": {…}}
 ```
+
+**Error answers carry a partial manifest** once at least one request was made (robots.txt counts; a refusal of the URL
+or its host before anything was fetched has none):
+
+```json
+{"error": "blocked", "detail": "blocked 169.254.169.254: address-not-public 169.254.169.254",
+ "manifest": {"requested_url": "https://postman-echo.com/redirect-to?url=http://169.254.169.254/",
+              "redirects": [{"url": "https://postman-echo.com/redirect-to?url=http://169.254.169.254/",
+                             "status": 302, "location": "http://169.254.169.254/"}],
+              "fetched_at": "2026-11-24T10:41:07Z", "fetch_ms": 1204, "resolved_ips": ["…"],
+              "robots": "allowed",
+              "robots_txt": {"url": "https://postman-echo.com/robots.txt", "status": 404, "sha256": "…"}}}
+```
+
+- `redirects`: the main document's hops recorded so far, so a hop the proxy refused still leaves the hop before it (its
+  URL, status and `Location`) on record; the refused hop itself is never fetched.
+- `resolved_ips`: the addresses vetted so far for the hosts of that chain (the first host's, then each later hop's).
+- `robots`: `allowed` | `disallowed` | `unavailable`, or `null` when the error came before robots.txt was decided.
+- `robots_txt`: `{url, status, sha256}` of the robots.txt that was read (`url` after its own redirects, `sha256` over
+  the bytes kept, at most 512 KiB), or `null` when none could be read.
+- The service's log line (`capture-refused`) records the code, the detail, the redirect chain, robots and fetch_ms; the
+  success line (`capture`) records the redirect chain too.
 
 | code | HTTP | meaning |
 |---|---|---|
@@ -24,10 +47,10 @@ GET  /healthz       {"ok": true, "selftest": {…}}
 | `port` | 400 | a port other than 80 or 443 |
 | `unauthorized` | 401 | missing or wrong secret (`hmac.compare_digest`) |
 | `blocked` | 403 | the host or an address it resolves to is not public, credentials in the URL, a redirect to such a place, more than 5 redirects |
-| `robots-disallowed` | 403 | robots.txt disallows the path for `OneDroidWitness` |
-| `timeout` | 408 | the 15 s wall time ran out |
+| `robots-disallowed` | 403 | robots.txt disallows the path for `OneDroidWitness` (partial manifest: `"robots": "disallowed"`) |
+| `timeout` | 408 | the 15 s wall time ran out, or the main document's connect got no answer (no SYN-ACK within 5 s) on every vetted address |
 | `too-large` | 413 | the main document is over 10 MB, or the capture's byte budget (30 MB) ran out |
-| `unreachable` | 422 | the host does not resolve, or no vetted address accepts a connection |
+| `unreachable` | 422 | the host does not resolve (NXDOMAIN or no address from the public resolvers), or a vetted address refused the connection |
 | `busy` | 503 | more than `FETCHER_MAX_CONCURRENT` (2) captures at once |
 
 The manifest: `requested_url, final_url, redirects [{url, status, location}], fetched_at, fetch_ms, status,
@@ -87,10 +110,18 @@ The cluster refuses `NET_ADMIN` and does not enforce NetworkPolicy, so the pod c
   Even with every flag ignored, page script (WebRTC, QUIC, direct sockets) meets a namespace with no route anywhere.
 - **The egress proxy** (`claim_fetcher/proxy.py`) runs outside the namespace and listens **only on the Unix socket**,
   never on TCP, so no other pod can use it. CONNECT (https) and plain HTTP in absolute form. For every request (and so
-  for every redirect, which is a new request) it resolves the host once (absolute name, trailing dot, so the pod's
-  search list never expands it), refuses unless every address is allowed, and dials the vetted address, never the name.
-  A refused CONNECT gets 403/502 with `X-Fetcher-Refused: <code>`; a refused plain-HTTP or origin-form request is closed
-  without a byte, so page script sees a network error, never an answer it could read.
+  for every redirect, which is a new request) it resolves the host once, refuses unless every address is allowed, and
+  dials the vetted address, never the name. A refused CONNECT gets 403/502/504 with `X-Fetcher-Refused: <code>`; a
+  refused plain-HTTP or origin-form request is closed without a byte, so page script sees a network error, never an
+  answer it could read.
+- **DNS** (`claim_fetcher/dnsclient.py`): names are resolved only through the configured **public** resolvers
+  (`FETCHER_RESOLVERS`, default `1.1.1.1,8.8.8.8`), queried directly: A, then AAAA, over UDP, retried over TCP when the
+  answer is truncated; the next resolver when one does not answer or answers SERVFAIL/REFUSED. The system resolver
+  (`getaddrinfo`) is never called for a capture target, robots.txt included, so no query goes to the pod's cluster DNS
+  service (a private address). Each resolver must itself pass the address rules below (public, outside
+  `FETCHER_BLOCKED_CIDRS`), or the service refuses to start. The query name is absolute (there is no search list).
+  NXDOMAIN is `unreachable`. An answer is used only when its ID, flags and question match the query, and only the
+  addresses on the CNAME chain from the asked name count.
 - **Address rules** (`claim_fetcher/addr.py`, a superset of the argus-claims toolkit's `fetch.py` `is_public` and
   `_vet`, the egress guard onedroid-audit's `external_fetcher` uses: resolve once, every address global and outside the
   refused ranges, dial only vetted addresses; one difference: the toolkit refuses every IPv4-mapped address, this judges
@@ -121,7 +152,9 @@ At start, before the API listens, the service runs the worker in a fresh namespa
    8.8.8.8:53, [2606:4700:4700::1111]:443, and to a listener the service opens on the pod's own address outside the
    namespace (a private address that really answers): every connect must fail, and the listener must see no connection;
 4. sends `CONNECT 10.0.0.1:443` through the bridge: the proxy must refuse it;
-5. starts Chromium through the bridge and runs a page-script `fetch("http://10.0.0.1/")`: it must fail.
+5. starts Chromium through the bridge and runs a page-script `fetch("http://10.0.0.1/")`: it must fail;
+6. lists the DNS resolvers in use (`"resolvers": ["1.1.1.1", "8.8.8.8"]`); a resolver that fails the address rules
+   fails the self-test (and `FETCHER_RESOLVERS` with one already stops the start).
 
 The result is logged as one JSON line (`selftest {...}`); if it did not pass, the service exits with status 3 and never
 serves. `/healthz` returns it. To run it alone:
@@ -156,6 +189,8 @@ the cluster DNS names.
 | `FETCHER_SECRET_FILE` | (required) | file holding the shared secret |
 | `FETCHER_BLOCKED_CIDRS` | empty | the cluster's CIDRs, comma or space separated; unparsable (the placeholder) stops the start |
 | `FETCHER_PORT`, `FETCHER_HOST` | 8090, 0.0.0.0 | the API |
+| `FETCHER_RESOLVERS` | `1.1.1.1,8.8.8.8` | public DNS resolvers (IP addresses, comma or space separated); one that is not public or lies in `FETCHER_BLOCKED_CIDRS` stops the start |
+| `FETCHER_CONNECT_TIMEOUT_S` | 5 | per vetted address; no SYN-ACK on every one of the main document's is `timeout` |
 | `FETCHER_TIMEOUT_S` | 15 | wall time per capture |
 | `FETCHER_MAX_RESPONSE_BYTES` | 10485760 | per response |
 | `FETCHER_SETTLE_MS` | 5000 | wait after load for scripts, within the wall time |
@@ -175,6 +210,9 @@ user namespace works unprivileged because **the default seccomp in these pods is
 orchestrator on witness-dev, 24 Nov 2026); the manifest therefore sets no `seccompProfile`. `RuntimeDefault` would
 refuse `unshare(CLONE_NEWUSER)`, and the self-test would then keep the pod from serving, which is the intended
 failure.
+
+`FETCHER_RESOLVERS` is set to `1.1.1.1,8.8.8.8` in the manifest: the pod needs outbound UDP and TCP port 53 to those
+addresses. The pod's own `/etc/resolv.conf` (the cluster DNS service) is never used for capture targets.
 
 ## Builder decisions
 
@@ -211,6 +249,40 @@ failure.
     (`response.body` takes the main response's MIME type).
 14. **Single-label and internal names** are refused by name before DNS (defence in depth; their addresses would be
     refused anyway).
+
+Decisions for the four acceptance defects of 24 Nov 2026 (D1-D4; tests `tests_fetcher/test_acceptance_fixes.py`):
+
+15. **A small stdlib DNS client, not dnspython** (D1): `claim_fetcher/dnsclient.py`, about 200 lines, so no new
+    dependency enters the image and every byte on the wire is in this repo. It sends one question per query (RD set,
+    no EDNS), a random 16-bit ID from `secrets`, over a connected UDP socket (only the resolver's own datagrams are
+    read; the kernel picks a random source port), checks the reply's ID, QR, opcode and question, and retries over TCP
+    only when the reply is truncated (TC). It asks A, then AAAA, of the first resolver; a timeout, SERVFAIL or a
+    malformed reply moves to the next resolver; 2 s per try, 4 s per name (inside the proxy's 5 s resolve limit).
+    NXDOMAIN is final (no second opinion). If A answers but AAAA fails on every resolver, the A addresses are used.
+    Addresses are returned A first: the pod has no IPv6 egress to fall back from.
+16. **Only the CNAME chain counts** (D1): addresses whose owner name is not on the chain from the asked name are ignored,
+    so a stray record in an answer cannot add an address.
+17. **`addr.resolve` (getaddrinfo) is kept but unused** (D1): its existing unit test stays as it was; nothing on the
+    capture path calls it (`vet_host`, the proxy and the capture all take a `PublicResolver`, and `vet_host` without a
+    resolver falls back to the default public resolvers). Two tests replace `socket.getaddrinfo` with a spy that answers
+    nothing and assert it is never called during a capture (one with the real namespace and Chromium).
+18. **Resolvers are checked twice** (D1): `Settings.from_env` refuses a resolver that is not public or lies in
+    `FETCHER_BLOCKED_CIDRS` (the service exits 2 before the self-test), and `PublicResolver` refuses one at construction
+    (the self-test fails with the reason if a hand-made `Settings` slips one through).
+19. **The partial manifest** (D2, D4) has exactly the brief's fields plus `robots_txt {url, status, sha256}` (null when
+    robots.txt could not be read). The success manifest is unchanged (no `robots_txt`), so the witness's existing reader
+    is not affected. `resolved_ips` there are the vetted addresses of every host on the chain so far, where the success
+    manifest gives the final host's only.
+20. **The redirect hops come from the browser** (D2): the worker now returns the main document's recorded hops with
+    every failure, not only with success. Chromium reports a redirect (`requestWillBeSent` with `redirectResponse`)
+    before it asks the proxy for the next hop, so a hop the proxy refuses leaves the hop before it on record. A worker
+    killed at the wall time returns nothing: its partial manifest then has no hops.
+21. **A dropped connection is `timeout`** (D3) when the proxy's last attempt at the main document's current hop (the
+    last URL of its chain) timed out on every vetted address; one refused address in the mix keeps it `unreachable`.
+    The proxy answers such a CONNECT with 504 and `X-Fetcher-Refused: timeout` (a plain-HTTP request is still closed
+    without a byte). The 5 s connect limit and the 15 s wall time are unchanged: for `http://8.8.4.4/` robots.txt and
+    the page each wait 5 s, so the answer is a 408 after about 11 s. A robots.txt connect timeout alone is still
+    `unavailable` (decision 3).
 
 ## Known limits
 

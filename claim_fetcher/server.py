@@ -3,7 +3,8 @@
     POST /v1/capture   {"url": "...", "capture": "page", "viewport": [1280, 900]}   header X-Fetcher-Secret
         200 application/x-tar: manifest.json first, then the files it lists
         4xx application/json {"error": <code>, "detail": ...}: bad-request, unauthorized, scheme, port, blocked,
-            robots-disallowed, too-large, timeout, unreachable; 503 busy; 500 internal
+            robots-disallowed, too-large, timeout, unreachable; 503 busy; 500 internal. An error that came after at
+            least one request (robots.txt counts) also carries "manifest": the partial manifest (capture.partial_manifest)
     GET /healthz       {"ok": true, "selftest": {...}}
 
 The secret is read from the file named by FETCHER_SECRET_FILE and compared with hmac.compare_digest. The service does
@@ -77,9 +78,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _error(self, code, detail="", status=None):
-        body = json.dumps({"error": code, "detail": detail}).encode()
-        self._send(status or HTTP_STATUS.get(code, 422), body, "application/json")
+    def _error(self, code, detail="", status=None, manifest=None):
+        answer = {"error": code, "detail": detail}
+        if manifest is not None:  # the partial manifest of an error that came after at least one request
+            answer["manifest"] = manifest
+        self._send(status or HTTP_STATUS.get(code, 422), json.dumps(answer).encode(), "application/json")
 
     def do_GET(self):
         if self.path == "/healthz":
@@ -129,8 +132,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             manifest, files = self.server.capture_fn(url, viewport)
         except CaptureError as e:
-            log.info(json.dumps({"event": "capture-refused", "url": url, "code": e.code, "detail": e.detail}))
-            self._error(e.code, e.detail)
+            m = e.manifest or {}
+            log.info(json.dumps({"event": "capture-refused", "url": url, "code": e.code, "detail": e.detail,
+                                 "redirects": m.get("redirects"), "robots": m.get("robots"),
+                                 "fetch_ms": m.get("fetch_ms")}))
+            self._error(e.code, e.detail, manifest=e.manifest)
             return
         except Exception as e:  # noqa: BLE001
             log.exception("capture failed")
@@ -139,7 +145,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         finally:
             self.server.slots.release()
         log.info(json.dumps({"event": "capture", "url": url, "final_url": manifest.get("final_url"),
-                             "status": manifest.get("status"), "fetch_ms": manifest.get("fetch_ms")}))
+                             "redirects": manifest.get("redirects"), "status": manifest.get("status"),
+                             "fetch_ms": manifest.get("fetch_ms")}))
         self._send(200, to_tar(manifest, files), "application/x-tar")
 
 
@@ -172,7 +179,10 @@ def main(argv=None):
         try:
             r = capture_sync(args.capture, DEFAULT_VIEWPORT, settings)
         except CaptureError as e:
-            print(json.dumps({"error": e.code, "detail": e.detail}, sort_keys=True))
+            answer = {"error": e.code, "detail": e.detail}
+            if e.manifest is not None:
+                answer["manifest"] = e.manifest
+            print(json.dumps(answer, sort_keys=True, indent=1))
             return 4
         if args.out:
             os.makedirs(args.out, exist_ok=True)
