@@ -13,7 +13,8 @@ The witness's model backend (claim_witness/judge.py) calls the models; everythin
      content, every space datamarked as U+02C6 (length-preserving, so offsets into the marked text are offsets into the
      visible text);
   5. one run per model: the first JSON object in the answer, a Markdown code fence stripped; a finding word outside the
-     vocabulary is its own note; every quote is verified against the visible text, and a positive or negative finding with
+     vocabulary is its own note; every quote is verified against the visible text (BD13: a quote with `text` by finding
+     that text there, with the witness's own offsets; one without by its offsets), and a positive or negative finding with
      no verified quote is no finding (VR-7);
   6. agreement (BD2): a finding needs `require` runs agreeing and no other finding as large; two findings that both appear
      and none reaching `require` is judges-disagree (VR-8).
@@ -314,29 +315,55 @@ def _int(v):
     return isinstance(v, int) and not isinstance(v, bool)
 
 
+def _enough(span):
+    return len("".join(span.split())) >= MIN_QUOTE_CHARS
+
+
+def find_quote(text, visible, hint=None):
+    """BD13: (start, end) of the model's quoted `text` in an item's visible text, or None. The datamark is mapped back to a
+    space and canon/1 is applied (as quote.in-source does), a line break in the visible text counts as a space, and the
+    occurrence whose start is nearest `hint` is taken (ties: the earliest; no integer hint: the earliest). Only the visible
+    text is searched, never hidden nodes. The offsets are the witness's own."""
+    needle = canon.normalise(text.replace(MARK, " ")).replace("\n", " ")
+    if not needle:
+        return None
+    flat = visible.replace("\n", " ")  # same length, so offsets into flat are offsets into the visible text
+    best = None
+    i = flat.find(needle)
+    while i >= 0:
+        if best is None or (_int(hint) and abs(i - hint) < abs(best - hint)):
+            best = i
+        if not _int(hint) or i >= hint:
+            break  # later occurrences are only farther from the hint
+        i = flat.find(needle, i + 1)
+    return None if best is None else (best, best + len(needle))
+
+
 def verify_quotes(quotes, items):
-    """(verified [{source, start, end}], rejected count). A quote verifies when its source is an item, 0 <= start < end <=
-    the item's visible length, the span holds at least MIN_QUOTE_CHARS non-space characters, and its `text`, when given,
-    equals the span (plain or datamarked)."""
+    """(verified [{source, start, end}], rejected count). A quote's source must be an item. A quote with `text` (BD13)
+    verifies when find_quote finds the text in that item's visible text, and the record takes the found offsets, never the
+    model's. A quote without `text` verifies when 0 <= start < end <= the item's visible length. Either way the span holds at
+    least MIN_QUOTE_CHARS non-space characters."""
     ok, rejected = [], 0
     for n, q in enumerate(quotes):
         if n >= MAX_QUOTES or not isinstance(q, dict):
             rejected += 1
             continue
-        s, a, b = q.get("source"), q.get("start"), q.get("end")
-        if not (_int(s) and _int(a) and _int(b)) or not 0 <= s < len(items):
+        s, a, b, t = q.get("source"), q.get("start"), q.get("end"), q.get("text")
+        if not _int(s) or not 0 <= s < len(items):
             rejected += 1
             continue
         vis = items[s]["visible"]
-        if not 0 <= a < b <= len(vis):
+        if t is not None:
+            found = find_quote(t, vis, a) if isinstance(t, str) else None
+            if found is None:
+                rejected += 1
+                continue
+            a, b = found
+        elif not (_int(a) and _int(b)) or not 0 <= a < b <= len(vis):
             rejected += 1
             continue
-        span = vis[a:b]
-        if len("".join(span.split())) < MIN_QUOTE_CHARS:
-            rejected += 1
-            continue
-        t = q.get("text")
-        if t is not None and (not isinstance(t, str) or t.replace(MARK, " ") != span):
+        if not _enough(vis[a:b]):
             rejected += 1
             continue
         v = {"source": s, "start": a, "end": b}

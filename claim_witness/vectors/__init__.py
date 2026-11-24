@@ -145,6 +145,7 @@ CANON_CASES = [
 
 JUDGE_PAGE = "Acme Widgets\nThe Model X widget ships with a two-year warranty.\nPrices start at 40 EUR."
 JUDGE_STATEMENT = "The Model X widget has a two-year warranty."
+JUDGE_LIBRARY = "The city library is closed on Sundays."
 
 
 def _q(text, phrase, source=0):
@@ -176,6 +177,16 @@ JUDGE_CASES = [  # (statement, assertion, items, model outputs, require)
     (JUDGE_STATEMENT, False, [{"visible": JUDGE_PAGE, "hidden": []}, {"visible": "A second source, silent.", "hidden": []}],
      [_ans("judged-supports", [_q(JUDGE_PAGE, "two-year warranty")]), _ans("judged-silent"),
       _ans("judged-supports", [_q(JUDGE_PAGE, "two-year warranty")])], 2),
+    # BD13: quotes with text are found in the visible text; the record takes the witness's offsets
+    ("The city library is open on Sundays.", True, [{"visible": JUDGE_LIBRARY, "hidden": []}],  # B6-31: end one past
+     [_ans("judged-contradicted", [{"source": 0, "start": 4, "end": 38, "text": "city library is closed on Sundays"}])], 1),
+    ("The Eiffel Tower is in Paris.", True, [{"visible": "Paris\nThe Eiffel Tower is in Paris.", "hidden": []}],  # datamarked
+     [_ans("judged-supports", [{"source": 0, "start": 0, "end": 5,
+                                "text": "TheˆEiffelˆTowerˆisˆinˆParis"}])], 1),
+    (JUDGE_STATEMENT, True, [{"visible": JUDGE_PAGE, "hidden": ["Every widget comes with lifetime support."]}],  # hidden only
+     [_ans("judged-supports", [{"source": 0, "start": 0, "end": 16, "text": "lifetime support"}])], 1),
+    (JUDGE_STATEMENT, True, [{"visible": "ab: a two-year warranty. Not: a two-year warranty.", "hidden": []}],  # nearest
+     [_ans("judged-supports", [{"source": 0, "start": 30, "end": 47, "text": "two-year warranty"}])], 1),
 ]
 
 

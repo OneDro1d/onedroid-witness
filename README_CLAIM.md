@@ -77,10 +77,14 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
   lines whose nonce comes from the content, with every space written as U+02C6. The marking keeps lengths, so offsets hold.
   Every quote is verified, and a model run is then decided. Last, the runs are combined.
 - **The model's answer.** The witness reads the first JSON object in the text and strips a Markdown code fence:
-  `{"finding": ..., "quotes": [{"source": i, "start": s, "end": e, "text": "..."}]}`. A quote verifies when the source is an
-  item, `0 <= start < end <=` the length of that item's visible text, the span holds at least 2 non-space characters, and
-  `text`, when given, equals the span. A positive or negative finding with no verified quote is no finding (`undecided`, run
-  note `no-verified-quote`). A finding word outside the vocabulary is its own note (`finding-not-in-vocabulary`). Garbage,
+  `{"finding": ..., "quotes": [{"source": i, "start": s, "end": e, "text": "..."}]}`. The source must be an item. A quote
+  with `text` is verified by its text, not by the model's offsets (BD13, decision 63): U+02C6 is mapped back to a space,
+  canon/1 is applied as in `quote.in-source` (a line break in the visible text counts as a space), and the text must occur
+  in that item's visible text. Hidden nodes are never searched. With several occurrences, the one whose start is nearest the
+  model's `start` is taken (ties: the earliest). The record's offsets are the witness's, from that occurrence, never the
+  model's. A quote without `text` is verified by its offsets: `0 <= start < end <=` the length of that item's visible text.
+  Either way the span holds at least 2 non-space characters. A positive or negative finding with no verified quote is no
+  finding (`undecided`, run note `no-verified-quote`). A finding word outside the vocabulary is its own note (`finding-not-in-vocabulary`). Garbage,
   the wrong shape, an HTTP error, a dead endpoint and a timeout are each a note on that run, never a 5xx.
 - **Injection rules (§5.5).** Hard flags are checked in the visible text and in the hidden nodes:
   - `instruction-override` ("ignore previous instructions");
@@ -277,7 +281,7 @@ each model's `credits_per_run`, and the free fresh observations a day. `WITNESS_
   `text.canonical.txt` and its hidden nodes are the excerpts of its `hidden-nodes.json` (§5.2, §5.5), so the hidden-node
   injection rules (`statement-in-hidden` and the hard patterns) read the fetcher's hidden nodes, and a quote is verified
   against the visible text only.
-- **One methods library, 1.2.0** (`witness-methods-1.2.0.tar.gz`, `.py` and `.txt` files with the judge prompt), holding all
+- **One methods library, 1.3.0** (1.2.0 until BD13, decision 63) (`witness-methods-1.3.0.tar.gz`, `.py` and `.txt` files with the judge prompt), holding all
   seven methods. `vectors.json` was regenerated with both slices' sections (`judge`, `thresholds`, `observation`).
 - **One price object**: "Price" above.
 
@@ -331,7 +335,7 @@ is the same commands as the manifest: `python3 -m claim_witness signer serve` wi
 `WITNESS_DEV_KEYS_FILE`, optionally `WITNESS_CALLER_KEYS_URL`.
 
 Verify an answer offline: `python3 -m claim_witness.verify --envelope answer.json --keys keys.json` (keys.json = the
-`key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.2.0.tar.gz` and
+`key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.3.0.tar.gz` and
 `--evidence FILE` as needed, or `--bundle DIR`.
 
 ## Deploying on dev
@@ -471,7 +475,7 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     about the statement as written.
 28. **Quotes**: `text` is optional. Without it, a quote is checked by its offsets alone: a non-blank span of at least 2
     characters inside the item. With it, `text` must equal the span exactly, as plain text or datamarked. Offsets that are
-    wrong are never moved to where the text sits. At most 10 quotes per run are read. Verified quotes go into the record;
+    wrong are never moved to where the text sits. (The rule for a quote with `text` is superseded by decision 63, BD13.) At most 10 quotes per run are read. Verified quotes go into the record;
     rejected ones are only counted in `rejected`.
 29. **Hidden-node rules** apply to HTML objects as well as observations. The elements canon/1 drops for being hidden are the
     hidden nodes. Hard-flag patterns are matched in them too. A short statement, under four content words, flags only word
@@ -570,3 +574,23 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     B2b's `observation-not-found`); B6's `test_library_version_bumped_for_the_new_method` pins 1.2.0 instead of 1.1.0; and
     B1's registry test in `test_api_auth.py` pins exactly the seven methods (B6 pinned four, B2b asked for a subset). New:
     `test_integration.py` (judge.supports over observations, trust, price, library) and `test_migrations_upgrade.py`.
+
+### Decisions after the B6 holdout (63-)
+
+63. **Quotes are verified by their text, not by the model's offsets** (BD13, from B6-31 with a live openai/gpt-4.1-mini;
+    supersedes decision 28 for a quote with `text`). The model quoted "city library is closed on Sundays" with `end` 38 where
+    the span is 4..37, and in another answer copied the datamark into `text`. The exact-offset rule made a correct
+    contradiction `undecided`. Now a quote with `text` is found in the item's visible text (`judge_supports.find_quote`:
+    U+02C6 back to a space, canon/1 as in `quote.in-source`, a line break counts as a space, the occurrence nearest the
+    model's `start`, ties and a missing or non-integer `start` the earliest) and the record carries the witness's offsets.
+    `end` is not read for such a quote. A quote without `text` keeps the offsets rule. The 2-character minimum, the hidden-node
+    and injection rules, the order of checks, the agreement rule and the price are unchanged. Safety holds: every verified
+    quote is verbatim visible text, and hidden nodes are never searched. The methods library is **1.3.0**
+    (`witness-methods-1.3.0.tar.gz`) because the tarball's code changed, so every record's `code_sha256` changes and a
+    verifier can tell which rule decided a record. `judge.supports` keeps method version 1.0.0 and its prompt file
+    (`judge.supports-1.0.0.txt`, same sha256): the prompt and the model input are unchanged, and the method's output shape is
+    the same. `vectors.json` was regenerated: four judge vectors were added (the B6-31 answer, a datamarked text, a text only
+    in a hidden node, the nearest of two occurrences), the ten earlier ones decide as before, and the envelopes name the new
+    `code_sha256`. One test changed ("test change for BD13", its own commit): in `test_fabricated_quotes_are_rejected` the
+    case "offsets shifted" (start + 3 with the right text) is now asserted to verify with the witness's offsets, and the two
+    library pins say 1.3.0.
