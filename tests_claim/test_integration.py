@@ -246,7 +246,7 @@ class OneLibraryOnePriceList(Base):
         self.assertEqual(reg["library"]["tarball"], "witness-methods-1.3.0.tar.gz")
         by_id = {m["id"]: m for m in reg["methods"]}
         self.assertEqual(set(by_id), {"match.exact", "quote.in-source", "tests.pass", "judge.supports", "page.live", "match.text",
-                                      "match.screenshot"})
+                                      "match.screenshot", "post.by-author"})
         self.assertEqual(by_id["judge.supports"]["slots"], {"evidence": ["object", "observation"]})
         self.assertEqual(by_id["judge.supports"]["slot_counts"], {"evidence": [1, 5]})
         self.assertEqual(by_id["judge.supports"]["code_sha256"], reg["library"]["code_sha256"])

@@ -1,4 +1,4 @@
-# claim-witness, slices B1, B6 and B2b (integrated)
+# claim-witness, slices B1, B6 and B2b (integrated), plus B5a (post.by-author, branch v1/claim-post)
 
 The single-claim witness (SPEC Draft 3, `.df/missions/M-20261124-CLAIM-WITNESS/SPEC.md` in the claims notepad, plus
 `M-20261124-WITNESS-BUILD/DECISIONS.md` BD1-BD12, which wins where they differ). One claim in, one signed record out. The old
@@ -238,6 +238,49 @@ Slots `submitted` (an image object, so private claims only: VR-21 refuses images
   rollout, `IMAGE_DIGEST_PLACEHOLDER` in the manifest), `runtime` is `python3.12+tesseract-<version>`. Without the digest or
   Tesseract the method answers 503 `ocr-unavailable` and signs nothing. witness-verify prints `SKIP method-rerun: re-run
   skipped (needs image)`.
+
+## What B5a adds (branch v1/claim-post): post.by-author for Bluesky
+
+`claim_witness/methods/post_by_author.py`, SPEC §4 and TS-5, over the fetcher's `capture: post` (`README_FETCHER.md` on
+v1/claim-fetcher, "capture: post"), which proves the post from AT Protocol and resolves the claimed handle both ways.
+
+- **Claim**: `{"method": "post.by-author", "method_major": 1, "params": {"handle": "bsky.app"}, "assertion": true,
+  "statement": null}`. `handle` is an AT Protocol handle (a DNS name, two or more labels, the last not starting with a
+  digit, no `@`), compared case-insensitively; the template keeps it as written.
+- **Slot `post`**: `{slot: "post", kind: "url", url, capture: "post", max_age?}` (capture defaults to `post` here, and
+  `page` is 422), or `{slot: "post", kind: "observation", id | envelope}`. The witness sends the fetcher
+  `{"url", "capture": "post", "handle": <the claimed handle, lower case>}`.
+- **No fetch for other platforms**: a url that is not `https://bsky.app/profile/<handle or DID>/post/<rkey>` (X, LinkedIn,
+  TikTok, any other site, an http or profile URL) is never sent to the fetcher. The record is a signed CANNOT_WITNESS
+  with reason `method-not-applicable` and `detail.platform` `x`, `linkedin`, `tiktok` or `other`; it costs nothing.
+- **T**: "The post at {url} was published by the account {handle}." **F**: "The post at {url} was not published by the
+  account {handle}." **Limits**: "Proves which account key or platform account published the post, not who controls the
+  account. The post time is the author's own claim."
+- **Findings**, in this order, from the observation's `platform` (§2.3):
+
+  | when | finding | class |
+  |---|---|---|
+  | no Bluesky `platform` in the observation (a page capture, another platform) | none, `method-not-applicable` | |
+  | the capture failed | none, its reason (`timeout`, `blocked`, `unreachable`, ...) | |
+  | the observation's `handle` is not the claimed one, or `handle_resolution.bidirectional` is false | `handle-unresolved` | ○ |
+  | `signature` is `failed` or `not-available` | `signature-unverifiable` | ○ |
+  | the handle's verified DID is the post's `author_did` | `author-verified` | + |
+  | the handle's verified DID is another DID | `author-differs` | − |
+
+  `author-platform` (+) is registered for YouTube and Meta but nothing produces it yet.
+- **detail**: `{platform, signature, resolution (dns-txt | well-known | none), bidirectional, handle_match, same_did}`, enums
+  only (`yes`/`no`).
+- **Observation**: the manifest predicate's `platform` is exactly the §2.3 fields (`observation.platform_of`: strings or
+  null, `bidirectional` a boolean, `signature` one of its three values); the files add `platform.json`, `post.car`,
+  `did-document.json` (and `handle-did-document.json`) as the fetcher wrote them, each fingerprinted in `files`.
+- **Reuse** with `max_age` works as for pages, but a post observation answers only for the handle it resolved: the
+  lookup tag includes the handle, so another handle is a fresh capture. A private claim makes a private observation
+  (§2.6): its payload holds only `{visibility, body_commitment, fetched_at, fetcher}`.
+- **`POST /v1/observe`** takes `capture: "post"` with an optional `handle` (a bsky.app post URL only; `handle` with
+  `capture: page` is 422).
+- **Price**: one fresh observation (BD3: 5 credits after the free 50 a day), nothing for `method-not-applicable`.
+- **witness-verify** checks the record (signature, ids, key validity; the re-run is skipped because the evidence is an
+  observation) and the observation with its files (`platform.json` among them).
 
 ## Price
 
@@ -570,3 +613,40 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
     B2b's `observation-not-found`); B6's `test_library_version_bumped_for_the_new_method` pins 1.2.0 instead of 1.1.0; and
     B1's registry test in `test_api_auth.py` pins exactly the seven methods (B6 pinned four, B2b asked for a subset). New:
     `test_integration.py` (judge.supports over observations, trust, price, library) and `test_migrations_upgrade.py`.
+
+### Builder decisions, B5a (post.by-author, 63-72)
+
+63. **The witness never touches the network for a post.** The claimed handle goes to the fetcher with the capture
+    (`handle`), and the fetcher resolves it both ways through its egress proxy and public resolvers. The method reads the
+    signed observation only, so it is pure and re-runs from the tarball like the other observation methods.
+64. **`handle-unresolved` before `signature-unverifiable`.** TS-5's "a handle whose DNS no longer points at the DID" must be
+    `handle-unresolved`, and a URL written with that handle cannot even locate the repository (no signature then). A
+    claimed handle that is not bidirectional therefore decides first; with it bidirectional, an unverified signature is
+    `signature-unverifiable`; only a verified post gives `author-verified` or `author-differs`.
+65. **`author-differs` needs both sides verified**: the post's commit signature verified against its author DID, and the
+    claimed handle bidirectional to a different DID (the fetcher reads that DID's document too). A handle resolving to
+    another DID that does not list it back is `handle-unresolved`, never `author-differs` (VR-6: NOT_SUPPORTED only from
+    a real negative finding).
+66. **An observation answers only for the handle it resolved.** Given an observation whose `platform.handle` is another
+    handle than the claim's, the answer is `handle-unresolved` (`detail.handle_match: no`), and the reuse lookup tag of a
+    post capture includes the handle, so `max_age` never reuses one handle's observation for another.
+67. **method-not-applicable without a fetch**: only `https://bsky.app/profile/<actor>/post/<rkey>` is applicable (the one form
+    the fetcher accepts). Every other URL, including X, LinkedIn and TikTok, gets a signed CANNOT_WITNESS with no fetcher
+    call and no observation; `detail.platform` names x, linkedin, tiktok or other. An observation without Bluesky platform
+    fields (a page capture) is `method-not-applicable` too, rather than 422, because an envelope given by value can only be
+    read after the request is accepted.
+68. **The post slot defaults to `capture: post`** and refuses `page` (422 `invalid-evidence`); `capture: post` on any other
+    method stays 422 `capture-not-served`, as before.
+69. **`platform` in the signed manifest is normalised** (`observation.platform_of`): exactly the nine §2.3 fields and the
+    four `handle_resolution` fields, strings of at most 512 characters or null, `bidirectional` a boolean, `signature`
+    forced to `failed` when it is not one of its three values. The fetcher's extra fields stay in `platform.json`, which
+    is fingerprinted in `files`.
+70. **Methods library 1.3.0** (from 1.2.0) for the new method; `post.by-author` itself is 1.0.0, determinism `observed`.
+    The pins of the library version and of the exact method set in `test_integration.py`, `test_judge_unit.py`,
+    `test_api_auth.py` and `test_vectors_tarball.py` were moved to 1.3.0 and to the eight methods (no assertion loosened).
+71. **Vectors**: nine `post.by-author` template cases (both templates, every finding, method-not-applicable for X and
+    LinkedIn); the author-verified pair decides over `claim_witness/vectors/platform-bsky.app.json`, the platform.json the
+    real fetcher wrote for https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j on 24 Nov 2026, byte for byte (also
+    `tests_claim/fixtures/bsky/`).
+72. **No k8s change**: the fetcher reaches plc.directory, the PDS hosts and the handles' well-known URLs on 443 and the
+    public resolvers on 53, which the fetcher's manifest already allows; the witness needs nothing new.

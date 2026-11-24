@@ -260,6 +260,58 @@
     "statement": null
    },
    "claim_id": "0cda20f8e8a4b5b5fb6cdeb5eb3a52760d975e35fb90cc07e001aa37e3268839"
+  },
+  {
+   "canonical": "{\"assertion\":false,\"method\":\"post.by-author\",\"method_major\":1,\"params\":{\"handle\":\"bsky.app\"},\"statement\":null}",
+   "claim": {
+    "assertion": false,
+    "method": "post.by-author",
+    "method_major": 1,
+    "params": {
+     "handle": "bsky.app"
+    },
+    "statement": null
+   },
+   "claim_id": "df35c08891a6d7a57e69ef13813aa3ecfa327eabccc302c56272fb6391111a20"
+  },
+  {
+   "canonical": "{\"assertion\":false,\"method\":\"post.by-author\",\"method_major\":1,\"params\":{\"handle\":\"atproto.com\"},\"statement\":null}",
+   "claim": {
+    "assertion": false,
+    "method": "post.by-author",
+    "method_major": 1,
+    "params": {
+     "handle": "atproto.com"
+    },
+    "statement": null
+   },
+   "claim_id": "70ee7a2cce50e026d949b56424ef5596aa525048e78bf0f8da9ed2e05e921f98"
+  },
+  {
+   "canonical": "{\"assertion\":false,\"method\":\"post.by-author\",\"method_major\":1,\"params\":{\"handle\":\"bsky.app\"},\"statement\":null}",
+   "claim": {
+    "assertion": false,
+    "method": "post.by-author",
+    "method_major": 1,
+    "params": {
+     "handle": "bsky.app"
+    },
+    "statement": null
+   },
+   "claim_id": "df35c08891a6d7a57e69ef13813aa3ecfa327eabccc302c56272fb6391111a20"
+  },
+  {
+   "canonical": "{\"assertion\":true,\"method\":\"post.by-author\",\"method_major\":1,\"params\":{\"handle\":\"bsky.app\"},\"statement\":null}",
+   "claim": {
+    "assertion": true,
+    "method": "post.by-author",
+    "method_major": 1,
+    "params": {
+     "handle": "bsky.app"
+    },
+    "statement": null
+   },
+   "claim_id": "420512337740f1f201294b9b189d6e96ff287f40d2881a828f835c075d6fa35a"
   }
  ],
  "commitments": [
@@ -314,12 +366,12 @@
    },
    "disclosure": null,
    "envelope": {
-    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiIxODY0NDgxNTVjNGJhZmYzMTNhM2E3Y2I3YmJiMzZjNWYyZGY2M2MzN2FkYTYxMWNmMDU3NWE1YWM4ZjBjMWU0IiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiJkMzgwMWVjMTM2MjBhZDM4YTQzNDJhZDg1YWQ5YWFkYzU1MTNiNTlkZWNkY2VkOWU0OWUxMWYzZTE1Nzc1ZWQwIiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
     "payloadType": "application/vnd.in-toto+json",
     "signatures": [
      {
       "keyid": "witness:vectors:2026a",
-      "sig": "SPavpVOJsQX7SUcU1AAUJ+qTZggqaR5USJuHSziHRg3w4uD9QsfCrm7G99gk5NQrBzJHx75P8qAUedi0GA5wBA=="
+      "sig": "WaM2MMLMiNPgyaCYx9VPthdZiQ04uHmyDEmO8g97hKWE+hXkyKnbqTwZdme0VMSM8l1EDY7N6bxKUmQx/Wt9Aw=="
      }
     ]
    },
@@ -337,9 +389,9 @@
      }
     ]
    },
-   "payload_b64": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiIxODY0NDgxNTVjNGJhZmYzMTNhM2E3Y2I3YmJiMzZjNWYyZGY2M2MzN2FkYTYxMWNmMDU3NWE1YWM4ZjBjMWU0IiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
+   "payload_b64": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiJkMzgwMWVjMTM2MjBhZDM4YTQzNDJhZDg1YWQ5YWFkYzU1MTNiNTlkZWNkY2VkOWU0OWUxMWYzZTE1Nzc1ZWQwIiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xMiIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
    "public_b64": "m2HsckGgw98hPKjsJSF52wWeN90q17Bg/4cu7vCzhPM=",
-   "record_id": "2b8426eff4cc93362e7f2b3dbc678a1fed0b2bceaff31d8d769f904f465c8732",
+   "record_id": "789054bec322c29a60575706f1e34e8da485f02f2fb9b06b5724a187ccf52814",
    "seed_hex": "56d9175ea4bd23481bdffca721da83d77071544002add851c571e2fca29f8b44",
    "visibility": "public"
   },
@@ -389,7 +441,7 @@
      "label": "vector label",
      "limits": "Exact passage after canon/1 (whitespace, quotes and dashes unified; case kept).",
      "method": {
-      "code_sha256": "186448155c4baff313a3a7cb7bbb36c5f2df63c37ada611cf0575a5ac8f0c1e4",
+      "code_sha256": "d3801ec13620ad38a4342ad85ad9aadc5513b59decdced9e49e11f3e15775ed0",
       "id": "quote.in-source",
       "runtime": "python3.12",
       "version": "1.0.0"
@@ -422,12 +474,12 @@
     "salt": "AAECAwQFBgcICQoLDA0ODw"
    },
    "envelope": {
-    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiNGZjNTMxZWRjZmYxMTVlZDE2OWU1YzkzYWU5Yzc1ZTZiY2YyZmVmMjE5Y2NhMzNkODA4NDg0MjU1MmYwMzQ3NCIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiMTg2NDQ4MTU1YzRiYWZmMzEzYTNhN2NiN2JiYjM2YzVmMmRmNjNjMzdhZGE2MTFjZjA1NzVhNWFjOGYwYzFlNCIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiYjM0ZmVlMTBkMmZjZGUyNGU5M2JkMWU5NWQwZGM1Y2Y4ZGJlZmFkYWNmMWQ1MDdmYjI0ZTUzMGFiNzMzZGI2ZSIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiZDM4MDFlYzEzNjIwYWQzOGE0MzQyYWQ4NWFkOWFhZGM1NTEzYjU5ZGVjZGNlZDllNDllMTFmM2UxNTc3NWVkMCIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
     "payloadType": "application/vnd.in-toto+json",
     "signatures": [
      {
       "keyid": "witness:vectors:2026a",
-      "sig": "9erpCdEFz49YF5jfMt9VXq9yodtGQvkPGr1hPfcmMGqwDlrmw7PwcPoNk/CPWZaLGJUQ5oaNg94C5Lg99fx3DA=="
+      "sig": "oS3DrDCjs3Xt0VUzYVpbef7p6O8mSxPlYcpAz5d71o2YCw+1XLEYWk/XT8AMzMZ5rjbdkROjdCqO/6ESBs6cBg=="
      }
     ]
    },
@@ -445,9 +497,9 @@
      }
     ]
    },
-   "payload_b64": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiNGZjNTMxZWRjZmYxMTVlZDE2OWU1YzkzYWU5Yzc1ZTZiY2YyZmVmMjE5Y2NhMzNkODA4NDg0MjU1MmYwMzQ3NCIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiMTg2NDQ4MTU1YzRiYWZmMzEzYTNhN2NiN2JiYjM2YzVmMmRmNjNjMzdhZGE2MTFjZjA1NzVhNWFjOGYwYzFlNCIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
+   "payload_b64": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiYm9keV9jb21taXRtZW50IjoiYjM0ZmVlMTBkMmZjZGUyNGU5M2JkMWU5NWQwZGM1Y2Y4ZGJlZmFkYWNmMWQ1MDdmYjI0ZTUzMGFiNzMzZGI2ZSIsImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJmaW5kaW5nIjoicXVvdGUtZm91bmQiLCJsaW1pdHMiOiJFeGFjdCBwYXNzYWdlIGFmdGVyIGNhbm9uLzEgKHdoaXRlc3BhY2UsIHF1b3RlcyBhbmQgZGFzaGVzIHVuaWZpZWQ7IGNhc2Uga2VwdCkuIiwibWV0aG9kIjp7ImNvZGVfc2hhMjU2IjoiZDM4MDFlYzEzNjIwYWQzOGE0MzQyYWQ4NWFkOWFhZGM1NTEzYjU5ZGVjZGNlZDllNDllMTFmM2UxNTc3NWVkMCIsImlkIjoicXVvdGUuaW4tc291cmNlIiwicnVudGltZSI6InB5dGhvbjMuMTIiLCJ2ZXJzaW9uIjoiMS4wLjAifSwib3B0aW9uc191c2VkIjp7ImFjY2VwdF91bnRydXN0ZWQiOmZhbHNlLCJhbGxvd19wcm92aWRlciI6ZmFsc2UsInBhbmVsIjoxfSwib3V0Y29tZSI6IlNVUFBPUlRFRCIsInJlYXNvbiI6InF1b3RlLWZvdW5kIiwidmlzaWJpbGl0eSI6InByaXZhdGUiLCJ3aXRuZXNzIjp7ImlkIjoid2l0bmVzczp2ZWN0b3JzIiwia2V5X2lkIjoid2l0bmVzczp2ZWN0b3JzOjIwMjZhIiwia2V5X2xpc3Rfc2VxIjoxfSwid2l0bmVzc2VkX2F0IjoiMjAyNi0xMS0yNVQwOTo0Nzo0MFoifSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vb25lZHJvaWQuYWkvd2l0bmVzcy9jbGFpbS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIzMGIzYmRlN2UxZjBmZmYzMWMxZjRlNjE3MzViYjVjMzNmMTc2MWQ0YjgxODA5MDI0MTBjNDg1MDM3NjYwYjIzIn0sIm5hbWUiOiJjbGFpbSJ9XX0=",
    "public_b64": "m2HsckGgw98hPKjsJSF52wWeN90q17Bg/4cu7vCzhPM=",
-   "record_id": "09f448d575e2ee90441f8eb26d66c916a08c7faade190950f5d30168c32cf4d3",
+   "record_id": "370488fac6b8cd125494641ff63427b1e558655300085969eecf65a08bbcd34f",
    "seed_hex": "56d9175ea4bd23481bdffca721da83d77071544002add851c571e2fca29f8b44",
    "visibility": "private"
   }
@@ -3068,6 +3120,801 @@
    "params": {},
    "reason": "unreadable",
    "statement": "The submitted image 5555555555555555555555555555555555555555555555555555555555555555 shows text consistent with https://vectors.example/page observed at 2026-11-25T09:46:40Z."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "bidirectional": "yes",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "yes",
+    "signature": "verified"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYnNreS5hcHAiLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IHRydWUsCiAgIm1ldGhvZCI6ICJkbnMtdHh0IiwKICAicmVzdWx0X2RpZCI6ICJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIKIH0sCiAia2V5X3R5cGUiOiAic2VjcDI1NmsxIiwKICJuYW1lIjogImJsdWVza3kiLAogInBkcyI6ICJodHRwczovL3B1ZmZiYWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsiLAogInBvc3RfdXJpIjogImF0Oi8vZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIvYXBwLmJza3kuZmVlZC5wb3N0LzNuMm9waXR4ZHljMmoiLAogInJlY29yZF9jaWQiOiAiYmFmeXJlaWhqcHV6MjI1dTVkamVyN2I2b3FqNWFzem9xY2Jsc2pvZ3l6bGtyMmlwdzY1Y3ozc2s0NW0iLAogInNpZ25hdHVyZSI6ICJ2ZXJpZmllZCIsCiAic2lnbmF0dXJlX3JlYXNvbiI6IG51bGwsCiAidXJsX2FjdG9yIjogImJza3kuYXBwIgp9",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "d25b0f820306e25f66f01d7a4a12bd256044ec38cb28d9f99877945d26ead2bd",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "2ed327d1e75e890f5d09e527d06e8004deeaed947d078afd280aa9b8b6eed965",
+        "size": 897
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "bsky.app",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": true,
+        "method": "dns-txt",
+        "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "verified"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "author-verified",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "SUPPORTED",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "author-verified",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was published by the account bsky.app."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "bidirectional": "yes",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "yes",
+    "signature": "verified"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYnNreS5hcHAiLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IHRydWUsCiAgIm1ldGhvZCI6ICJkbnMtdHh0IiwKICAicmVzdWx0X2RpZCI6ICJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIKIH0sCiAia2V5X3R5cGUiOiAic2VjcDI1NmsxIiwKICJuYW1lIjogImJsdWVza3kiLAogInBkcyI6ICJodHRwczovL3B1ZmZiYWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsiLAogInBvc3RfdXJpIjogImF0Oi8vZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIvYXBwLmJza3kuZmVlZC5wb3N0LzNuMm9waXR4ZHljMmoiLAogInJlY29yZF9jaWQiOiAiYmFmeXJlaWhqcHV6MjI1dTVkamVyN2I2b3FqNWFzem9xY2Jsc2pvZ3l6bGtyMmlwdzY1Y3ozc2s0NW0iLAogInNpZ25hdHVyZSI6ICJ2ZXJpZmllZCIsCiAic2lnbmF0dXJlX3JlYXNvbiI6IG51bGwsCiAidXJsX2FjdG9yIjogImJza3kuYXBwIgp9",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "d25b0f820306e25f66f01d7a4a12bd256044ec38cb28d9f99877945d26ead2bd",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "2ed327d1e75e890f5d09e527d06e8004deeaed947d078afd280aa9b8b6eed965",
+        "size": 897
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "bsky.app",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": true,
+        "method": "dns-txt",
+        "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "verified"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "author-verified",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "NOT_SUPPORTED",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "author-verified",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was not published by the account bsky.app."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "bidirectional": "yes",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "no",
+    "signature": "verified"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYXRwcm90by5jb20iLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IHRydWUsCiAgIm1ldGhvZCI6ICJkbnMtdHh0IiwKICAicmVzdWx0X2RpZCI6ICJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIKIH0sCiAia2V5X3R5cGUiOiAic2VjcDI1NmsxIiwKICJuYW1lIjogImJsdWVza3kiLAogInBkcyI6ICJodHRwczovL3B1ZmZiYWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsiLAogInBvc3RfdXJpIjogImF0Oi8vZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIvYXBwLmJza3kuZmVlZC5wb3N0LzNuMm9waXR4ZHljMmoiLAogInJlY29yZF9jaWQiOiAiYmFmeXJlaWhqcHV6MjI1dTVkamVyN2I2b3FqNWFzem9xY2Jsc2pvZ3l6bGtyMmlwdzY1Y3ozc2s0NW0iLAogInNpZ25hdHVyZSI6ICJ2ZXJpZmllZCIsCiAic2lnbmF0dXJlX3JlYXNvbiI6IG51bGwsCiAidXJsX2FjdG9yIjogImJza3kuYXBwIgp9",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "c0a47995f1c0f7f667c1807b31b8d0ff9ca4b67f4717a3e11c6dc5bfb25381f2",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "3b56e04ac0c989453b2289e81aa51a55358582f72e7c127c1e0e0cf8c3b45afc",
+        "size": 900
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "atproto.com",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": true,
+        "method": "dns-txt",
+        "result_did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "verified"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "author-differs",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "NOT_SUPPORTED",
+   "params": {
+    "handle": "atproto.com"
+   },
+   "reason": "author-differs",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was published by the account atproto.com."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "bidirectional": "yes",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "no",
+    "signature": "verified"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYXRwcm90by5jb20iLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IHRydWUsCiAgIm1ldGhvZCI6ICJkbnMtdHh0IiwKICAicmVzdWx0X2RpZCI6ICJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIKIH0sCiAia2V5X3R5cGUiOiAic2VjcDI1NmsxIiwKICJuYW1lIjogImJsdWVza3kiLAogInBkcyI6ICJodHRwczovL3B1ZmZiYWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsiLAogInBvc3RfdXJpIjogImF0Oi8vZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIvYXBwLmJza3kuZmVlZC5wb3N0LzNuMm9waXR4ZHljMmoiLAogInJlY29yZF9jaWQiOiAiYmFmeXJlaWhqcHV6MjI1dTVkamVyN2I2b3FqNWFzem9xY2Jsc2pvZ3l6bGtyMmlwdzY1Y3ozc2s0NW0iLAogInNpZ25hdHVyZSI6ICJ2ZXJpZmllZCIsCiAic2lnbmF0dXJlX3JlYXNvbiI6IG51bGwsCiAidXJsX2FjdG9yIjogImJza3kuYXBwIgp9",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "c0a47995f1c0f7f667c1807b31b8d0ff9ca4b67f4717a3e11c6dc5bfb25381f2",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "3b56e04ac0c989453b2289e81aa51a55358582f72e7c127c1e0e0cf8c3b45afc",
+        "size": 900
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "atproto.com",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": true,
+        "method": "dns-txt",
+        "result_did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "verified"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "author-differs",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "SUPPORTED",
+   "params": {
+    "handle": "atproto.com"
+   },
+   "reason": "author-differs",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was not published by the account atproto.com."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "bidirectional": "no",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "no",
+    "signature": "verified"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYnNreS5hcHAiLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IGZhbHNlLAogICJtZXRob2QiOiAiZG5zLXR4dCIsCiAgInJlc3VsdF9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiCiB9LAogImtleV90eXBlIjogInNlY3AyNTZrMSIsCiAibmFtZSI6ICJibHVlc2t5IiwKICJwZHMiOiAiaHR0cHM6Ly9wdWZmYmFsbC51cy1lYXN0Lmhvc3QuYnNreS5uZXR3b3JrIiwKICJwb3N0X3VyaSI6ICJhdDovL2RpZDpwbGM6ejcyaTdoZHlubWs2cjIyejI3aDZ0dnVyL2FwcC5ic2t5LmZlZWQucG9zdC8zbjJvcGl0eGR5YzJqIiwKICJyZWNvcmRfY2lkIjogImJhZnlyZWloanB1ejIyNXU1ZGplcjdiNm9xajVhc3pvcWNibHNqb2d5emxrcjJpcHc2NWN6M3NrNDVtIiwKICJzaWduYXR1cmUiOiAidmVyaWZpZWQiLAogInNpZ25hdHVyZV9yZWFzb24iOiBudWxsLAogInVybF9hY3RvciI6ICJic2t5LmFwcCIKfQ==",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "4b6b6d2c0690edac985badb406ecedcf9fe83d4599f4202bf1bc7afcc6e6eb4f",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "b912ab47b24f8c7cb7be647afa2c4e7100acdd6af973cc408b889c04831ace6a",
+        "size": 898
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "bsky.app",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": false,
+        "method": "dns-txt",
+        "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "verified"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "handle-unresolved",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "handle-unresolved",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was published by the account bsky.app."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "bidirectional": "yes",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "yes",
+    "signature": "failed"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYnNreS5hcHAiLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IHRydWUsCiAgIm1ldGhvZCI6ICJkbnMtdHh0IiwKICAicmVzdWx0X2RpZCI6ICJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIKIH0sCiAia2V5X3R5cGUiOiAic2VjcDI1NmsxIiwKICJuYW1lIjogImJsdWVza3kiLAogInBkcyI6ICJodHRwczovL3B1ZmZiYWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsiLAogInBvc3RfdXJpIjogImF0Oi8vZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIvYXBwLmJza3kuZmVlZC5wb3N0LzNuMm9waXR4ZHljMmoiLAogInJlY29yZF9jaWQiOiAiYmFmeXJlaWhqcHV6MjI1dTVkamVyN2I2b3FqNWFzem9xY2Jsc2pvZ3l6bGtyMmlwdzY1Y3ozc2s0NW0iLAogInNpZ25hdHVyZSI6ICJmYWlsZWQiLAogInNpZ25hdHVyZV9yZWFzb24iOiBudWxsLAogInVybF9hY3RvciI6ICJic2t5LmFwcCIKfQ==",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "451751f726030c5e9c0c0fc73bf194df2217a622b053253ed2932407aa1dd345",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "9cb8a5fa591064d46d1e42c3a066e225f1c89b8a8a69d363a8bed79977c2c058",
+        "size": 895
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "bsky.app",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": true,
+        "method": "dns-txt",
+        "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "failed"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "signature-unverifiable",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "signature-unverifiable",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was not published by the account bsky.app."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "bidirectional": "yes",
+    "handle_match": "yes",
+    "platform": "bluesky",
+    "resolution": "dns-txt",
+    "same_did": "yes",
+    "signature": "not-available"
+   },
+   "evidence": [
+    {
+     "files_b64": {
+      "hidden-nodes.json": "W10=",
+      "platform.json": "ewogImF1dGhvcl9kaWQiOiAiZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIiLAogImF1dGhvcl9oYW5kbGVzIjogWwogICJic2t5LmFwcCIKIF0sCiAiY29tbWl0X2NpZCI6ICJiYWZ5cmVpZ2FubG5tN3J4dmNjdWZuaWl3azdwMmpxcnVwdDZjcjQzbnhodnY0aGZ6amJqbHR3cXlsbSIsCiAiY29tbWl0X3JldiI6ICIzbjMzaXFxd2ZnazJpIiwKICJjcmVhdGVkX2F0X2NsYWltZWQiOiAiMjAyNi0xMS0xOVQxODozMzozNi44MTNaIiwKICJkaWRfZG9jX3NoYTI1NiI6ICI3ODFjMmNlMzVjNDk4NjAzOGFiN2U0MjI5MDRkOWRlOTNjMTRkOGIwYjVlZDQ3YmY2YjE1MzQ1M2U2ZDIzMmY1IiwKICJoYW5kbGUiOiAiYnNreS5hcHAiLAogImhhbmRsZV9kaWRfZG9jX3NoYTI1NiI6IG51bGwsCiAiaGFuZGxlX3Jlc29sdXRpb24iOiB7CiAgImF0IjogIjIwMjYtMTEtMjRUMjE6MjE6NDlaIiwKICAiYmlkaXJlY3Rpb25hbCI6IHRydWUsCiAgIm1ldGhvZCI6ICJkbnMtdHh0IiwKICAicmVzdWx0X2RpZCI6ICJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIKIH0sCiAia2V5X3R5cGUiOiAic2VjcDI1NmsxIiwKICJuYW1lIjogImJsdWVza3kiLAogInBkcyI6ICJodHRwczovL3B1ZmZiYWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsiLAogInBvc3RfdXJpIjogImF0Oi8vZGlkOnBsYzp6NzJpN2hkeW5tazZyMjJ6MjdoNnR2dXIvYXBwLmJza3kuZmVlZC5wb3N0LzNuMm9waXR4ZHljMmoiLAogInJlY29yZF9jaWQiOiAiYmFmeXJlaWhqcHV6MjI1dTVkamVyN2I2b3FqNWFzem9xY2Jsc2pvZ3l6bGtyMmlwdzY1Y3ozc2s0NW0iLAogInNpZ25hdHVyZSI6ICJub3QtYXZhaWxhYmxlIiwKICJzaWduYXR1cmVfcmVhc29uIjogbnVsbCwKICJ1cmxfYWN0b3IiOiAiYnNreS5hcHAiCn0=",
+      "rendered.html": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "response.body": "PGh0bWw+PGJvZHk+PHA+Qmx1ZXNreTwvcD48cD52MS4xMzggaXMgbGl2ZSE8L3A+PC9ib2R5PjwvaHRtbD4=",
+      "text.canonical.txt": "Qmx1ZXNreQp2MS4xMzggaXMgbGl2ZSE="
+     },
+     "id": "7b8653a2b86072e9fe89fcf52eb63ff9419c8513d754e49c38770ae6564e4535",
+     "kind": "observation",
+     "manifest": {
+      "canonicaliser": "canon/1",
+      "fetch_ms": 100,
+      "fetched_at": "2026-11-25T09:46:40Z",
+      "fetcher": {
+       "browser": "chromium 159",
+       "id": "onedroid-fetcher",
+       "version": "1.0.0",
+       "viewport": [
+        1280,
+        900
+       ]
+      },
+      "files": [
+       {
+        "media_type": "text/html",
+        "name": "response.body",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "text/html",
+        "name": "rendered.html",
+        "sha256": "4ccae68f581b7f364e8d8c3cc643b01d424e4aa1db6f1312b6c18945eec6a6b5",
+        "size": 62
+       },
+       {
+        "media_type": "application/json",
+        "name": "hidden-nodes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2
+       },
+       {
+        "media_type": "application/json",
+        "name": "platform.json",
+        "sha256": "3dd644023806dd1bd2b72c82e02c34c920c7146414ac0f3e70df82f69c5ad0d1",
+        "size": 902
+       },
+       {
+        "media_type": "text/plain; charset=utf-8",
+        "name": "text.canonical.txt",
+        "sha256": "2b47c18a58824d82938802ee86771415eb2ebdfd24ed732559081a1675bc7f25",
+        "size": 23
+       }
+      ],
+      "final_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "platform": {
+       "author_did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+       "commit_cid": "bafyreiganlnm7rxvccufniiwk7p2jqrupt6cr43nxhvv4hfzjbjltwqylm",
+       "created_at_claimed": "2026-11-19T18:33:36.813Z",
+       "did_doc_sha256": "781c2ce35c4986038ab7e422904d9de93c14d8b0b5ed47bf6b153453e6d232f5",
+       "handle": "bsky.app",
+       "handle_resolution": {
+        "at": "2026-11-24T21:21:49Z",
+        "bidirectional": true,
+        "method": "dns-txt",
+        "result_did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+       },
+       "name": "bluesky",
+       "post_uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3n2opitxdyc2j",
+       "signature": "not-available"
+      },
+      "redirects": [],
+      "requested_url": "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j",
+      "resolved_ips": [
+       "93.184.215.14"
+      ],
+      "robots": "allowed",
+      "status": 200,
+      "tls": null,
+      "visibility": "public"
+     },
+     "slot": "post"
+    }
+   ],
+   "failing_tests": [],
+   "finding": "signature-unverifiable",
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "signature-unverifiable",
+   "statement": "The post at https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j was published by the account bsky.app."
+  },
+  {
+   "assertion": true,
+   "detail": {
+    "platform": "x"
+   },
+   "evidence": [
+    {
+     "kind": "url",
+     "slot": "post",
+     "url": "https://x.com/someone/status/1"
+    }
+   ],
+   "failing_tests": [],
+   "finding": null,
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "method-not-applicable",
+   "statement": "The post at https://x.com/someone/status/1 was published by the account bsky.app."
+  },
+  {
+   "assertion": false,
+   "detail": {
+    "platform": "linkedin"
+   },
+   "evidence": [
+    {
+     "kind": "url",
+     "slot": "post",
+     "url": "https://www.linkedin.com/posts/someone_activity-1"
+    }
+   ],
+   "failing_tests": [],
+   "finding": null,
+   "limits": "Proves which account key or platform account published the post, not who controls the account. The post time is the author's own claim.",
+   "method": "post.by-author",
+   "outcome": "CANNOT_WITNESS",
+   "params": {
+    "handle": "bsky.app"
+   },
+   "reason": "method-not-applicable",
+   "statement": "The post at https://www.linkedin.com/posts/someone_activity-1 was not published by the account bsky.app."
   }
  ],
  "thresholds": {

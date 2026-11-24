@@ -37,7 +37,7 @@ import urllib.parse
 from . import (attempts, crypto, dsse, ids, jcs, judge as judge_mod, methods, observation, ocr, record, screen,
                signer as signer_mod, tarball)
 from .fetcher import FetchFailed
-from .methods import judge_supports, page_live
+from .methods import judge_supports, page_live, post_by_author
 from .methods.result import Result
 from .schemas import CLAIM_TYPE, KEYLIST_TYPE, OBSERVATION_TYPE
 from .storage import Conflict
@@ -60,7 +60,7 @@ AGENT_KEYS = {"agent_key_id", "agent_sig", "nonce", "agent_time"}
 OPTION_KEYS = {"keep", "visibility", "keep_evidence_days", "allow_provider", "accept_untrusted", "panel", "wait", "models"}
 URL_ITEM_KEYS = {"slot", "kind", "url", "capture", "max_age"}
 OBS_ITEM_KEYS = {"slot", "kind", "id", "envelope", "key_list", "files"}
-OBSERVE_KEYS = {"url", "capture", "visibility", "max_age", "wait"}
+OBSERVE_KEYS = {"url", "capture", "handle", "visibility", "max_age", "wait"}
 FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 MAX_AGE = 30 * DAY
 KINDS = ("object", "url", "observation", "record")
@@ -543,6 +543,10 @@ class Witness:
                 if m.id == "page.live":
                     ev[e["slot"]] = self._page_live_attempts(p, e, ctx)
                     obs_ids = [a["observation"]["id"] for a in ev[e["slot"]]["attempts"] if "observation" in a]
+                elif m.id == "post.by-author" and not post_by_author.applicable(e["url"]):
+                    # X, LinkedIn, TikTok and every other URL: method-not-applicable, with no fetch at all (B5a)
+                    ev[e["slot"]] = {"slot": e["slot"], "kind": "url", "url": e["url"]}
+                    obs_ids = []
                 else:
                     a = self._attempt(p, e, ctx, allow_reuse=True)
                     ev[e["slot"]] = a["observation"] if "observation" in a else {"slot": e["slot"], "kind": "url", "url": e["url"],
@@ -555,9 +559,11 @@ class Witness:
             img["ocr_text"] = self._ocr().text(img["data"])
         return methods.run(m.id, p.claim["params"], ev), rec
 
-    def _lookup_tag(self, visibility, account, url, capture):
-        msg = jcs.canonical({"visibility": visibility, "account": account if visibility == "private" else None, "url": url,
-                             "capture": capture})
+    def _lookup_tag(self, visibility, account, url, capture, handle=None):
+        obj = {"visibility": visibility, "account": account if visibility == "private" else None, "url": url, "capture": capture}
+        if capture == "post":  # B5a: a post observation answers for the handle it resolved
+            obj["handle"] = handle
+        msg = jcs.canonical(obj)
         return hmac.new(self.lookup_key, msg, hashlib.sha256).hexdigest()
 
     def _box_ctx(self, oid, name):
@@ -573,20 +579,22 @@ class Witness:
             files = files_stored
         return {"slot": "page", "kind": "observation", "id": row["id"], "manifest": body, "files": files}
 
-    def _fresh(self, account, visibility, url, capture, ctx):
-        """Fetch, build, sign and store one observation: (method evidence, envelope, disclosure). FetchFailed passes through."""
+    def _fresh(self, account, visibility, url, capture, ctx, handle=None):
+        """Fetch, build, sign and store one observation: (method evidence, envelope, disclosure). FetchFailed passes through.
+        A post capture (B5a) carries the claimed handle, which the fetcher resolves both ways."""
         try:
             host = urllib.parse.urlsplit(url).hostname or ""
         except ValueError:
             host = ""
         self.host_limit.wait(host.lower())
-        cap = self.cfg.fetcher.capture(url, capture)
+        cap = self.cfg.fetcher.capture(url, capture, handle=handle) if capture == "post" else self.cfg.fetcher.capture(url, capture)
         pred, files = observation.from_capture(cap.manifest, cap.files, visibility)
         stmt, disclosure = observation.statement(pred)
         out = self.signer.sign(OBSERVATION_TYPE, stmt)
         env, oid = out["envelope"], out["payload_id"]
         now = self.now()
-        row = {"id": oid, "account": account, "visibility": visibility, "lookup_tag": self._lookup_tag(visibility, account, url, capture),
+        row = {"id": oid, "account": account, "visibility": visibility,
+               "lookup_tag": self._lookup_tag(visibility, account, url, capture, handle),
                "fetched_at": parse_iso(pred["fetched_at"]), "created_at": now, "envelope": env, "body_box": None,
                "signer": env["signatures"][0]["keyid"]}
         stored = files
@@ -606,14 +614,14 @@ class Witness:
         return {"slot": "page", "kind": "observation", "id": oid, "manifest": disclosure["body"] if disclosure else pred,
                 "files": files}, env, disclosure
 
-    def _reuse(self, account, visibility, url, capture, max_age, ctx):
+    def _reuse(self, account, visibility, url, capture, max_age, ctx, handle=None):
         """A visible observation of url no older than max_age (public ones; for a private request also the account's own
-        private ones), or None."""
+        private ones), or None. A post capture is reused only for the same claimed handle."""
         if max_age <= 0:
             return None
-        tags = [self._lookup_tag("public", None, url, capture)]
+        tags = [self._lookup_tag("public", None, url, capture, handle)]
         if visibility == "private":
-            tags.append(self._lookup_tag("private", account, url, capture))
+            tags.append(self._lookup_tag("private", account, url, capture, handle))
         row = self.storage.find_observation(tags, since=self.now() - max_age)
         if row is None or (row["visibility"] == "private" and row["account"] != account):
             return None
@@ -628,11 +636,11 @@ class Witness:
         """One look at a url evidence item: {"observation": evidence} or {"failure": {...}} (page_live.py's attempt shape)."""
         vis = p.options["visibility"]
         if allow_reuse:
-            got = self._reuse(p.account, vis, e["url"], e["capture"], e["max_age"], ctx)
+            got = self._reuse(p.account, vis, e["url"], e["capture"], e["max_age"], ctx, e.get("handle"))
             if got is not None:
                 return {"observation": got[1]}
         try:
-            obs, _, _ = self._fresh(p.account, vis, e["url"], e["capture"], ctx)
+            obs, _, _ = self._fresh(p.account, vis, e["url"], e["capture"], ctx, e.get("handle"))
             return {"observation": obs}
         except FetchFailed as f:
             part = f.partial or {}
@@ -819,8 +827,21 @@ class Witness:
         except methods.ParamsError as e:
             raise WitnessError(422, "invalid-request", str(e)) from None
         capture = body.get("capture", "page")
-        if capture != "page":
-            raise WitnessError(422, "capture-not-served", "capture: page (post captures come with post.by-author)")
+        handle = body.get("handle")
+        if capture not in ("page", "post"):
+            raise WitnessError(422, "invalid-request", "capture: page or post")
+        if capture == "page" and handle is not None:
+            raise WitnessError(422, "invalid-request", "handle goes with capture: post only")
+        if capture == "post":  # B5a: a Bluesky post URL only; handle optional (the fetcher then checks the URL's handle)
+            if not post_by_author.applicable(url):
+                raise WitnessError(422, "invalid-request", "capture: post takes a Bluesky post URL "
+                                                           "(https://bsky.app/profile/<handle or DID>/post/<rkey>)")
+            if handle is not None:
+                try:
+                    methods.get("post.by-author").check_params({"handle": handle})
+                except methods.ParamsError as e:
+                    raise WitnessError(422, "invalid-request", str(e)) from None
+                handle = handle.lower()
         vis = body.get("visibility", "private")
         if vis not in ("public", "private"):
             raise WitnessError(422, "invalid-request", "visibility: public or private")
@@ -846,19 +867,19 @@ class Witness:
         ev = threading.Event()
         with self.events_lock:
             self.events[jid] = ev
-        work = lambda: self._observe_job(account, url, capture, vis, max_age)  # noqa: E731
+        work = lambda: self._observe_job(account, url, capture, vis, max_age, handle)  # noqa: E731
         threading.Thread(target=self._run_job, args=(jid, work), daemon=True, name=f"obs-{jid[:8]}").start()
         return self._respond(jid, min(wait, self.cfg.max_wait))
 
-    def _observe_job(self, account, url, capture, vis, max_age):
+    def _observe_job(self, account, url, capture, vis, max_age, handle=None):
         ctx = Ctx()
-        got = self._reuse(account, vis, url, capture, max_age, ctx)
+        got = self._reuse(account, vis, url, capture, max_age, ctx, handle)
         if got is not None:
             row = got[0]
             out = {"observation_id": row["id"], "envelope": row["envelope"], "reused": True}
         else:
             try:
-                obs, env, disclosure = self._fresh(account, vis, url, capture, ctx)
+                obs, env, disclosure = self._fresh(account, vis, url, capture, ctx, handle)
             except FetchFailed as f:
                 raise WitnessError(422, f.reason, f"the fetch failed ({f.code}); nothing was signed") from None
             out = {"observation_id": obs["id"], "envelope": env, "reused": False}
@@ -922,6 +943,10 @@ class Witness:
         p.objects = self._objects([e for e in body["evidence"] if e.get("kind") == "object"], parts)
         if p.method.id == "page.live" and any(e["kind"] == "url" and e["url"] != p.claim["params"]["url"] for e in p.evidence):
             raise WitnessError(422, "wrong-evidence-slots", "page.live: the page slot's url is the claim's params.url")
+        if p.method.id == "post.by-author":  # B5a: the fetcher resolves the claimed handle both ways
+            for e in p.evidence:
+                if e["kind"] == "url":
+                    e["handle"] = p.claim["params"]["handle"].lower()
         p.agent = self._agent_block(body.get("agent"))
         p.agent_row = None
         p.auto_fp = None
@@ -1051,7 +1076,7 @@ class Witness:
         out = []  # a kind outside the slot's kinds is refused above: judge.supports takes object and observation only (§2.2)
         for e in items:
             if e["kind"] == "url":
-                out.append(self._url_item(e))
+                out.append(self._url_item(e, m))
                 continue
             if e["kind"] == "observation":
                 out.append(self._obs_item(e, p, len(out)))
@@ -1068,7 +1093,7 @@ class Witness:
             out.append({"slot": e["slot"], "kind": "object", "sha256": e["sha256"], "media_type": e["media_type"], "name": e["name"]})
         return out
 
-    def _url_item(self, e):
+    def _url_item(self, e, m=None):
         extra = set(e) - URL_ITEM_KEYS
         if extra:
             raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: unknown field(s) {', '.join(sorted(extra))}")
@@ -1076,10 +1101,14 @@ class Witness:
             methods.check_url(e.get("url"))
         except methods.ParamsError as x:
             raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: {x}") from None
-        capture = e.get("capture", "page")
-        if capture == "post":
+        post_method = m is not None and m.id == "post.by-author"
+        capture = e.get("capture", "post" if post_method else "page")
+        if post_method:  # B5a: the post slot is observed with capture post, and only with it
+            if capture != "post":
+                raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: post.by-author observes with capture: post")
+        elif capture == "post":
             raise WitnessError(422, "capture-not-served", f"evidence {e['slot']}: post captures come with post.by-author")
-        if capture != "page":
+        elif capture != "page":
             raise WitnessError(422, "invalid-evidence", f"evidence {e['slot']}: capture is page or post")
         max_age = e.get("max_age", 0)
         if not isinstance(max_age, int) or isinstance(max_age, bool) or not 0 <= max_age <= MAX_AGE:

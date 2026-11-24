@@ -71,6 +71,34 @@ def _obs(html, status=200, t=T0, rendered=None):
             "files_b64": {n: _b64(b) for n, b in sorted(files.items())}}
 
 
+POST_URL = "https://bsky.app/profile/bsky.app/post/3n2opitxdyc2j"
+POST_OTHER_DID = "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
+# the platform.json the real fetcher wrote for POST_URL on 24 Nov 2026 (B5a), kept byte for byte
+RECORDED_PLATFORM = (HERE / "platform-bsky.app.json").read_bytes()
+
+
+def _post_obs(platform_bytes=RECORDED_PLATFORM, **changes):
+    """A `capture: post` observation (B5a) built by the witness's observation module: platform.json as given (the recorded
+    bytes, or the recorded dict with `changes`), manifest.platform its §2.3 fields."""
+    from .. import observation
+    if changes:
+        p = json.loads(platform_bytes)
+        hr = changes.pop("handle_resolution", None)
+        p.update(changes)
+        if hr:
+            p["handle_resolution"] = dict(p["handle_resolution"], **hr)
+        platform_bytes = json.dumps(p, sort_keys=True, indent=1).encode("utf-8")
+    manifest, files = _capture(b"<html><body><p>Bluesky</p><p>v1.138 is live!</p></body></html>")
+    manifest = dict(manifest, requested_url=POST_URL, final_url=POST_URL)
+    files["platform.json"] = platform_bytes
+    manifest["files"].append({"name": "platform.json", "sha256": hashlib.sha256(platform_bytes).hexdigest(),
+                              "size": len(platform_bytes), "media_type": "application/json"})
+    manifest["platform"] = {k: json.loads(platform_bytes).get(k) for k in observation.PLATFORM_FIELDS}
+    pred, files = observation.from_capture(manifest, files, "public")
+    return {"slot": "post", "kind": "observation", "id": observation.manifest_digest(pred), "manifest": pred,
+            "files_b64": {n: _b64(b) for n, b in sorted(files.items())}}
+
+
 def _live(*attempts):
     return {"slot": "page", "kind": "url", "url": OBS_URL, "confirm_min_s": 60,
             "attempts": [a if "failure" in a else {"observation": a} for a in attempts]}
@@ -120,6 +148,18 @@ TEMPLATE_CASES = [
     ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six."), _obs(OBS_HTML)]),
     ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all."), _obs(OBS_HTML)]),
     ("match.screenshot", {}, True, [_shot(""), _obs(OBS_HTML)]),
+    ("post.by-author", {"handle": "bsky.app"}, True, [_post_obs()]),
+    ("post.by-author", {"handle": "bsky.app"}, False, [_post_obs()]),
+    ("post.by-author", {"handle": "atproto.com"}, True,
+     [_post_obs(handle="atproto.com", handle_resolution={"result_did": POST_OTHER_DID, "bidirectional": True})]),
+    ("post.by-author", {"handle": "atproto.com"}, False,
+     [_post_obs(handle="atproto.com", handle_resolution={"result_did": POST_OTHER_DID, "bidirectional": True})]),
+    ("post.by-author", {"handle": "bsky.app"}, True, [_post_obs(handle_resolution={"bidirectional": False})]),
+    ("post.by-author", {"handle": "bsky.app"}, False, [_post_obs(signature="failed")]),
+    ("post.by-author", {"handle": "bsky.app"}, True, [_post_obs(signature="not-available")]),
+    ("post.by-author", {"handle": "bsky.app"}, True, [{"slot": "post", "kind": "url", "url": "https://x.com/someone/status/1"}]),
+    ("post.by-author", {"handle": "bsky.app"}, False,
+     [{"slot": "post", "kind": "url", "url": "https://www.linkedin.com/posts/someone_activity-1"}]),
 ]
 
 JCS_CASES = [
@@ -329,6 +369,8 @@ def _evidence_of(ev):
     for e in ev:
         if e.get("kind") == "observation":
             out[e["slot"]] = _obs_of(e)
+        elif e.get("kind") == "url" and "attempts" not in e:
+            out[e["slot"]] = dict(e)  # a url the witness does not fetch (post.by-author: method-not-applicable)
         elif e.get("kind") == "url":
             out[e["slot"]] = dict(e, attempts=[a if "failure" in a else {"observation": _obs_of(a["observation"])}
                                                for a in e["attempts"]])
