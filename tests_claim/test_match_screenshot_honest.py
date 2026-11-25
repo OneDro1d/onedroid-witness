@@ -87,11 +87,17 @@ class ConstantsHoldTheTable(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.rows = load("measured.json")["cases"]
+        # decision 158 (BD19 addendum): an image under the readability gate is `unreadable`, not judged, so the honest rows
+        # these tests hold to F are the ones that pass it (readability from measured_gate.json, measured in the same image)
+        gate = match_screenshot.MIN_READABILITY_X100
+        value = {r["name"]: r["readability"]["mean_conf_x100"] for r in load("measured_gate.json")["cases"]}
+        cls.rows = [r for r in load("measured.json")["cases"] if value[r["name"]] >= gate or r["kind"] != "honest"]
+        cls.gated = [r for r in load("measured.json")["cases"] if value[r["name"]] < gate and r["kind"] == "honest"]
 
     def test_every_honest_screenshot_is_at_or_above_f(self):
         low = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] == "honest" and r["similarity_bp"] < self.F]
         self.assertEqual(low, [], f"honest screenshots under F={self.F}: they would be signed `differs`")
+        self.assertTrue(self.gated)   # and the ones the gate takes are the low-quality resampled ones (see test_match_screenshot_gate)
 
     def test_every_forgery_and_unrelated_screenshot_is_below_t(self):
         high = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] != "honest" and r["similarity_bp"] >= self.T]

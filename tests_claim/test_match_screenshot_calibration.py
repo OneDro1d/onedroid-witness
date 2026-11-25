@@ -90,9 +90,10 @@ class Thresholds(unittest.TestCase):
         cls.rows = load("measured.json")["cases"]
 
     def test_thresholds_are_the_calibrated_integers(self):
-        # BD19 (decision 157): F moved from 9300 to 1200 over the widened set (../screenshots2/); T stays 9500
-        self.assertEqual((match_screenshot.T_BP, match_screenshot.F_BP), (9500, 1200))
-        self.assertEqual((self.T, self.F), (9500, 1200))
+        # BD19: F moved from 9300 to 1200 (decision 157) and, with the readability gate, to 8700 (decision 158) over the widened
+        # set (../screenshots2/, measured_gate.json); T stays 9500
+        self.assertEqual((match_screenshot.T_BP, match_screenshot.F_BP), (9500, 8700))
+        self.assertEqual((self.T, self.F), (9500, 8700))
         self.assertLessEqual(self.F, self.T)
 
     def test_every_honest_screenshot_is_at_or_above_f(self):
