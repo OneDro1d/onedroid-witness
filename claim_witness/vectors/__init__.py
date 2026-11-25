@@ -106,8 +106,12 @@ def _live(*attempts):
             "attempts": [a if "failure" in a else {"observation": a} for a in attempts]}
 
 
-def _shot(text):
-    return {"slot": "submitted", "media_type": "image/png", "name": "shot.png", "data_b64": "", "sha256": "5" * 64, "ocr_text": text}
+def _shot(text, readability=None):
+    """A submitted screenshot: its OCR text and, when given, the OCR readability (mean word confidence x100; BD19 addendum)."""
+    item = {"slot": "submitted", "media_type": "image/png", "name": "shot.png", "data_b64": "", "sha256": "5" * 64, "ocr_text": text}
+    if readability is not None:
+        item["ocr_readability"] = readability
+    return item
 
 
 _WORDS = " ".join(f"w{i}" for i in range(1000))
@@ -147,9 +151,12 @@ TEMPLATE_CASES = [
     ("match.text", {}, True, [_obj("submitted", b"A different page altogether, with other words.", "text/plain", "x.txt"), _obs(OBS_HTML)]),
     ("match.text", {}, False, [_obj("submitted", _COPY35.encode(), "text/plain", "near.txt"),
                                _obs(("<p>" + _WORDS + "</p>").encode())]),
-    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six."), _obs(OBS_HTML)]),
-    ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all."), _obs(OBS_HTML)]),
-    ("match.screenshot", {}, True, [_shot(""), _obs(OBS_HTML)]),
+    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 9600), _obs(OBS_HTML)]),
+    ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all.", 9600), _obs(OBS_HTML)]),
+    ("match.screenshot", {}, True, [_shot("", 9600), _obs(OBS_HTML)]),
+    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 9149), _obs(OBS_HTML)]),   # one under the gate: unreadable
+    ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all.", 9149), _obs(OBS_HTML)]),
+    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 9150), _obs(OBS_HTML)]),   # at the gate: judged
     ("post.by-author", {"handle": "bsky.app"}, True, [_post_obs()]),
     ("post.by-author", {"handle": "bsky.app"}, False, [_post_obs()]),
     ("post.by-author", {"handle": "atproto.com"}, True,
@@ -490,6 +497,8 @@ def _evidence_of(ev):
                     "data": base64.b64decode(e["data_b64"])}
             if "ocr_text" in e:
                 item["ocr_text"] = e["ocr_text"]
+            if "ocr_readability" in e:
+                item["ocr_readability"] = e["ocr_readability"]
             out[e["slot"]] = item
     return out
 
