@@ -12,16 +12,22 @@ came more than interval_s + 15 minutes after the payload's time. A pending seal 
 
 B2b: an observation envelope (predicateType observation/v1) is verified too: signature, payload canonical, observation id,
 manifest digest (a public observation's subject is H(canonical manifest)), key validity at fetched_at, every file given with
---evidence against the manifest, and text.canonical.txt recomputed from rendered.html with the tarball's canon/1. A record
-whose evidence is an observation or a URL is not re-run here (the observations come in the bundle with S3), and
-match.screenshot is never re-run by this verifier: "re-run skipped (needs image)".
+--evidence against the manifest, and text.canonical.txt recomputed from rendered.html with the tarball's canon/1.
+
+Observation re-run (VR-13): a record whose evidence is an observation or a URL (page.live, match.text, post.by-author) is re-run
+from the observation folders of the bundle, observations/<id>/ (envelope.json, seal.json, files/<name>; or --observation DIR).
+Each observation the record names is verified as above first, and only then are its files given to the method from the tarball,
+in the shape the server gives it. An observation that fails its own checks makes method-rerun FAIL; one the bundle lacks, or a
+fetch that left none, is a SKIP naming it. match.screenshot is never re-run by this verifier: "re-run skipped (needs image)".
 
 One module, Python 3.10+ standard library only, importing nothing from its own package, so it can be copied and run alone:
 
     python3 -m claim_witness.verify --envelope answer.json --keys keys.json [--disclosure d.json] [--agent-key a.json]
                                     [--methods witness-methods-1.0.0.tar.gz] [--evidence FILE ...] [--record-id HEX]
+                                    [--observation DIR ...]
     python3 -m claim_witness.verify --bundle DIR      # envelope.json, keys.json, disclosure.json, agent_key.json,
-                                                      # witness-methods-*.tar.gz, evidence/<sha256>
+                                                      # witness-methods-*.tar.gz, evidence/<sha256>,
+                                                      # observations/<id>/{envelope.json, seal.json, files/<name>}
     --trust KEYS.json uses a key list you trust instead of the bundled one.
 
 Ed25519 uses the `cryptography` package when it can be imported, otherwise the pure-Python RFC 8032 code below (BD10);
@@ -416,7 +422,7 @@ def key_validity(r, entry, kid, at, anchor, interval_s=None, what="payload"):
 
 class Report:
     def __init__(self, out):
-        self.out, self.failed = out, False
+        self.out, self.failed, self.nfail = out, False, 0
 
     def line(self, text):
         print(text, file=self.out)
@@ -426,6 +432,7 @@ class Report:
 
     def fail(self, name, why):
         self.failed = True
+        self.nfail += 1
         self.line(f"FAIL {name}: {why}")
         return False
 
@@ -527,6 +534,25 @@ def _record_of(doc):
         return None
 
 
+def _observation_of(folder, expect_name):
+    """(id, {envelope, seal, disclosure, files: [bytes], expect_id}) from an observation folder (a bundle's observations/<id>/:
+    envelope.json, seal.json, disclosure.json, files/<name>), or None when it holds no readable envelope. A bundle's folder is
+    named by the id it claims, and the id is then expected (a folder holding another observation fails its record-id check);
+    for --observation DIR the id is the payload's hash."""
+    try:
+        env = _read_json(folder / "envelope.json")
+        oid = sha256_hex(_envelope_payload(env))
+    except (OSError, KeyError, TypeError, ValueError, AttributeError):
+        return None
+    one = {"envelope": env, "seal": None, "disclosure": None, "files": [], "expect_id": folder.name if expect_name else None}
+    for key, name in (("seal", "seal.json"), ("disclosure", "disclosure.json")):
+        if (folder / name).is_file():
+            one[key] = _read_json(folder / name)
+    if (folder / "files").is_dir():
+        one["files"] = [p.read_bytes() for p in sorted((folder / "files").iterdir()) if p.is_file()]
+    return (folder.name if expect_name else oid), one
+
+
 def _compare(r, lib, method, claim, view, res):
     outcome = outcome_for(lib.finding_class(method["id"], res.finding), claim["assertion"])
     statement = lib.render_statement(method["id"], claim["assertion"], res.vars)
@@ -582,7 +608,122 @@ def rerun_record_method(r, view, files, tar_bytes, records):
     _compare(r, lib, method, claim, view, lib.run(method["id"], claim["params"], ev))
 
 
-def rerun(r, view, files, tar_bytes, records=None):
+NOT_READ_BY_METHODS = ("capture.wacz", "screenshot.png")  # no pure method reads these two, so a bundle may leave them out
+
+
+def _observation_for_rerun(r, oid, observations, keys, kl, tar_bytes):
+    """One observation of the bundle, verified as any observation is (signature, id, manifest, files against the manifest,
+    text.canonical.txt, seal) and only then offered to a method: ("ok", evidence) | ("skip", why) | ("fail", why)."""
+    got = (observations or {}).get(oid)
+    if got is None:
+        return "skip", f"observation {oid} is not in the bundle (observations/{oid}/)"
+    try:
+        env = got["envelope"]
+        raw = _envelope_payload(env)
+        st = loads_strict(raw)
+        st["predicate"]
+    except (KeyError, TypeError, ValueError) as e:
+        r.fail("payload", f"observation {oid}: unreadable envelope payload: {e}")
+        return "fail", f"observation {oid} has an unreadable envelope"
+    if st.get("predicateType") != OBSERVATION_TYPE:
+        r.fail("payload", f"observation {oid}: predicateType {st.get('predicateType')!r} is not {OBSERVATION_TYPE}")
+        return "fail", f"observation {oid} is not an observation statement"
+    if env.get("payloadType") != PAYLOAD_TYPE:
+        r.fail("signature", f"payloadType {env.get('payloadType')!r} is not {PAYLOAD_TYPE}")
+    ok, manifest, named = run_observation_checks(r, env, keys, st, raw, list(got["files"]), tar_bytes, got.get("expect_id"),
+                                                 got.get("disclosure"), got.get("seal"), kl)
+    if not ok or env.get("payloadType") != PAYLOAD_TYPE:
+        return "fail", f"observation {oid} failed its own checks (above): its files are not handed to the method"
+    if manifest is None:
+        return "skip", (f"observation {oid} is private: its manifest needs observations/{oid}/disclosure.json "
+                        "(--observation DIR with a disclosure.json)")
+    missing = sorted(f["name"] for f in manifest.get("files") or [] if f["name"] not in named and f["name"] not in NOT_READ_BY_METHODS)
+    if missing:
+        return "skip", f"observation {oid} lacks file(s) its manifest lists: {', '.join(missing)}"
+    return "ok", {"slot": None, "kind": "observation", "id": oid, "manifest": manifest, "files": named}
+
+
+def rerun_observed(r, view, files, tar_bytes, observations, keys, kl):
+    """Step 6 for a pure method whose evidence holds observations (page.live, match.text, post.by-author): each observation the
+    evidence names (an `observation` item's id, a `url` item's `observations`) is read from the bundle's observations/<id>/,
+    verified, and given to the method exactly as the server gives it: an observation evidence item
+    {slot, kind, id, manifest, files}, and for page.live {slot, kind: url, url, attempts: [{observation}, ...]} in the
+    order the record lists them. A fetch that failed left no observation, so it is a SKIP, never a FAIL."""
+    method, claim, evidence = view["method"], view["claim"], view["evidence"]
+    by_sha = {sha256_hex(b): b for b in files}
+    wanted = {e["sha256"] for e in evidence if e.get("kind") == "object"}
+    if files:
+        extra = sorted(set(by_sha) - wanted)
+        r.check("bundle-files", not extra, f"file(s) {', '.join(x[:12] for x in extra)} match no evidence fingerprint in the record",
+                f"{len(by_sha)} file(s) match their fingerprints")
+    if tar_bytes is None:
+        r.skip("method-rerun", "no methods tarball given (--methods)")
+        return
+    if not r.check("methods-tarball", sha256_hex(tar_bytes) == method["code_sha256"],
+                   f"tarball sha256 {sha256_hex(tar_bytes)[:16]}... is not the record's code_sha256 {method['code_sha256'][:16]}..."):
+        return
+    missing = sorted(wanted - set(by_sha))
+    if missing:
+        r.skip("method-rerun", f"evidence bytes not given for {', '.join(m[:12] for m in missing)}")
+        return
+    ids = {}
+    for e in evidence:
+        if e.get("kind") == "observation":
+            ids[e["slot"]] = [e["id"]]
+        elif e.get("kind") == "url":
+            ids[e["slot"]] = list(e.get("observations") or [])
+            if not ids[e["slot"]]:
+                r.skip("method-rerun", f"the url evidence {e.get('url')!r} left no observation (its fetch failed): nothing to re-run")
+                return
+    got, problems, skips = {}, [], []
+    for slot, oids in ids.items():
+        for oid in oids:
+            state, val = _observation_for_rerun(r, oid, observations, keys, kl, tar_bytes)
+            if state == "ok":
+                got[oid] = dict(val, slot=slot)
+            elif state == "fail":
+                problems.append(val)
+            else:
+                skips.append(val)
+    if problems:
+        r.fail("method-rerun", "; ".join(problems))
+        return
+    if skips:
+        r.skip("method-rerun", "; ".join(skips))
+        return
+    try:
+        lib = _load_methods(tar_bytes)
+    except Exception as e:  # noqa: BLE001
+        r.fail("method-rerun", f"the tarball does not load: {type(e).__name__}: {e}")
+        return
+    m = lib.get(method["id"])
+    if m is None or not m.mechanical:
+        r.skip("method-rerun", f"{method['id']} is not a pure-Python method in this tarball")
+        return
+    if m.version != method["version"]:
+        r.fail("method-rerun", f"the tarball has {method['id']} {m.version}, the record names {method['version']}")
+        return
+    ev = {}
+    for e in evidence:
+        if e.get("kind") == "object":
+            ev[e["slot"]] = dict(e, data=by_sha[e["sha256"]])
+        elif e.get("kind") == "observation":
+            ev[e["slot"]] = got[e["id"]]
+        elif e.get("kind") == "url":
+            seen = [got[o] for o in ids[e["slot"]]]
+            if method["id"] == "page.live":
+                ev[e["slot"]] = {"slot": e["slot"], "kind": "url", "url": e["url"], "attempts": [{"observation": o} for o in seen]}
+            else:
+                ev[e["slot"]] = seen[0]
+    res = lib.run(method["id"], claim["params"], ev)
+    if method["id"] == "page.live" and res.reason == "undecided" and "confirm_after_s" not in res.detail \
+            and len(ids.get("page") or []) < 2:
+        r.skip("method-rerun", "the first look said gone and its confirming fetch left no observation: the confirmation cannot be re-run")
+        return
+    _compare(r, lib, method, claim, view, res)
+
+
+def rerun(r, view, files, tar_bytes, records=None, observations=None, keys=None, kl=None):
     """Step 6: files are fingerprinted; the method re-runs from the tarball and must give the record's finding."""
     method, claim, evidence = view["method"], view["claim"], view["evidence"]
     if method["id"] in RECORD_METHODS:
@@ -592,7 +733,7 @@ def rerun(r, view, files, tar_bytes, records=None):
         r.skip("method-rerun", "re-run skipped (needs image)")
         return
     if any(e.get("kind") != "object" for e in evidence):
-        r.skip("method-rerun", "the evidence is an observation: its re-run needs the observation files (the bundle, S3)")
+        rerun_observed(r, view, files, tar_bytes, observations, keys, kl)
         return
     by_sha = {sha256_hex(b): b for b in files}
     wanted = {e["sha256"] for e in evidence if e.get("kind") == "object"}
@@ -646,7 +787,10 @@ def _key_validity(r, entry, kid, at):
 
 
 def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, disclosure=None, seal=None, kl=None):
-    """An observation envelope: id, manifest digest, key validity at fetched_at, files, text.canonical.txt."""
+    """An observation envelope: id, manifest digest, key validity at fetched_at, files, text.canonical.txt. Returns (ok,
+    manifest, named): ok is False when any check of this observation failed; manifest is the manifest (the public predicate,
+    or a private observation's disclosed body) or None; named is {file name: bytes} for the given files that match it."""
+    failed_before = r.nfail
     oid = sha256_hex(raw)
     r.line(f"observation id: {oid}")
     sig = (env.get("signatures") or [{}])[0]
@@ -684,8 +828,8 @@ def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, d
         key_validity(r, entry, kid, pred.get("fetched_at", ""), anchor,
                      (seal or {}).get("batch_header", {}).get("interval_s"), "observation")
     if manifest is None:
-        return
-    listed = {f["name"]: f["sha256"] for f in manifest.get("files") or []}
+        return r.nfail == failed_before, None, {}
+    listed ={f["name"]: f["sha256"] for f in manifest.get("files") or []}
     by_sha = {sha256_hex(b): b for b in files}
     if files:
         stray = sorted(x[:12] for x in set(by_sha) - set(listed.values()))
@@ -696,19 +840,20 @@ def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, d
     named = {n: by_sha[h] for n, h in listed.items() if h in by_sha}
     if tar_bytes is None or "rendered.html" not in named or "text.canonical.txt" not in listed:
         r.skip("text-canonical", "needs rendered.html (--evidence) and the methods tarball (--methods)")
-        return
+        return r.nfail == failed_before, manifest, named
     try:
         lib = _load_methods(tar_bytes)
         text = lib.canon.canon1(named["rendered.html"], "text/html", layer="rendered").encode("utf-8")
     except Exception as e:  # noqa: BLE001
         r.fail("text-canonical", f"canon/1 from the tarball did not run: {type(e).__name__}")
-        return
+        return False, manifest, named
     r.check("text-canonical", sha256_hex(text) == listed["text.canonical.txt"],
             "canon/1 of rendered.html is not the manifest's text.canonical.txt", "canon/1 of rendered.html is text.canonical.txt")
+    return r.nfail == failed_before, manifest, named
 
 
 def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None, files=(), tar_bytes=None, expect_id=None,
-               seal=None, records=None):
+               seal=None, records=None, observations=None):
     r.line("ed25519: " + ("cryptography" if _backend() is not None else "pure-python"))
     kl, keys = check_key_list(r, keys_env, trusted) if keys_env is not None else (None, None)
     if keys_env is None:
@@ -774,7 +919,7 @@ def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None,
     # step 6
     if view is not None:
         rerun(r, dict(view, method=pred["method"], finding=pred["finding"], outcome=pred["outcome"], reason=pred["reason"],
-                      detail=pred["detail"], limits=pred["limits"]), list(files), tar_bytes, records)
+                      detail=pred["detail"], limits=pred["limits"]), list(files), tar_bytes, records, observations, keys, kl)
     elif files or tar_bytes:
         r.skip("method-rerun", "private record and no disclosure given")
     # step 7
@@ -808,6 +953,9 @@ def main(argv=None, out=None):
     ap.add_argument("--record-id")
     ap.add_argument("--record", action="append", default=[],
                     help="a record record.valid or record.disclose names: its envelope (an answer or a record view, with its seal)")
+    ap.add_argument("--observation", action="append", default=[],
+                    help="a folder holding an observation the record relied on: envelope.json, files/<name>, optionally seal.json and "
+                         "disclosure.json (a bundle's observations/<id>/); repeatable")
     ap.add_argument("--seal", help="the seal JSON (GET /v1/records/{id}/seal); a whole answer's own seal is used otherwise")
     try:
         a = ap.parse_args(argv)
@@ -833,6 +981,11 @@ def main(argv=None, out=None):
                     if (d / "seal.json").is_file():
                         one["seal"] = _read_json(d / "seal.json")
                     a.record.append(one)
+        if (b / "observations").is_dir():
+            bundled = {str(p) for p in sorted((b / "observations").iterdir()) if p.is_dir() and (p / "envelope.json").is_file()}
+            a.observation += sorted(bundled)
+    else:
+        bundled = set()
     if not env_path:
         print("witness-verify: give --envelope or --bundle", file=sys.stderr)
         return 2
@@ -853,11 +1006,16 @@ def main(argv=None, out=None):
             if got is not None:
                 records[got[0]] = got[1]
         tar_bytes = pathlib.Path(tar_path).read_bytes() if tar_path else None
+        observations = {}
+        for folder in a.observation:
+            got = _observation_of(pathlib.Path(folder), expect_name=folder in bundled)
+            if got is not None:
+                observations[got[0]] = got[1]
     except (OSError, ValueError) as e:
         print(f"witness-verify: cannot read input: {e}", file=sys.stderr)
         return 2
     r = Report(out)
-    run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id, seal, records)
+    run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id, seal, records, observations)
     r.line("RESULT: " + ("FAIL" if r.failed else "PASS"))
     return 1 if r.failed else 0
 

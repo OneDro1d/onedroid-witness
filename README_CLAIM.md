@@ -295,8 +295,8 @@ v1/claim-fetcher, "capture: post"), which proves the post from AT Protocol and r
 - **`POST /v1/observe`** takes `capture: "post"` with an optional `handle` (a bsky.app post URL only; `handle` with
   `capture: page` is 422).
 - **Price**: one fresh observation (BD3: 5 credits after the free 50 a day), nothing for `method-not-applicable`.
-- **witness-verify** checks the record (signature, ids, key validity; the re-run is skipped because the evidence is an
-  observation) and the observation with its files (`platform.json` among them).
+- **witness-verify** checks the record (signature, ids, key validity; the re-run comes from the observation folders
+  of a bundle, decision 153, and is a SKIP without them) and the observation with its files (`platform.json` among them).
 
 ## What B5b adds (branch v1/claim-b5b): record.valid and record.disclose
 
@@ -557,7 +557,9 @@ is the same commands as the manifest: `python3 -m claim_witness signer serve` wi
 
 Verify an answer offline: `python3 -m claim_witness.verify --envelope answer.json --keys keys.json` (keys.json = the
 `key_list` of `/.well-known/witness.json`), with `--disclosure`, `--agent-key`, `--methods witness-methods-1.4.0.tar.gz` and
-`--evidence FILE` as needed, or `--bundle DIR`.
+`--evidence FILE` and `--observation DIR` (an observation the record relied on: `envelope.json`, `files/<name>`; repeatable) as
+needed, or `--bundle DIR`. A bundle's `observations/<id>/` folders make `page.live`, `match.text` and the other observation
+methods re-run offline (decision 153).
 
 ## Deploying on dev
 
@@ -1145,3 +1147,27 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      an operator rebuild.
 152. **The graph and search tables are not in the n-dim or bundle paths.** The bundle already includes the observations a record
      relied on; the graph is a derived index of the same facts and is not signed or sealed.
+
+### Builder decisions, witness-verify observation re-run (branch v1/claim-verify-obs: 153-)
+
+153. **`witness-verify --bundle` re-runs `page.live`, `match.text` and any other pure method whose evidence is an observation or
+     a url** (SPEC VR-13, §6 step 6, TS-12). `verify.py` is the client, so the methods tarball and `methods_code_sha256` are
+     unchanged. The bundle's `observations/<id>/{envelope.json, seal.json, disclosure.json?, files/<name>}` is read
+     (`--observation DIR`, repeatable, takes the same folder for a single envelope). Each observation the record names (an
+     `observation` item's `id`, a `url` item's `observations`, in the record's order) goes through the checks any observation
+     gets (signature, id, manifest digest, files against the manifest, `text.canonical.txt` recomputed from `rendered.html`, seal,
+     key validity) and only then are its manifest and its files, matched by name against the manifest, given to the method in the
+     shape the server gives it: `{slot, kind: observation, id, manifest, files}`, and for `page.live` `{slot, kind: url, url,
+     attempts: [{observation}, ...]}` (decision 42's `observations` list is the attempts). The finding is compared with the
+     record by `_compare` (finding, reason, outcome, detail, statement, limits).
+     - An observation that fails its own checks makes `method-rerun` FAIL, never PASS, beside the failing check by name
+       (`observation-files`, `signature`, `record-id`, `text-canonical`, `manifest-digest`). A bundle folder is named by the id it
+       claims, so a folder holding another observation fails `record-id`.
+     - SKIP, naming what is missing: an observation the bundle lacks (its id); a file its manifest lists that the bundle lacks
+       (`capture.wacz` and `screenshot.png` may be left out: no pure method reads them); a private observation without
+       `disclosure.json` (the witness keeps the body, not the salt, so its bundle cannot carry one yet); a `url` item whose fetch
+       failed (no observation exists); a `page.live` whose confirming second fetch failed (the record has one observation and the
+       confirmation cannot be re-run); the object bytes of the record.
+     - `match.screenshot` stays "re-run skipped (needs image)". `confirm_min_s` is `page.live`'s own default (60), not the
+       server's configured delay: a record made on a witness configured with another delay is judged by the library's rule.
+     - `verify.py` stays one module, standard library only, importing nothing from its package.

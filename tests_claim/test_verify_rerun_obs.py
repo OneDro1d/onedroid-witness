@@ -153,12 +153,27 @@ class PageLive(Base):
         self.assertIn("FAIL method-rerun", text)
         self.assertNotIn("PASS method-rerun", text)
 
-    def test_an_observation_folder_under_another_id_fails(self):
-        out, d, names = self.live_bundle()
-        (o,) = self.obs_dir(d, names)
-        o.rename(o.parent / ("0" * 64))
+    def test_observation_folders_holding_each_others_files_fail(self):
+        self.ff.set(U, page(b"<h1>Not found</h1>", status=404))
+        out = self.witness(request(claim("page.live", {"url": U}), [url_item(U)], "public", wait=30))
+        d, names = self.bundle(out)
+        a, b = self.obs_dir(d, names)
+        a.rename(d / "tmp-a")
+        b.rename(a)
+        (d / "tmp-a").rename(b)
         code, text = self.verify("--bundle", d)
         self.assertEqual(code, 1, text)
+        self.assertIn("FAIL record-id", text)
+        self.assertNotIn("PASS method-rerun", text)
+
+    def test_an_observation_folder_under_an_unknown_id_is_a_skip_naming_the_real_one(self):
+        out, d, names = self.live_bundle()
+        (o,) = self.obs_dir(d, names)
+        real = o.name
+        o.rename(o.parent / ("0" * 64))
+        code, text = self.verify("--bundle", d)
+        self.assertIn("SKIP method-rerun", text)
+        self.assertIn(real, text)
         self.assertNotIn("PASS method-rerun", text)
 
     def test_a_missing_observation_is_a_skip_naming_its_id(self):
