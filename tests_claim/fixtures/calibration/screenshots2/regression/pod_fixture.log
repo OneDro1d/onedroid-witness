@@ -1,0 +1,18 @@
+kubectl -n witness-dev exec claim-screenshot-cal2 -- env PYTHONPATH=/app python3 /cal/fx/fixture.py /cal/fx     (25 Nov, image dev-0ce2a6f@sha256:4a091d1b...)
+FIXTURE sha256 4f7c2246a39c4de9c3eeae672fea74768f653f38e5831f4f515b553d8cec6bf7
+FIXTURE T,F 9500 9300
+FIXTURE finding differs differs {"F_bp": 9300, "T_bp": 9500, "layer": "rendered", "ocr_tokens": 45, "page_tokens": 45, "similarity_bp": 9111, "window_tokens": 45}
+FIXTURE OCR TEXT >>>
+Pewter Meadow Notes
+
+The cinnabar windmill turns slowly above the pewter meadow.
+Eleven amber snails cross the mossy footbridge before noon.
+
+A quiet lantern of tin glows beside the juniper well.
+
+Version: 1
+Object: 62a30964-25aa-487b-ab98-al5f78be24b2 - Library PwW-Platform — engram_read /
+engram_neighbors by this id
+
+<<<
+(the live witness read 9111 bp, 45 OCR tokens, 45 page tokens, window 45: reproduced exactly)

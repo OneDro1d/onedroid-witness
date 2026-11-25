@@ -1,0 +1,10 @@
+Pewter Meadow Notes
+
+The cinnabar windmill turns slowly above the pewter meadow.
+Eleven amber snails cross the mossy footbridge before noon.
+
+A quiet lantern of tin glows beside the juniper well.
+
+Version: 1
+Object: 62a30964-25aa-487b-ab98-al5f78be24b2 - Library PwW-Platform — engram_read /
+engram_neighbors by this id

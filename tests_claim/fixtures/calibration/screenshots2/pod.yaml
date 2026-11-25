@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: claim-screenshot-cal2
+  namespace: witness-dev
+  labels:
+    app: claim-screenshot-cal2
+    purpose: match-screenshot-calibration
+spec:
+  restartPolicy: Never
+  activeDeadlineSeconds: 3600
+  automountServiceAccountToken: false
+  enableServiceLinks: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: cal
+    image: acrpwwpoland.azurecr.io/claim-witness:dev-0ce2a6f@sha256:4a091d1be242e2e9aeead0578082e898349ce348ece05d30d56b58d8fee492d8
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/sh", "-c"]
+    args:
+    - |
+      echo "cal pod up, waiting for the set"
+      while [ ! -f /cal/in/READY ]; do sleep 2; done
+      sh /cal/in/RUN.sh
+      echo "EXIT $?"
+      while [ ! -f /cal/out/FETCHED ]; do sleep 2; done
+      echo "fetched, exiting"
+    env:
+    - name: CAL_IMAGE
+      value: acrpwwpoland.azurecr.io/claim-witness:dev-0ce2a6f@sha256:4a091d1be242e2e9aeead0578082e898349ce348ece05d30d56b58d8fee492d8
+    resources:
+      limits:
+        cpu: "1"
+        memory: 512Mi
+      requests:
+        cpu: 500m
+        memory: 256Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    volumeMounts:
+    - name: cal
+      mountPath: /cal
+  volumes:
+  - name: cal
+    emptyDir:
+      sizeLimit: 64Mi

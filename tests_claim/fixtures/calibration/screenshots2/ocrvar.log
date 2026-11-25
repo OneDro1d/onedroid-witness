@@ -1,0 +1,22 @@
+ocrvar.py run in pod claim-screenshot-cal2 (image dev-0ce2a6f@sha256:4a091d1b...), same set, same command line plus the extra
+Tesseract arguments named. As-is (no extra argument) is measured.json: honest 1343..10000 (full-size 8955..10000, resampled 1343..9739),
+forgery 1343..9247, unrelated 468..6250. The extra arguments lift nothing: the 0.5 resampled images (text 7 to 9 px high) stay
+unreadable, and what the OCR reads from them is as far from the page as a forgery or an unrelated page. A scaling step before Tesseract
+needs an image library; the image has none (no PIL), so no OCR change is committed.
+
+VARIANT dpi300   (--dpi 300)
+  honest    all       n=72  min=1171 max=10000
+  honest    fullsize  n=48  min=8955 max=10000
+  honest    resampled n=24  min=1171 max=9739
+  forgery   all       n=72  min=1171 max=9247
+  forgery   fullsize  n=48  min=3157 max=9247
+  forgery   resampled n=24  min=1171 max=9247
+  unrelated all       n=12  min=468 max=6250
+VARIANT dpi150   (--dpi 150)
+  honest    all       n=72  min=1391 max=10000
+  honest    fullsize  n=48  min=8955 max=10000
+  honest    resampled n=24  min=1391 max=9739
+  forgery   all       n=72  min=1340 max=9247
+  forgery   fullsize  n=48  min=3157 max=9247
+  forgery   resampled n=24  min=1340 max=9247
+  unrelated all       n=12  min=468 max=6250
