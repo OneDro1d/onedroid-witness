@@ -624,6 +624,7 @@ class Witness:
         if m.id == "match.screenshot":
             img = ev["submitted"]
             img["ocr_text"] = self._ocr().text(img["data"])
+            img["ocr_readability"] = self._ocr().readability(img["data"])
         return methods.run(m.id, p.claim["params"], ev), rec
 
     def _lookup_tag(self, visibility, account, url, capture, handle=None):

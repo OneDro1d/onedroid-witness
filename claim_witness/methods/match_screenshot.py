@@ -10,14 +10,21 @@ A screenshot usually shows part of a page, so the OCR tokens are compared with t
 with (similarity.window), not with the whole page. T and F come from the widened screenshot calibration set
 (tests_claim/fixtures/calibration/screenshots2/measured.json, measured inside the claim-witness image with its Tesseract):
 honest screenshots 1343..10000, one-sentence forgeries 1343..9247, screenshots of another page 468..6250. A false `differs`
-over an honest screenshot is worse than no finding (DECISIONS BD19), so F is below every honest screenshot (margin 143 bp) and
-T above every forgery (margin 253 bp); everything between is no finding (`undecided`). See README_CLAIM.md, decision 157.
+over an honest screenshot is worse than no finding (DECISIONS BD19), so F is below every honest screenshot and T above every
+forgery; everything between is no finding (`undecided`). The honest minimum, 1343, came only from full pages resampled to half
+size, which Tesseract barely reads, so decision 158 (BD19 addendum, measured_gate.json) adds a readability gate: an image whose
+mean word confidence (x100) is under MIN_READABILITY_X100 is `unreadable` (no finding, assertion true or false), and F = 8700 sits
+250 bp under the lowest honest image that passes the gate (T 253 bp over the highest forgery that passes it). The gate looks at
+the image only. See README_CLAIM.md, decisions 157 and 158.
 """
 from . import canon, observed, similarity
 from .result import Result
 
 T_BP = 9500
-F_BP = 1200
+F_BP = 8700
+# The image's readability gate (BD19 addendum): the mean word confidence Tesseract reports for the image, x100 (ocr.Ocr.readability).
+# Under it the image is `unreadable`: no finding, whatever the text says. It depends on the image only, never on the page.
+MIN_READABILITY_X100 = 9150
 
 
 def run(params, evidence):
@@ -36,11 +43,18 @@ def run(params, evidence):
     a = similarity.tokens(canon.normalise(ocr_text))
     if not a:
         return Result(None, {"ocr_tokens": 0}, vars_, reason="unreadable")
+    measured = "ocr_readability" in sub   # the witness always sets it; evidence from a caller that did not measure it is not gated
+    readability = sub.get("ocr_readability")
+    if measured and (readability is None or readability < MIN_READABILITY_X100):
+        return Result(None, {"ocr_tokens": len(a), "readability_x100": readability, "min_readability_x100": MIN_READABILITY_X100},
+                      vars_, reason="unreadable")
     page_text = observed.rendered_text(page)
     if page_text is None:
         page_text = observed.response_text(page) or ""
     b = similarity.tokens(page_text)
     detail = {"layer": "rendered", "ocr_tokens": len(a), "page_tokens": len(b), "T_bp": T_BP, "F_bp": F_BP}
+    if measured:
+        detail["readability_x100"] = readability
     if len(a) > similarity.MAX_TOKENS or len(b) > similarity.MAX_TOKENS:
         return Result(None, detail, vars_, reason="too-large")
     w = similarity.window(a, b)
