@@ -805,8 +805,8 @@
     "words_per_mpx": 154
    },
    "readability_x100_production": 9100,
-   "reason_in_image": "unreadable",
-   "similarity_bp": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 8740,
    "view": "full-s75",
    "width": 1024
   },
@@ -947,7 +947,7 @@
   },
   {
    "dpr": 1,
-   "finding_in_image": null,
+   "finding_in_image": "differs",
    "format": "png",
    "image": "images/b3-forgery-full-s75-png.png",
    "image_sha256": "1fc994e0bf62dd530d3bcb1cfae53b940c08df6bf0373ed16c571a64a770a795",
@@ -967,8 +967,8 @@
     "words_per_mpx": 152
    },
    "readability_x100_production": 8987,
-   "reason_in_image": "unreadable",
-   "similarity_bp": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7164,
    "view": "full-s75",
    "width": 1024
   },
@@ -1136,7 +1136,7 @@
   },
   {
    "dpr": 1,
-   "finding_in_image": "differs",
+   "finding_in_image": null,
    "format": "jpg",
    "image": "images/b4-forgery-crop-jpg.jpg",
    "image_sha256": "ca9c769e4fe2c49d5399fdd4ba74ff735a8a9be4a341cf4676f245a4f8780f93",
@@ -1156,14 +1156,14 @@
     "words_per_mpx": 336
    },
    "readability_x100_production": 9663,
-   "reason_in_image": "differs",
+   "reason_in_image": "undecided",
    "similarity_bp": 8636,
    "view": "crop",
    "width": 1024
   },
   {
    "dpr": 1,
-   "finding_in_image": "differs",
+   "finding_in_image": null,
    "format": "png",
    "image": "images/b4-forgery-crop-png.png",
    "image_sha256": "86540a07c0fda3e636d93188daee70fdde965c27e9d98f4feeda1c853e8c4293",
@@ -1183,7 +1183,7 @@
     "words_per_mpx": 336
    },
    "readability_x100_production": 9648,
-   "reason_in_image": "differs",
+   "reason_in_image": "undecided",
    "similarity_bp": 8636,
    "view": "crop",
    "width": 1024
@@ -1777,8 +1777,8 @@
     "words_per_mpx": 336
    },
    "readability_x100_production": 8996,
-   "reason_in_image": "unreadable",
-   "similarity_bp": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9292,
    "view": "full-s75",
    "width": 1440
   },
@@ -1939,8 +1939,8 @@
     "words_per_mpx": 333
    },
    "readability_x100_production": 9003,
-   "reason_in_image": "unreadable",
-   "similarity_bp": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 8767,
    "view": "full-s75",
    "width": 1440
   },
@@ -3397,8 +3397,8 @@
     "words_per_mpx": 188
    },
    "readability_x100_production": 9102,
-   "reason_in_image": "unreadable",
-   "similarity_bp": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9428,
    "view": "full-s75",
    "width": 1280
   },
@@ -4242,13 +4242,13 @@
  ],
  "head": {
   "cases_json_sha256": "35857a6b43f83f8fe44af2e783f2930e8f828a7b6770323c93caca45e549531c",
-  "finished_at": "2026-11-25T13:45:51Z",
+  "finished_at": "2026-11-25T14:04:10Z",
   "image": "acrpwwpoland.azurecr.io/claim-witness:dev-0ce2a6f@sha256:4a091d1be242e2e9aeead0578082e898349ce348ece05d30d56b58d8fee492d8",
   "library_version_of_package": "1.7.0",
-  "methods_code_sha256_of_package": "575885ea0967f6a421d50c61092a5dac2334f32cc46960c0e4140921fe4b0f27",
+  "methods_code_sha256_of_package": "1d8b3e75f9815122d220227091d28f787a13b296918c15eb8dbe930f4d2b4237",
   "ocr_module": "/cal/in/pkg/claim_witness/ocr.py",
-  "pod": "claim-screenshot-cal3",
-  "started_at": "2026-11-25T13:41:26Z",
+  "pod": "claim-screenshot-cal4",
+  "started_at": "2026-11-25T13:59:46Z",
   "tesseract_command_text": [
    "/usr/bin/tesseract",
    "stdin",
@@ -4270,7 +4270,7 @@
   ],
   "tesseract_version": "5.5.0",
   "thresholds_in_image": {
-   "F_bp": 8700,
+   "F_bp": 8490,
    "T_bp": 9500
   }
  },
