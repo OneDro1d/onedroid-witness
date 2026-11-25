@@ -129,11 +129,15 @@ class BundleTarball(k.Base, unittest.TestCase):
 
     def signed_with(self, sha, private=False):
         """A kept, sealed record whose method.code_sha256 is `sha` (the witness is made to report it while signing)."""
+        # the source differs per sha: an identical request is answered from the attempt log (same record, same code_sha256)
+        source = k.SOURCE + b" " + sha[:12].encode()
         with mock.patch.object(tarball, "methods_code_sha256", return_value=sha):
-            # the source differs per sha: an identical request is answered from the attempt log (same record, same code_sha256)
-            out = self.private_check() if private else self.check(source=k.SOURCE + b" " + sha[:12].encode())
+            out = self.private_check() if private else self.check(source=source)
         self.assertEqual(h.payload_of(out["envelope"])["predicate"]["method"]["code_sha256"], sha)
-        self.keep(out)
+        if private:
+            self.keep(out)
+        else:
+            self.keep(out, keep_evidence_days=30, evidence=self.evidence(source))  # the evidence travels, so the re-run can run
         self.seal_all()
         return out
 

@@ -440,7 +440,9 @@ Reads, all under `GET /v1/records/{id}`:
 - `GET /v1/records/{id}/evidence/{sha256}`: one kept file. A public record's (screened, public evidence) to anyone; a private
   record's to the owner and to holders of a token made with `evidence: true`;
 - `GET /v1/records/{id}/bundle`: the proof file people hand on (envelope, seal, key list and its seal, a public record's agent
-  key, the observations relied on and the kept evidence this reader may see, the methods tarball). It **never carries
+  key, the observations relied on and the kept evidence this reader may see, the methods tarball the record names, from the
+  archive, decision 161: `witness-methods-<the record's library version>.tar.gz`, or no tarball and a
+  `witness-methods-missing.txt` when the witness has no copy of it). It **never carries
   `disclosure.json`**, for any reader (BD17, decision 154): a private body travels only through a deliberate share link. The
   owner or token holder reads the disclosure from `GET /v1/records/{id}` and passes it with `witness-verify --bundle DIR
   --disclosure FILE`.
@@ -1340,3 +1342,42 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      seal-chain` naming it as the operator's own chain, and do not turn the result into FAIL. Without `--rpc` nothing changes
      but the sentence of the SKIP, which now names `--rpc`. `verify.py` stays one module, standard library only (urllib), network
      only when `--rpc` is given. Not changed: `claim_witness/methods/` and so the methods tarball and every `code_sha256`.
+
+### Builder decision, the bundle carries the tarball the record names (161-; branch v1/claim-bundle-tarball)
+
+161. **A record's bundle holds the methods tarball its `method.code_sha256` names, from an archive, never today's by default.**
+     Measured on 25 Nov: public record b0973af4... (quote.in-source 1.0.0, signed 09:58:49Z) names `code_sha256` 0d691773...
+     (library 1.5.0); `Records.bundle` wrote `tarball.build_methods_tarball()`, today's 1.7.0 (1d8b3e75...), so `witness-verify
+     --bundle` printed `FAIL methods-tarball`. Every record signed before a methods change was hit, and every record signed today
+     is hit at the next one. `verify.py` is not changed: it stays strict, a wrong tarball is still `FAIL methods-tarball`.
+     - **The archive** is `claim_witness/methods_archive/`: `<sha256>.tar.gz` per distinct tarball plus `index.json` (`sha256`,
+       `library_version`, `commit`, `first_commit_date`). It sits in the package, outside `claim_witness/methods/`, so the current
+       tarball and `methods_code_sha256` do not change (the builder reads `methods/` only), and `Dockerfile.claim`'s
+       `COPY claim_witness/` carries it into the image with no change to the Dockerfile. `claim_witness/archived.py` reads it and
+       checks each file's sha256 on every read: a file that is not the sha256 it is named by counts as absent.
+     - **What is in it**: 11 tarballs, every distinct `methods_code_sha256` on the first-parent history of `f99a04e` since
+       `claim_witness/tarball.py` existed (f3432fb), enumerated by building each commit whose `methods/` or `tarball.py` tree
+       changed with that commit's own builder: libraries 1.0.0, 1.1.0, 1.2.0, 1.3.0, 1.4.0 (two: 678e142 and the calibration
+       merge 65cf380), 1.5.0, 1.6.0 and 1.7.0 (three: 007168c, 58940cf, 24fb2a8). **A library version does not identify a
+       tarball** (1.4.0 and 1.7.0 each have several), so the archive is keyed by sha256 and only the bundle's file name uses the
+       version. Commits on side branches that were never first-parent are not enumerated; a record signed by an image built from
+       one of them gets the missing-tarball case below.
+     - **Rebuild**: each entry is rebuilt byte-identical from its `commit` by the repo's own builder:
+       `python3 tools/archive_methods_tarball.py rebuild <commit> --out FILE` (`git archive` of `claim_witness/` at that commit,
+       then `tarball.build_methods_tarball()` of that commit, `python -I`); `... check` does it for every entry; `... add [commit]`
+       archives a commit's tarball. A methods change is archived in the next commit with `add`, naming the commit that carries
+       it.
+     - **A new methods change cannot ship unarchived**: `tests_claim/test_methods_archive.py` fails unless
+       `tarball.methods_code_sha256()` is in the index with the same bytes. The tests also walk the archive (each file is the
+       sha256 it is named by, the library version inside is the index's, no file outside the index) and rebuild every entry from
+       its commit (skipped, saying so, when the commit is not in the clone).
+     - **The bundle**: the record's `method.code_sha256` is read from its envelope (public or private: the envelope names the
+       method either way). Equal to the current build: the current tarball, `witness-methods-<version>.tar.gz`, as before.
+       In the archive: that tarball, named `witness-methods-<its library version>.tar.gz`. Not a methods tarball
+       (`match.screenshot`: the image digest; the method is not `pure`): the current tarball, as before. Anything else: **no
+       tarball**, and `witness-methods-missing.txt` names the sha256. witness-verify (which globs `witness-methods-*.tar.gz`)
+       then prints `SKIP method-rerun: no methods tarball given (--methods)`, never `FAIL methods-tarball`, never `PASS`; the SKIP
+       text itself does not name the sha256, the note file does.
+     - `GET /v1/methods` is unchanged: the current library only. Not changed: `claim_witness/methods/` (so the current tarball and
+       every `code_sha256`), `verify.py`, any method's behaviour. The deployed image must be rebuilt for the archive to be served;
+       until then the old bundle code runs.

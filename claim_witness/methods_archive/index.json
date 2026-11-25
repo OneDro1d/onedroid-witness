@@ -1,0 +1,70 @@
+{
+ "entries": [
+  {
+   "sha256": "0a785425a1930097bfcbd32101670396675f7887d34e3efcf8e0144e429fe112",
+   "library_version": "1.0.0",
+   "commit": "f3432fbb7733cd1323f980fdfc41060c7c438a17",
+   "first_commit_date": "2026-11-24T19:28:40Z"
+  },
+  {
+   "sha256": "3be873a4413a116733dbf86a106ad8916e38cf87ad1b8ec5c596ca65481eede1",
+   "library_version": "1.1.0",
+   "commit": "1a5bd707878bdb34d28be0c42ffdf691afc29bc6",
+   "first_commit_date": "2026-11-24T20:39:16Z"
+  },
+  {
+   "sha256": "186448155c4baff313a3a7cb7bbb36c5f2df63c37ada611cf0575a5ac8f0c1e4",
+   "library_version": "1.2.0",
+   "commit": "cb769922dad1230c8f2756ce2a13700499e1c448",
+   "first_commit_date": "2026-11-24T20:57:01Z"
+  },
+  {
+   "sha256": "1d30489e8988f6f2a8d6ae66b0ddc28e5880e64f9ea13ee746101c1bcd2cefe0",
+   "library_version": "1.3.0",
+   "commit": "8ca79b4aba3d700b6785f7bce0948d888e7ece3c",
+   "first_commit_date": "2026-11-24T21:17:29Z"
+  },
+  {
+   "sha256": "a190fce150c0bcfb9f9a817ae1b7e2a8bd3a6be8aefb5c061c9f311869b218b1",
+   "library_version": "1.4.0",
+   "commit": "678e1421fbca9afef636a8f4d110a9daac3417c2",
+   "first_commit_date": "2026-11-24T21:43:51Z"
+  },
+  {
+   "sha256": "7f39d3940d39fd3f68e2b63879000e016165b37aaf2083b2db47dadad2b63e78",
+   "library_version": "1.4.0",
+   "commit": "65cf3805e3ea5b7f003b509d039a734d768a196c",
+   "first_commit_date": "2026-11-24T21:47:53Z"
+  },
+  {
+   "sha256": "0d691773a2c012b34ab5f22d2757b887761dcd6e09c29c5a2d05547dc21c69db",
+   "library_version": "1.5.0",
+   "commit": "45cace90b13f666b7dd89d8e78dc3e73aff7aea1",
+   "first_commit_date": "2026-11-24T23:51:11Z"
+  },
+  {
+   "sha256": "a36007123a4935d077cd702b3ee5620174f53a3d6a27499e0edd1f38e1a08aaf",
+   "library_version": "1.6.0",
+   "commit": "270fdc301805d96d57d60c1a7ce3bf0619f6a39b",
+   "first_commit_date": "2026-11-25T10:39:35Z"
+  },
+  {
+   "sha256": "0226f2dec1acd3e7f09c92ec7bd152768075a57ea46ddd6c2851172f4ccdbc0c",
+   "library_version": "1.7.0",
+   "commit": "007168c2b7c397cc9f6ba249cb7db908fe30248b",
+   "first_commit_date": "2026-11-25T13:14:03Z"
+  },
+  {
+   "sha256": "575885ea0967f6a421d50c61092a5dac2334f32cc46960c0e4140921fe4b0f27",
+   "library_version": "1.7.0",
+   "commit": "58940cf961783f68dbcb592ecd82bbb0c677596e",
+   "first_commit_date": "2026-11-25T13:47:41Z"
+  },
+  {
+   "sha256": "1d8b3e75f9815122d220227091d28f787a13b296918c15eb8dbe930f4d2b4237",
+   "library_version": "1.7.0",
+   "commit": "24fb2a81ccaf68a4647b4a8f62910182dfba8e82",
+   "first_commit_date": "2026-11-25T14:03:01Z"
+  }
+ ]
+}

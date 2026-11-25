@@ -33,7 +33,7 @@ import unicodedata
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from . import crypto, dsse, ids, jcs, ndim, tarball
+from . import archived, crypto, dsse, ids, jcs, methods, ndim, tarball
 from .schemas import CLAIM_TYPE
 from .service import WitnessError, iso
 
@@ -568,7 +568,7 @@ class Records:
                 if o is not None and (o["taken_down_at"] is None or o["account"] == row["account"]):
                     files[f"records/{o['record_id']}/envelope.json"] = json.dumps(o["envelope"], indent=1).encode()
                     files[f"records/{o['record_id']}/seal.json"] = json.dumps(self.w.sealer.seal_view(o["record_id"]), indent=1).encode()
-        files[tarball.tarball_name()] = tarball.build_methods_tarball()
+        files.update(self._methods_files(row))
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w", format=tarfile.USTAR_FORMAT) as tf:
             for name in sorted(files):
@@ -576,6 +576,30 @@ class Records:
                 ti.size, ti.mtime, ti.mode = len(files[name]), int(row["kept_at"]), 0o644
                 tf.addfile(ti, io.BytesIO(files[name]))
         return buf.getvalue()
+
+    @staticmethod
+    def _methods_files(row):
+        """The methods tarball the RECORD names (decision 161), as {file name: bytes}. witness-verify refuses any tarball whose
+        sha256 is not the record's method.code_sha256, so today's build is carried only when it is the record's: the current
+        build for a record signed by it, an archived one (claim_witness/methods_archive/) for an older record, named by its own
+        library version. A method whose code_sha256 is not a methods tarball (match.screenshot: the image digest) keeps the
+        current tarball, as before. A sha256 nobody can supply gives no tarball, never a wrong one: witness-verify then says
+        SKIP method-rerun, and witness-methods-missing.txt names the sha256."""
+        method = json.loads(dsse.payload_bytes(row["envelope"])).get("predicate", {}).get("method")
+        method = method if isinstance(method, dict) else {}
+        sha = method.get("code_sha256")
+        if sha == tarball.methods_code_sha256():
+            return {tarball.tarball_name(): tarball.build_methods_tarball()}
+        got = archived.get(sha)
+        if got is not None:
+            return {archived.tarball_name(got[0]): got[1]}
+        known = methods.get(method.get("id")) if isinstance(method.get("id"), str) else None
+        if known is not None and not known.pure:
+            return {tarball.tarball_name(): tarball.build_methods_tarball()}
+        note = (f"The record names methods tarball sha256 {sha} ({method.get('id')} {method.get('version')}). This witness has no\n"
+                f"copy of it, so the bundle carries no methods tarball: witness-verify skips the method re-run and does not\n"
+                f"check a tarball. It never carries a different tarball, which would fail methods-tarball.\n")
+        return {"witness-methods-missing.txt": note.encode()}
 
     # ------------------------------------------------------------------------------------------------------- retention
 
