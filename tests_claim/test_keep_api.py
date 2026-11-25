@@ -452,10 +452,10 @@ class Bundles(Base):
         self.assertEqual(code, 200)
         d, names = self.unpack(data)
         self.assertNotIn("agent_key.json", names)
-        self.assertIn("disclosure.json", names)
+        self.assertNotIn("disclosure.json", names)  # BD17: was assertIn; the owner's bundle no longer carries the disclosure
         buf = io.StringIO()
         self.assertEqual(verify.main(["--bundle", str(d)], out=buf), 0, buf.getvalue())
-        self.assertIn("PASS body-commitment", buf.getvalue())
+        self.assertNotIn("FAIL", buf.getvalue())  # BD17: was PASS body-commitment, which needed disclosure.json (now a SKIP without --disclosure)
         code, data = self.raw_get(f"/v1/records/{out['record_id']}/bundle")
         d, names = self.unpack(data)
         self.assertNotIn("disclosure.json", names)
