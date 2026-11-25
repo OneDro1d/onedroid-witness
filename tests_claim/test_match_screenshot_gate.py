@@ -111,7 +111,7 @@ class Table(unittest.TestCase):
     def test_the_gate_does_not_take_honest_images_at_scale_1_or_2(self):
         gated = [r for r in self.rows if r["kind"] == "honest" and value(r) < gate()]
         self.assertTrue(gated)
-        self.assertEqual(sorted({r["view"] for r in gated}), ["full-s50", "full-s75"])   # only images resampled to 0.5 / 0.75
+        self.assertEqual(sorted({r["view"] for r in gated}), ["full-s50"])   # decision 159: at G 8500 the 8 gated honest images are all resampled to 0.5
         self.assertLessEqual(len(gated), 12)
 
     def test_the_regression_fixture_passes_the_gate_and_is_not_differs(self):
@@ -208,7 +208,7 @@ class Production(unittest.TestCase):
     def test_measured_with_the_branch_code(self):
         head = self.doc["head"]
         self.assertTrue(head["image"].endswith("@sha256:" + LIVE_DIGEST))
-        self.assertEqual(head["pod"], "claim-screenshot-cal3")
+        self.assertEqual(head["pod"], "claim-screenshot-cal4")
         self.assertEqual(head["thresholds_in_image"], {"T_bp": match_screenshot.T_BP, "F_bp": match_screenshot.F_BP})
         self.assertNotEqual(head["ocr_module"], "/app/claim_witness/ocr.py")
 
