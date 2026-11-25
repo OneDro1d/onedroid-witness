@@ -237,12 +237,12 @@ Slots `submitted` (an image object, so private claims only: VR-21 refuses images
 
 - OCR: `tesseract stdin stdout -l eng --psm 3` (`tesseract-ocr` and `tesseract-ocr-eng` in `Dockerfile.claim`,
   `WITNESS_TESSERACT_BIN`), then canon/1. The OCR tokens are compared with the span of the page's tokens they line up with
-  (a screenshot shows part of a page): `consistent` (≥ T = 9500), `differs` (< F = 8700), else `undecided`; no text read, or an
+  (a screenshot shows part of a page): `consistent` (≥ T = 9500), `differs` (< F = 8490), else `undecided`; no text read, or an
   image under the readability gate (next bullet), is `unreadable`.
 - **Readability gate** (decision 158, DECISIONS BD19 addendum): the witness runs Tesseract a second time on the image with the
   same command line plus the `tsv` config (`ocr.Ocr.readability`; the plain-text run is unchanged, its text is byte-identical to
   before for all 157 measured images) and takes the mean confidence of the words it returns, x100 (`ocr.mean_confidence_x100`).
-  Under `MIN_READABILITY_X100 = 9150` (91.5) the claim gets no finding, reason `unreadable`, whether the assertion is true or
+  Under `MIN_READABILITY_X100 = 8500` (85.0; 9150 under decision 158, moved by decision 159) the claim gets no finding, reason `unreadable`, whether the assertion is true or
   false; `detail` carries `readability_x100` (and `min_readability_x100` when gated). The gate looks at the image only, never at
   the page text, so it cannot be tuned per claim. Evidence without an `ocr_readability` field (a caller other than the witness) is
   not gated; `None` (the second run failed) is `unreadable`. Measured in pod `claim-screenshot-cal3` from the live image
@@ -252,17 +252,18 @@ Slots `submitted` (an image object, so private claims only: VR-21 refuses images
   Its cost: the gate is tuned to this table (the gap between the highest gated honest image, 9102, and the lowest passing one,
   9177, is 75 points) and a forgery at 9164 passes it, so a real photograph or a phone screenshot at a different quality can land
   either side; those get `unreadable` or are judged by F, and F's margin is what protects the honest ones.
-- **T = 9500, F = 8700** basis points (decision 158; F was 1200 under decision 157 and 9300 under decision 74, which signed
+- **T = 9500, F = 8490** basis points (decision 159; F was 8700 under decision 158, 1200 under decision 157 and 9300 under decision 74, which signed
   `differs` over honest screenshots), from the widened calibration set `tests_claim/fixtures/calibration/screenshots2/` (`build.py` makes
   the screenshots with Chromium, `measure.py` measured them inside the live image `dev-0ce2a6f@sha256:4a091d1b…`, Tesseract
   5.5.0, in pod `claim-screenshot-cal2`, and wrote `measured.json`; `pod.log`, `pod.yaml`, `ocrvar.log` beside it): 72 honest
   screenshots (widths 1000, 1024, 1440, 1280 and 390, device scale 1 and 2, two fonts, 36 short pages of 64 to 102 tokens and 36
   long ones, a monospace id line, "—" and "·", full page, a crop, and the full page resampled by 0.75 and 0.5, PNG and JPEG)
   scored 1343 to 10000; 72 forgeries (one sentence replaced) 1343 to 9247; 12 screenshots of another page 468 to 6250. The rule
-  is BD19's: **no honest screenshot that passes the readability gate is `differs`** (F = 8700 is 255 bp under the lowest of them,
-  8955, `b3-honest-full-jpg`) and **no forgery is `consistent`** (T is 253 bp over the highest forgery that passes the gate, 9247).
-  Outcomes under G = 9150, F = 8700, T = 9500 (readability and similarity both from `measured_gate.json`): honest 42 `consistent`,
-  19 `undecided`, 11 `unreadable`, 0 `differs`; forgeries 42 `differs`, 20 `undecided`, 10 `unreadable`, 0 `consistent`; other-page
+  is BD19's: **no honest screenshot that passes the readability gate is `differs`** (decision 158's F = 8700 was 255 bp under the lowest of them,
+  8955, `b3-honest-full-jpg`; decision 159's F = 8490 is 250 bp under the lowest at G = 8500, 8740, `b3-honest-full-s75-png`) and **no forgery is `consistent`** (T is 253 bp over the highest forgery that passes the gate, 9247).
+  Outcomes under G = 8500, F = 8490, T = 9500 (decision 159; readability and similarity from `measured_gate.json`): honest 42 `consistent`,
+  23 `undecided`, 8 `unreadable`, 0 `differs`; forgeries 41 `differs`, 23 `undecided`, 8 `unreadable`, 0 `consistent` (under decision 158's
+  G 9150, F 8700: honest 42 / 19 / 11 / 0, forgeries 42 `differs` / 20 `undecided` / 10 `unreadable`); other-page
   screenshots 12 `differs` (all pass the gate, highest 6250); the regression fixture 9111 bp, readability 9177: `undecided`
   (it was `differs` under decision 74's F). Under decision 157's F = 1200 all 72 forgeries and 9 of the 12 other-page screenshots
   had been `undecided`; the gate is what lets F rise: the honest minimum 1343 came from full pages resampled to half size (text
@@ -1293,3 +1294,19 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      calibration constants, and the honest rows of `ConstantsHoldTheTable` are the gate-passing ones); vectors regenerated in their own
      commit (three new vectors for the gate). Reversible by recalibrating; if no gate had given F >= 8000 the result would have been
      F 1200 as built (decision 157).
+159. **match.screenshot: gate G 9150 -> 8500, F 8700 -> 8490, T stays 9500** (DECISIONS BD19 addendum 2; brief BRIEF-SC3.md; this is
+     an amendment of decision 158, which stays as written for its reasoning). `measured_gate.json` shows every honest image that
+     would be `differs` at F 8500 to 8700 has readability <= 8050 (all resampled to 0.5); the next readability up is 8987 (a
+     forgery) / 8996 (honest). G 9150 sat 48 and 75 points from honest images on both sides (9102 gated, 9177 = the regression
+     fixture passing): a knife edge for any image Tesseract reads a little differently. G 8500 sits about 450 points clear on both
+     sides (the highest gated image reads 8050, the lowest passing 8987). With G 8500 the lowest passing honest image scores 8740
+     (`b3-honest-full-s75-png`), so **F = 8490** keeps 250 bp under it, and is 465 bp under the lowest clear full-size honest page
+     (8955) instead of 255. Cost: one forgery moves from `differs` to `undecided` (41 `differs` instead of 42). A false `differs` is the worst error
+     (BD19), so robustness wins. Effects (G 8500, F 8490, T 9500, from `measured_gate_prod.json`, the shipped code run in pod
+     `claim-screenshot-cal4` from the live image): honest 42 `consistent` / 23 `undecided` / 8 `unreadable` / 0 `differs`;
+     forgeries 41 `differs` / 23 `undecided` / 8 `unreadable` / 0 `consistent`; other page 12 `differs`. Every other rule is
+     unchanged (a missing `ocr_readability` is not gated; `None` is `unreadable`). Tests: `RobustGate` in
+     `tests_claim/test_match_screenshot_gate.py` (constants, no image of any kind within 400 of G, honest passers >= F + 250, the
+     8499 / 8500 edge); vectors move to 8499 (unreadable, assertion true and false) and 8500 (judged). `match_screenshot.py` changed:
+     the image must be rebuilt (code_sha256 is the image digest); methods library stays 1.7.0, `methods_code_sha256` recorded in the
+     commit message of the vectors commit. Reversible by recalibrating.

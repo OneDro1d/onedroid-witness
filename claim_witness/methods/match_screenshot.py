@@ -13,7 +13,7 @@ honest screenshots 1343..10000, one-sentence forgeries 1343..9247, screenshots o
 over an honest screenshot is worse than no finding (DECISIONS BD19), so F is below every honest screenshot and T above every
 forgery; everything between is no finding (`undecided`). The honest minimum, 1343, came only from full pages resampled to half
 size, which Tesseract barely reads, so decision 158 (BD19 addendum, measured_gate.json) adds a readability gate: an image whose
-mean word confidence (x100) is under MIN_READABILITY_X100 is `unreadable` (no finding, assertion true or false), and F = 8700 sits
+mean word confidence (x100) is under MIN_READABILITY_X100 is `unreadable` (no finding, assertion true or false), and F = 8490 sits
 250 bp under the lowest honest image that passes the gate (T 253 bp over the highest forgery that passes it). The gate looks at
 the image only. See README_CLAIM.md, decisions 157 and 158.
 """
@@ -21,10 +21,10 @@ from . import canon, observed, similarity
 from .result import Result
 
 T_BP = 9500
-F_BP = 8700
+F_BP = 8490
 # The image's readability gate (BD19 addendum): the mean word confidence Tesseract reports for the image, x100 (ocr.Ocr.readability).
 # Under it the image is `unreadable`: no finding, whatever the text says. It depends on the image only, never on the page.
-MIN_READABILITY_X100 = 9150
+MIN_READABILITY_X100 = 8500
 
 
 def run(params, evidence):
