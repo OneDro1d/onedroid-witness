@@ -411,7 +411,12 @@ Reads, all under `GET /v1/records/{id}`:
 - anyone: the envelope and the seal. A private envelope holds commitments only (TS-10: without a token, only fingerprints);
 - the owner (API key) and a share-token holder: also `disclosure` and the kept evidence list;
 - `GET /v1/records/{id}/evidence/{sha256}`: one kept file. A public record's (screened, public evidence) to anyone; a private
-  record's to the owner and to holders of a token made with `evidence: true`.
+  record's to the owner and to holders of a token made with `evidence: true`;
+- `GET /v1/records/{id}/bundle`: the proof file people hand on (envelope, seal, key list and its seal, a public record's agent
+  key, the observations relied on and the kept evidence this reader may see, the methods tarball). It **never carries
+  `disclosure.json`**, for any reader (BD17, decision 154): a private body travels only through a deliberate share link. The
+  owner or token holder reads the disclosure from `GET /v1/records/{id}` and passes it with `witness-verify --bundle DIR
+  --disclosure FILE`.
 
 **Share tokens** (capabilities, one record each): `POST /v1/records/{id}/shares {days?: 1-365 (30), evidence?: false}` answers
 `{token_id, token, link, expires_at, evidence}` once; `GET .../shares` lists them without the token; `DELETE
@@ -1171,3 +1176,17 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      - `match.screenshot` stays "re-run skipped (needs image)". `confirm_min_s` is `page.live`'s own default (60), not the
        server's configured delay: a record made on a witness configured with another delay is judged by the library's rule.
      - `verify.py` stays one module, standard library only, importing nothing from its package.
+
+154. **A record bundle never carries the private disclosure** (BD17, from B3-23). SPEC §3 lists the bundle's contents (envelope,
+     seal, key list and its seal, a public record's agent key, the observations relied on, capture files and kept evidence the
+     reader may see) and no disclosure; B3 had added `disclosure.json` for the owner or a token holder, which put a private body
+     in clear in the file people pass around as proof. `Records.bundle` now never writes it, for any reader. The body still
+     selects, server-side, which observations and records this reader may see in the bundle. Kept evidence stays
+     reader-dependent as SPEC says (a private record's kept evidence is in the owner's bundle, or a token holder's with
+     `evidence: true`): that is a deliberate kept file, not the disclosure, and it is unchanged. Observation disclosures inside
+     `observations/<id>/` were never served and still are not. `witness-verify` is unchanged in behaviour: `--disclosure FILE`
+     (with `--bundle DIR` or `--envelope`) checks the claim and body commitments, a bundle without it verifies what it can
+     (the disclosure-dependent checks are SKIP, none FAIL), and `--bundle` still picks up a `disclosure.json` a user puts in
+     the folder themselves. The methods tarball and `methods_code_sha256` are unchanged. Tests: `tests_claim/test_keep_api.py`
+     `Bundles` (memory and Postgres), with one existing assertion reversed in its own commit (the owner's bundle used to be
+     asserted to hold `disclosure.json`). Reversible.

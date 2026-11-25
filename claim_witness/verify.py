@@ -25,9 +25,14 @@ One module, Python 3.10+ standard library only, importing nothing from its own p
     python3 -m claim_witness.verify --envelope answer.json --keys keys.json [--disclosure d.json] [--agent-key a.json]
                                     [--methods witness-methods-1.0.0.tar.gz] [--evidence FILE ...] [--record-id HEX]
                                     [--observation DIR ...]
-    python3 -m claim_witness.verify --bundle DIR      # envelope.json, keys.json, disclosure.json, agent_key.json,
+    python3 -m claim_witness.verify --bundle DIR [--disclosure FILE]
+                                                      # envelope.json, keys.json, agent_key.json,
                                                       # witness-methods-*.tar.gz, evidence/<sha256>,
                                                       # observations/<id>/{envelope.json, seal.json, files/<name>}
+                                                      # The witness never puts the private disclosure in a bundle (BD17):
+                                                      # the owner or a token holder passes it with --disclosure FILE (from
+                                                      # GET /v1/records/{id}). A disclosure.json you put in DIR yourself
+                                                      # is picked up too.
     --trust KEYS.json uses a key list you trust instead of the bundled one.
 
 Ed25519 uses the `cryptography` package when it can be imported, otherwise the pure-Python RFC 8032 code below (BD10);
@@ -946,7 +951,8 @@ def main(argv=None, out=None):
     ap.add_argument("--envelope")
     ap.add_argument("--keys")
     ap.add_argument("--trust")
-    ap.add_argument("--disclosure")
+    ap.add_argument("--disclosure", help="a private record's disclosure {salt, body} (the owner or a token holder reads it from "
+                                         "GET /v1/records/{id}); a bundle never carries it; also taken from DIR/disclosure.json")
     ap.add_argument("--agent-key")
     ap.add_argument("--methods")
     ap.add_argument("--evidence", action="append", default=[])

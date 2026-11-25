@@ -519,9 +519,11 @@ class Records:
 
     def bundle(self, account, rid, token=None):
         """A tar for witness-verify --bundle: envelope.json, seal.json, keys.json (the key list in force now) and
-        keys-seal.json, agent_key.json (public records only), disclosure.json (a private record's owner or token holder),
-        evidence/<sha256> (kept evidence this reader may see), observations/<id>/{envelope.json, seal.json, files/<name>} for
-        the observations relied on that this reader may see, and the methods tarball."""
+        keys-seal.json, agent_key.json (public records only), evidence/<sha256> (kept evidence this reader may see),
+        observations/<id>/{envelope.json, seal.json, files/<name>} for the observations relied on that this reader may see,
+        and the methods tarball. Never a disclosure.json, for any reader (BD17, README_CLAIM decision 154): a private body
+        travels only through a deliberate share link, and the owner or token holder gives the disclosure from
+        GET /v1/records/{id} to witness-verify with --disclosure FILE."""
         row = self._row(rid)
         owner, share = self._reader(account, row, token)
         st = self.st
@@ -544,8 +546,7 @@ class Records:
         elif reader_private:
             d = self._disclosure(row)
             if d is not None:
-                files["disclosure.json"] = json.dumps(d, indent=1).encode()
-                view = d["body"]
+                view = d["body"]  # BD17: read only to pick the observations and records this reader may see; never written out
         if row["visibility"] == "public" or owner or (share is not None and share["evidence"]):
             for sha, f in self._evidence_files(row).items():
                 files[f"evidence/{sha}"] = f["data"]
