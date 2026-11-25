@@ -32,7 +32,18 @@ def fake_tesseract():
                  "data = sys.stdin.buffer.read()\n"
                  "if not data.startswith(b'\\x89PNG\\r\\n\\x1a\\nOCR:'):\n"
                  "    sys.exit(1)\n"
-                 "sys.stdout.buffer.write(data[12:])\n")
+                 "body = data[12:]\n"
+                 "conf = '96'\n"
+                 "if body.startswith(b'[conf='):\n"          # a test image says how sure the stand-in is: [conf=NN]text
+                 "    conf = body[6:body.index(b']')].decode()\n"
+                 "    body = body[body.index(b']') + 1:]\n"
+                 "if 'tsv' in sys.argv:\n"                   # the readability run: one TSV row per word, like Tesseract
+                 "    print('level\\tpage_num\\tblock_num\\tpar_num\\tline_num\\tword_num\\tleft\\ttop\\twidth\\theight\\tconf\\ttext')\n"
+                 "    print('1\\t1\\t0\\t0\\t0\\t0\\t0\\t0\\t800\\t600\\t-1\\t')\n"
+                 "    for i, w in enumerate(body.decode('utf-8', 'replace').split()):\n"
+                 "        print('5\\t1\\t1\\t1\\t1\\t%d\\t0\\t0\\t10\\t10\\t%s\\t%s' % (i + 1, conf, w))\n"
+                 "    sys.exit(0)\n"
+                 "sys.stdout.buffer.write(body)\n")
     p.chmod(0o755)
     return str(p)
 

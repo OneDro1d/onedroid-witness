@@ -27,15 +27,16 @@ def sha(b):
     return hashlib.sha256(b).hexdigest()
 
 
-def evidence(case, img, ocr_text, dom):
+def evidence(case, img, ocr_text, dom, **submitted_extra):
+    """The method's evidence for one case; submitted_extra adds fields to the submitted slot (ocr_readability=...)."""
     manifest = {"requested_url": f"https://calibration.example/{case['article']}", "final_url": None, "redirects": [],
                 "fetched_at": "2026-11-24T00:00:00Z", "fetch_ms": 0, "status": 200, "resolved_ips": [], "tls": None,
                 "robots": None, "fetcher": {}, "files": [{"name": "response.body", "media_type": "text/html"},
                                                          {"name": "rendered.html", "media_type": "text/html"}]}
     pred, files = observation.from_capture(manifest, {"response.body": dom, "rendered.html": dom}, "public")
     mt = "image/png" if case["format"] == "png" else "image/jpeg"
-    return {"submitted": {"slot": "submitted", "kind": "object", "sha256": sha(img), "media_type": mt, "name": case["name"],
-                          "data": img, "ocr_text": ocr_text},
+    return {"submitted": dict({"slot": "submitted", "kind": "object", "sha256": sha(img), "media_type": mt, "name": case["name"],
+                               "data": img, "ocr_text": ocr_text}, **submitted_extra),
             "page": {"slot": "page", "kind": "observation", "id": "0" * 64, "manifest": pred, "files": files}}
 
 
