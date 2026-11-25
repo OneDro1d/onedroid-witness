@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The second match.screenshot calibration set (DECISIONS BD19, README_CLAIM.md builder decision 75): the first set
+"""The second match.screenshot calibration set (DECISIONS BD19, README_CLAIM.md decision 157): the first set
 (../screenshots/, decision 74) had honest screenshots at widths 1280 and 390 only, 116 to 165 tokens per page, and it let T/F
 sit where an honest 1000 x 420 screenshot of a 45-token page (9111 bp) was signed `differs`. This set widens the honest side
 and keeps the forgeries on the same layouts. Deterministic (fixed seed, pinned browser):

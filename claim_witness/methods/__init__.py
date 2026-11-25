@@ -20,7 +20,7 @@ from . import (canon, judge_supports, match_exact, match_screenshot, match_text,
                quote_in_source, record_disclose, record_valid, recordcheck, tests_pass)
 from .result import Result
 
-LIBRARY_VERSION = "1.6.0"
+LIBRARY_VERSION = "1.7.0"
 POSITIVE, NEGATIVE, NEUTRAL = "positive", "negative", "neutral"
 HEX_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_QUOTE = 4000

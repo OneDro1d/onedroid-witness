@@ -237,14 +237,25 @@ Slots `submitted` (an image object, so private claims only: VR-21 refuses images
 
 - OCR: `tesseract stdin stdout -l eng --psm 3` (`tesseract-ocr` and `tesseract-ocr-eng` in `Dockerfile.claim`,
   `WITNESS_TESSERACT_BIN`), then canon/1. The OCR tokens are compared with the span of the page's tokens they line up with
-  (a screenshot shows part of a page): `consistent` (≥ T = 9500), `differs` (< F = 9300), else `undecided`; no text read is
+  (a screenshot shows part of a page): `consistent` (≥ T = 9500), `differs` (< F = 1200), else `undecided`; no text read is
   `unreadable`.
-- **T = 9500, F = 9300** basis points (decision 64), from the screenshot calibration set
-  `tests_claim/fixtures/calibration/screenshots/` (`build.py` makes the screenshots with Chromium, `measure.py` measured them
-  inside the claim-witness image `dev-8ca79b4@sha256:829dae31…`, Tesseract 5.5.0, and wrote `measured.json`; `pod.log` and
-  `pod.yaml` beside it): 32 honest screenshots (widths 1280 and 390, two fonts, full page and a crop, PNG and JPEG) scored
-  9655 to 10000; 32 forgeries (one sentence replaced) scored 6486 to 9134; 8 screenshots of another page 714 to 4745. T sits
-  155 under the lowest honest screenshot and F 166 above the highest forgery, with an undecided band of 200 between.
+- **T = 9500, F = 1200** basis points (decision 157, DECISIONS BD19; F was 9300 under decision 74 and signed `differs` over
+  honest screenshots), from the widened calibration set `tests_claim/fixtures/calibration/screenshots2/` (`build.py` makes
+  the screenshots with Chromium, `measure.py` measured them inside the live image `dev-0ce2a6f@sha256:4a091d1b…`, Tesseract
+  5.5.0, in pod `claim-screenshot-cal2`, and wrote `measured.json`; `pod.log`, `pod.yaml`, `ocrvar.log` beside it): 72 honest
+  screenshots (widths 1000, 1024, 1440, 1280 and 390, device scale 1 and 2, two fonts, 36 short pages of 64 to 102 tokens and 36
+  long ones, a monospace id line, "—" and "·", full page, a crop, and the full page resampled by 0.75 and 0.5, PNG and JPEG)
+  scored 1343 to 10000; 72 forgeries (one sentence replaced) 1343 to 9247; 12 screenshots of another page 468 to 6250. The rule
+  is BD19's: **no honest screenshot is `differs`** (F is 143 bp under the lowest honest score, 1343) and **no forgery is
+  `consistent`** (T is 253 bp over the highest forgery, 9247). Under the old F 23 of the 72 honest screenshots were `differs`.
+  What it costs: all 72 forgeries are now `undecided` (they were `differs`), and 9 of the 12 other-page screenshots too; 30 of the
+  72 honest screenshots are `undecided` (42 `consistent`). The 0.5 resampled images set F: at 7 to 9 px of text height Tesseract
+  reads little (honest 1343 to 4081 on 4 of 12 pages) and a misread screenshot looks like a forgery. Without them the lowest honest
+  score is 8740 and F could stand near 8600 (49 of the 72 forgeries `differs`); that is a choice for the operator, not made here.
+  Tesseract `--dpi 300` and `--dpi 150` do not help (`ocrvar.log`), and the image has no image library to rescale before OCR.
+- The first set (`tests_claim/fixtures/calibration/screenshots/`, decision 74) is kept: widths 1280 and 390 only, 116 to 165
+  tokens a page. Its measurements still hold; its F (9300) was the defect. The honest 1000 x 420 screenshot of a 45-token page that
+  showed it (9111 bp, 45 OCR tokens) is `screenshots2/regression/`; it is now `undecided`.
 - Limits of that set: Tesseract read every word of these clean renders, so the honest loss came only from canon/1 joining
   inline links spaced by CSS (a navigation bar). Phone and browser chrome (status bar, address bar, tabs), cookie banners,
   dark mode, re-compressed or rescaled images were not in it. Pages were 116 to 165 tokens: on a much longer page one replaced
@@ -1220,3 +1231,22 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      "public, key revoked before the anchor" now says `key-validity`, two vectors added (bad seal with a revoked key, bad seal
      alone), the envelopes name the new `code_sha256`. Tests: `tests_claim/test_record_keyvalidity.py`. The library pins moved to
      1.6.0 in their own commit. Reversible.
+157. **match.screenshot never signs `differs` over an honest screenshot: F 9300 -> 1200, T stays 9500** (DECISIONS BD19, live defect
+     on witness-dev, 25 Nov: an honest 1000 x 420 Chromium screenshot of a 45-token page scored 9111 bp, 45 OCR tokens, and was
+     signed NOT_SUPPORTED `differs`; reproduced exactly in the live image, `screenshots2/regression/pod_fixture.log`). Decision 74's
+     calibration had honest cases at widths 1280 and 390 and forgeries up to 9134, so honest and forged overlapped. The widened set
+     (`screenshots2/`, "match.screenshot" above) was measured in pod `claim-screenshot-cal2` from the live image
+     `dev-0ce2a6f@sha256:4a091d1b…` (`measured.json` sha256 320b9b44…; the pod was deleted after): honest 1343..10000 (full size
+     8955..10000), forgery 1343..9247, other page 468..6250. Rule (BD19): F below every honest screenshot, T above every forgery;
+     a forgery between them gets no finding (SPEC: "Otherwise no finding"). F = 1200 (143 bp under 1343), T = 9500 (253 bp over
+     9247). Effects on the 72 forgeries: 72 `differs` -> 72 `undecided`, 0 `consistent`; on the 72 honest: 42 `consistent`, 30
+     `undecided`, 0 `differs` (before: 42, 7, 23); on the 12 other-page screenshots: 3 `differs`, 9 `undecided`. The regression
+     fixture scores 9111 before and after (same OCR) and goes from `differs` to `undecided`. **No OCR change**: `--dpi 300` and
+     `--dpi 150` lift nothing (`ocrvar.log`), a scaling step needs an image library the image does not have, so the image is not
+     rebuilt for this (match.screenshot's `code_sha256` is unchanged: the image digest). The methods library is **1.7.0**
+     because `match_screenshot.py` is in the tarball (`methods_code_sha256` a3600712... -> 0226f2de...: every pure method's
+     `code_sha256` moves; match.screenshot stays method 1.0.0, output shape unchanged, `thresholds` in `/v1/methods` now F 1200).
+     Vectors regenerated and the library pins moved in their own commits; BD16's "every forgery < F" is replaced by "every forgery
+     < T" in `test_match_screenshot_calibration.py` (own commit). Tests: `tests_claim/test_match_screenshot_honest.py`. Open:
+     the 0.5 resampled images (text 7 to 9 px) set F; without them F could be ~8600 and 49 of 72 forgeries stay `differs`; that is
+     the operator's call. Reversible by recalibrating.
