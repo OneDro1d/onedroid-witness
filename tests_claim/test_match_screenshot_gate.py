@@ -154,7 +154,9 @@ class Production(unittest.TestCase):
         self.assertEqual([r["name"] for r in self.doc["cases"]], list(asis))
         for r in self.doc["cases"]:
             self.assertEqual(r["readability_x100_production"], asis[r["name"]]["readability"]["mean_conf_x100"], r["name"])
-            self.assertEqual((r["similarity_bp"], r["ocr_text_sha256"]), (asis[r["name"]]["similarity_bp"], asis[r["name"]]["ocr_text_sha256"]))
+            gated = r["readability_x100_production"] < gate()   # a gated image is not compared: the method records no similarity
+            self.assertEqual((r["similarity_bp"], r["ocr_text_sha256"]),
+                             (None if gated else asis[r["name"]]["similarity_bp"], asis[r["name"]]["ocr_text_sha256"]))
 
     def test_the_findings_the_shipped_code_gave(self):
         g, f, t = gate(), match_screenshot.F_BP, match_screenshot.T_BP
@@ -163,9 +165,9 @@ class Production(unittest.TestCase):
             if v < g:
                 want = (None, "unreadable")
             elif bp >= t:
-                want = ("consistent", None)
+                want = ("consistent", "consistent")   # a finding's reason field repeats the finding
             elif bp < f:
-                want = ("differs", None)
+                want = ("differs", "differs")
             else:
                 want = (None, "undecided")
             self.assertEqual((r["finding_in_image"], r["reason_in_image"]), want, r["name"])
