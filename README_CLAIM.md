@@ -1376,8 +1376,8 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
        In the archive: that tarball, named `witness-methods-<its library version>.tar.gz`. Not a methods tarball
        (`match.screenshot`: the image digest; the method is not `pure`): the current tarball, as before. Anything else: **no
        tarball**, and `witness-methods-missing.txt` names the sha256. witness-verify (which globs `witness-methods-*.tar.gz`)
-       then prints `SKIP method-rerun: no methods tarball given (--methods)`, never `FAIL methods-tarball`, never `PASS`; the SKIP
-       text itself does not name the sha256, the note file does.
+       then prints `SKIP method-rerun: no methods tarball given (--methods); the record names methods tarball sha256 <sha256>`,
+       never `FAIL methods-tarball`, never `PASS` (the SKIP names the sha256 since holdout BT-08, 25 Nov; the note file names it too).
      - `GET /v1/methods` is unchanged: the current library only. Not changed: `claim_witness/methods/` (so the current tarball and
        every `code_sha256`), `verify.py`, any method's behaviour. The deployed image must be rebuilt for the archive to be served;
        until then the old bundle code runs.

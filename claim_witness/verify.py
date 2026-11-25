@@ -735,7 +735,7 @@ def rerun_record_method(r, view, files, tar_bytes, records):
         r.check("bundle-files", not extra, f"file(s) {', '.join(x[:12] for x in extra)} match no evidence fingerprint in the record",
                 f"{len(by_sha)} file(s) match their fingerprints")
     if tar_bytes is None:
-        r.skip("method-rerun", "no methods tarball given (--methods)")
+        r.skip("method-rerun", f"no methods tarball given (--methods); the record names methods tarball sha256 {method['code_sha256']}")
         return
     if not r.check("methods-tarball", sha256_hex(tar_bytes) == method["code_sha256"],
                    f"tarball sha256 {sha256_hex(tar_bytes)[:16]}... is not the record's code_sha256 {method['code_sha256'][:16]}..."):
@@ -813,7 +813,7 @@ def rerun_observed(r, view, files, tar_bytes, observations, keys, kl):
         r.check("bundle-files", not extra, f"file(s) {', '.join(x[:12] for x in extra)} match no evidence fingerprint in the record",
                 f"{len(by_sha)} file(s) match their fingerprints")
     if tar_bytes is None:
-        r.skip("method-rerun", "no methods tarball given (--methods)")
+        r.skip("method-rerun", f"no methods tarball given (--methods); the record names methods tarball sha256 {method['code_sha256']}")
         return
     if not r.check("methods-tarball", sha256_hex(tar_bytes) == method["code_sha256"],
                    f"tarball sha256 {sha256_hex(tar_bytes)[:16]}... is not the record's code_sha256 {method['code_sha256'][:16]}..."):
@@ -898,7 +898,7 @@ def rerun(r, view, files, tar_bytes, records=None, observations=None, keys=None,
         r.check("bundle-files", not extra, f"file(s) {', '.join(x[:12] for x in extra)} match no evidence fingerprint in the record",
                 f"{len(by_sha)} file(s) match their fingerprints")
     if tar_bytes is None:
-        r.skip("method-rerun", "no methods tarball given (--methods)")
+        r.skip("method-rerun", f"no methods tarball given (--methods); the record names methods tarball sha256 {method['code_sha256']}")
         return
     if not r.check("methods-tarball", sha256_hex(tar_bytes) == method["code_sha256"],
                    f"tarball sha256 {sha256_hex(tar_bytes)[:16]}... is not the record's code_sha256 {method['code_sha256'][:16]}..."):
