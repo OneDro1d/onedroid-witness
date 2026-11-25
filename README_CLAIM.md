@@ -1190,3 +1190,16 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      the folder themselves. The methods tarball and `methods_code_sha256` are unchanged. Tests: `tests_claim/test_keep_api.py`
      `Bundles` (memory and Postgres), with one existing assertion reversed in its own commit (the owner's bundle used to be
      asserted to hold `disclosure.json`). Reversible.
+155. **Every signed statement fills the claim's params** (live defect on witness-dev, 25 Nov: a `post.by-author` claim whose
+     observation evidence had one byte of `platform.json` changed got `evidence-untrusted` and the signed statement read "...
+     was published by the account ." with the handle missing). The early CANNOT_WITNESS paths (`Untrusted`, several raised with
+     no variables at all) rendered the template from the observation's variables alone. Every claim record is rendered at one
+     place, `service._witness`, so the fix is one function, `service.fill_vars(method, assertion, params, vars)`: the claim's
+     params are always template variables (taken from the claim when the method or an early path did not give them), and a
+     mandatory variable that is still unknown is a fixed phrase, never an empty string. The phrases: `url` "an observation that
+     could not be used" (as before), `fetched_at` and `anchor_time` "an unknown time" (as before for the time), any other name
+     "an unknown <name>". Optional parts (`{ for commit {expect_commit}}`) are untouched. Only `_witness` signs a claim record (a
+     finding, a method refusal, a failed capture, `method-not-applicable`, `evidence-untrusted`, `unreadable` and
+     `judge.supports`' no-run answers all pass through it), and `POST /v1/observe` signs observations, which have no statement.
+     The methods library is unchanged (1.5.0), so the tarball and `methods_code_sha256` are unchanged, and a finding's statement
+     is byte for byte what it was. Tests: `tests_claim/test_statement_params.py`. Reversible.

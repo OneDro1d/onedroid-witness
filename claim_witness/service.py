@@ -175,6 +175,26 @@ class Ctx:
             self.relied_on.append({"id": oid, "kind": "observation", "signer": signer, "trusted": bool(trusted)})
 
 
+UNKNOWN_VAR = {"url": "an observation that could not be used", "fetched_at": "an unknown time", "anchor_time": "an unknown time"}
+_OPTIONAL_PART = re.compile(r"\{( [^{}]*\{\w+\}[^{}]*)\}")
+
+
+def fill_vars(method, assertion, params, vars_):
+    """The variables a statement is rendered from, complete on every path (SPEC §2.4: the template filled from the claim's
+    params and the observation). The claim's params are always variables: one the method (or an early path that never reached
+    it) did not give is taken from `params`. A mandatory variable still unknown (what an observation that could not be used
+    would have given: its url, its time) is a fixed phrase and never an empty hole in the signed sentence. Optional parts
+    (a brace group that starts with a space) are left to the renderer."""
+    out = {k: v for k, v in vars_.items() if v not in (None, "")}
+    for k, v in params.items():
+        if isinstance(v, str) and v and k not in out:
+            out[k] = v
+    mandatory = re.findall(r"\{(\w+)\}", _OPTIONAL_PART.sub("", method.templates[bool(assertion)]))
+    for name in mandatory:
+        out.setdefault(name, UNKNOWN_VAR.get(name, "an unknown " + name.replace("_", " ")))
+    return out
+
+
 class Untrusted(Exception):
     def __init__(self, reason, vars_=None):
         super().__init__(reason)
@@ -449,7 +469,9 @@ class Witness:
             res, rec_evidence = self._evaluate(p, ctx)
         else:  # judge.supports (§5): the model calls happen here, before the attempt lock and the signer
             res, rec_evidence, judgment, model_runs, raw_outputs = self._judge(p, ctx)
-        statement = m.render(p.claim["assertion"], res.vars)
+        # one signing path for every outcome, so every path (a finding, a refusal before the method ran, evidence that could
+        # not be trusted) renders from the claim's params plus what the observation gave, never from a partial set (SPEC §2.4)
+        statement = m.render(p.claim["assertion"], fill_vars(m, p.claim["assertion"], p.claim["params"], res.vars))
         public = p.options["visibility"] == "public"
         if public:
             self._screen(p, statement=statement)
