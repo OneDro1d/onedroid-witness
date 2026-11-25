@@ -100,8 +100,11 @@ spec:
             - {name: WITNESS_ATTEMPT_KEY_FILE, value: /etc/claim-witness/attempt/key}
             - {name: WITNESS_MASTER_KEY_FILE, value: /etc/claim-witness/master/key}
             - {name: WITNESS_DEV_KEYS_FILE, value: /etc/claim-witness/dev-keys/dev-keys.json}
-            # BD8: set WITNESS_CALLER_KEYS_URL to the BFF's published service key list once its /bff/v1/witness routes exist;
-            # unset, only the dev keys above are accepted.
+            # BD8, B4a: the BFF's service key list (onedroid-bus GET /bff/v1/keys/service, the public half of the BFF's
+            # credits.settler_key_file: one key, the one the BFF signs its calls to this witness with, service claim-witness).
+            # In-cluster: Service `bff` (port 80) in namespace evidence-dev. The dev keys above stay for testing (BD8).
+            # The store-gateway's store key list is NOT used here: its public store has open self sign-up.
+            - {name: WITNESS_CALLER_KEYS_URL, value: "http://bff.evidence-dev.svc.cluster.local/bff/v1/keys/service"}
             - {name: WITNESS_PORT, value: "8080"}
             # B6 judge.supports: any OpenAI-compatible endpoint, by env only. The key file comes from Secret
             # onedroid-witness-openrouter (key `key`) and the model list from ConfigMap claim-witness-judge-models (key
