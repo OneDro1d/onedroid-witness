@@ -511,8 +511,14 @@ SPEC §7.1, §7.2. `claim_witness/sealer.py`, `merkle.py`; a thread of the API p
   key list and names that witness; the notary's `over` is sha256 of the canonical signed header and every anchor landed.
   Then key validity is judged at the anchor time (the earliest landed `block_time`): a key revoked at or before it fails
   (TS-20, VR-16); `FLAG seal-delay` marks an anchor more than `interval_s` + 15 min after the payload's time. The anchor
-  transaction itself is not read by the verifier (`SKIP seal-chain`; check it with armarium's `POST /notary/v1/verify`). Give
+  transaction is read only with `--rpc URL` (decision 160): `PASS seal-chain` needs the transaction to exist, be to 0x0, carry
+  the hash-mode datablock whose `payload.over` is the seal's `over`, sit in the anchor's block, in a block whose timestamp is the
+  anchor's `block_time`; the PASS line names the chain, the transaction, the block and the sender. Without `--rpc` it is
+  `SKIP seal-chain` (no network; the line names `--rpc`). The sender is checked against the key list's `sealers` for
+  base-sepolia, or against `--sealer ADDRESS` (repeatable; replaces the list); with neither the line says the sender was not
+  checked. lab-qbft and any other chain: a SKIP naming it as the operator's own chain. Give
   the seal with `--seal`, inside the answer file, or as `seal.json` of a bundle.
+  `witness-verify --bundle DIR --rpc https://sepolia.base.org` is the whole check, with the one network call the verifier makes.
 
 ## n-dim
 
@@ -944,8 +950,8 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
 80. **Seal state** is `anchored` only when the notary result is `landed` (every chain with a transaction). `final` is
     copied as the notary answered; nothing waits for finality.
 81. **witness-verify step 4 is one check, `seal`**, which fails by name for a wrong path hash, index, root, header signature
-    or `over`. The anchor transaction is not read (`SKIP seal-chain`): the brief keeps the verifier offline and no Base
-    Sepolia decoder vector is available to this builder. The anchor time is the earliest landed `block_time`.
+    or `over`. The anchor transaction is not read (`SKIP seal-chain`; superseded by decision 160: it is read with `--rpc`): the
+    brief keeps the verifier offline and no Base Sepolia decoder vector is available to this builder. The anchor time is the earliest landed `block_time`.
 82. **Key validity, sealed**: a key revoked at or before the anchor time fails; otherwise `witnessed_at` (or `fetched_at`)
     must lie in the key's validity, so a plain rotation after signing still passes. The batch header's key is held to the
     same rule at `closed_at`. `FLAG seal-delay` is a line, not a failure.
@@ -1310,3 +1316,27 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      8499 / 8500 edge); vectors move to 8499 (unreadable, assertion true and false) and 8500 (judged). `match_screenshot.py` changed:
      the image must be rebuilt (code_sha256 is the image digest); methods library stays 1.7.0, `methods_code_sha256` recorded in the
      commit message of the vectors commit. Reversible by recalibrating.
+
+### Builder decision, witness-verify reads the anchor transaction (160-; branch v1/claim-seal-chain; DECISIONS BD21)
+
+160. **`witness-verify --rpc URL` reads each base-sepolia anchor transaction** (supersedes decision 81's `SKIP seal-chain`; decision
+     81 stays as written for its reasoning). Measured on Base Sepolia: a seal is one transaction to `0x0` from armarium's notary
+     account (shared by every armarium user) whose input is the UTF-8 JSON datablock `{"correlationId", "previousChunkBlockId",
+     "chunkData", "mode": "hash", "payload": {"label": "claim-witness/batch/1", "over": "sha256:<hex>"}}` (tx 0x7cf24d51..., block
+     63379082, 233 bytes; SPEC §6 step 4's `{"over"}` is the payload inside this envelope). The vector is the two JSON-RPC
+     answers (`eth_getTransactionByHash`, `eth_getBlockByNumber`) in `tests_claim/fixtures/base-sepolia/`, served by a fake RPC on
+     127.0.0.1, so the tests use no network. Rule, per base-sepolia anchor: the transaction exists, is to 0x0, the input decodes as
+     that datablock with `mode` "hash" and `payload.over` equal to the notary's `over`, the transaction's block number is the
+     anchor's `block`, the block's hash is the transaction's `blockHash`, and the block timestamp equals the anchor's `block_time`
+     to the second. Each failure is `FAIL seal-chain` with the reason by name (`not found`, `not to 0x0`, `not a hash-mode
+     datablock`, `different over`, `block mismatch`, `time mismatch`, `not a sealer`). An RPC that cannot be reached, times out
+     (20 s), is not http(s), answers an error or junk is `FAIL seal-chain` naming the RPC's scheme://host:port (never its path or
+     userinfo, which may carry an API key), exit 1: never a PASS. **Sender**: the key list's `sealers` entries for base-sepolia
+     (`address`, `valid_from`, `valid_to`) must contain the sender at the block time; `--sealer ADDRESS` (repeatable) is the
+     verifier's own list and replaces the key list's. The deployed key list (seq 1) has `sealers: []`, so today the PASS line says
+     the sender was not checked against a sealer list; publishing the address needs a signed key list seq 2 (the operator's).
+     **Anchor time**: with `--rpc` the time key validity uses is the chain's timestamp of the earliest base-sepolia anchor that
+     passed (equal to its `block_time`; a seal whose `block_time` disagrees fails). lab-qbft and any other chain are `SKIP
+     seal-chain` naming it as the operator's own chain, and do not turn the result into FAIL. Without `--rpc` nothing changes
+     but the sentence of the SKIP, which now names `--rpc`. `verify.py` stays one module, standard library only (urllib), network
+     only when `--rpc` is given. Not changed: `claim_witness/methods/` and so the methods tarball and every `code_sha256`.

@@ -5,9 +5,15 @@ the tarball pinned by code_sha256) and 7 (the agent's signature).
 
 B3, step 4 (`seal`): the leaf H(0x00 || payload) and its path must give the batch root (RFC 9162 §2.1.3.2); the batch header
 must be signed by a key of the key list (PAE over the canonical header without `sig`), name that root and this witness; the
-notary's `over` must be "sha256:" + H(canonical signed header) with every anchor landed. The anchor transaction itself is not
-read here (SKIP seal-chain: check it with armarium's POST /notary/v1/verify or an RPC you trust). Key validity is then judged
-at the anchor time (the earliest landed block_time): a key revoked at or before it fails; FLAG seal-delay when the anchor
+notary's `over` must be "sha256:" + H(canonical signed header) with every anchor landed. The anchor transaction is read only
+when --rpc URL is given (`seal-chain`, BD21; the only network use here): for each base-sepolia anchor the transaction and its
+block are read, and PASS needs the transaction to exist, be to 0x0, carry the JSON datablock with mode "hash" and payload.over
+equal to the seal's over, sit in the anchor's block, in a block whose timestamp is the anchor's block_time (to the second); the
+sender must be a sealer of the key list (or of --sealer ADDRESS, repeatable) at the block time, and with neither the PASS line
+says the sender was not checked. An unreachable or erroring RPC is a FAIL, never a PASS. lab-qbft and any other chain are a
+SKIP naming it as the operator's own chain. Without --rpc, `SKIP seal-chain` (no network). Key validity is then judged
+at the anchor time (the earliest landed block_time; with --rpc the chain's own timestamp of the earliest base-sepolia anchor
+that passed): a key revoked at or before it fails; FLAG seal-delay when the anchor
 came more than interval_s + 15 minutes after the payload's time. A pending seal is SKIP ("time not proven").
 
 B2b: an observation envelope (predicateType observation/v1) is verified too: signature, payload canonical, observation id,
@@ -25,6 +31,7 @@ One module, Python 3.10+ standard library only, importing nothing from its own p
     python3 -m claim_witness.verify --envelope answer.json --keys keys.json [--disclosure d.json] [--agent-key a.json]
                                     [--methods witness-methods-1.0.0.tar.gz] [--evidence FILE ...] [--record-id HEX]
                                     [--observation DIR ...]
+    ... [--rpc https://sepolia.base.org] [--sealer 0xADDRESS ...]   # read the base-sepolia anchor transaction (any form above)
     python3 -m claim_witness.verify --bundle DIR [--disclosure FILE]
                                                       # envelope.json, keys.json, agent_key.json,
                                                       # witness-methods-*.tar.gz, evidence/<sha256>,
@@ -335,6 +342,133 @@ def _secs(t):
     return calendar.timegm(_t.strptime(t, "%Y-%m-%dT%H:%M:%SZ"))
 
 
+# step 4, the anchor transaction (BD21): read only when --rpc is given. Measured on Base Sepolia: a seal is one transaction to
+# 0x0 whose input is the UTF-8 JSON datablock {"correlationId", "previousChunkBlockId", "chunkData", "mode": "hash",
+# "payload": {"label", "over": "sha256:<hex>"}}.
+
+CHAIN = "base-sepolia"
+CHAIN_TIMEOUT_S = 20
+ZERO_ADDRESS = "0x" + "0" * 40
+_ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+
+class ChainError(Exception):
+    """The RPC could not be reached or did not answer a result."""
+
+
+def _origin(rpc):
+    """scheme://host:port of the RPC URL: what a failure names (a path or userinfo may carry an API key)."""
+    import urllib.parse
+    u = urllib.parse.urlsplit(rpc)
+    return f"{u.scheme}://{u.hostname}" + (f":{u.port}" if u.port else "")
+
+
+def _rpc_call(rpc, method, params, timeout=CHAIN_TIMEOUT_S):
+    import urllib.error
+    import urllib.request
+    where = f"RPC {_origin(rpc)}"
+    if not rpc.lower().startswith(("http://", "https://")):
+        raise ChainError(f"{where} is not an http(s) URL")
+    req = urllib.request.Request(rpc, data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode(),
+                                 headers={"content-type": "application/json", "user-agent": "witness-verify"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            doc = json.loads(resp.read(8_000_000))
+    except (OSError, ValueError) as e:  # URLError, HTTPError, timeouts and refused connections are OSError
+        raise ChainError(f"{where} could not be read for {method}: {type(e).__name__}") from None
+    if not isinstance(doc, dict):
+        raise ChainError(f"{where} answered {method} with something that is not a JSON-RPC response")
+    if "error" in doc:
+        raise ChainError(f"{where} answered {method} with an error")
+    if "result" not in doc:
+        raise ChainError(f"{where} answered {method} without a result")
+    return doc["result"]
+
+
+def _hex_int(v):
+    if not isinstance(v, str) or not re.fullmatch(r"0x[0-9a-fA-F]+", v):
+        raise ValueError("not a hex quantity")
+    return int(v, 16)
+
+
+def _sealers_for(kl, flag_addresses):
+    """The base-sepolia sealer entries the sender is judged against, or None when none is named. `--sealer ADDRESS` (the
+    verifier's own trust) replaces the key list's `sealers`; otherwise the key list's entries for base-sepolia."""
+    if flag_addresses:
+        return [{"chain": CHAIN, "address": a, "valid_from": "", "valid_to": None} for a in flag_addresses]
+    listed = [s for s in ((kl or {}).get("sealers") or []) if isinstance(s, dict) and s.get("chain") == CHAIN and s.get("address")]
+    return listed or None
+
+
+def check_anchor_tx(rpc, anchor, over, sealers=None, timeout=CHAIN_TIMEOUT_S):
+    """Read one base-sepolia anchor transaction. (True, what was proven) or (False, the reason by name). PASS only when the
+    transaction exists, is to 0x0, carries a hash-mode datablock whose payload.over is `over`, sits in the anchor's block, and
+    that block's timestamp is the anchor's block_time (to the second). `sealers` (entries with address, valid_from, valid_to)
+    names who may have sent it at the block time; None says the sender was not checked."""
+    import time as _t
+    tx_hash, what = anchor.get("tx_hash"), f"{anchor.get('chain')} tx {anchor.get('tx_hash')}"
+    try:
+        tx = _rpc_call(rpc, "eth_getTransactionByHash", [tx_hash], timeout)
+        if not isinstance(tx, dict):
+            return False, f"{what}: transaction not found on {_origin(rpc)}"
+        if str(tx.get("to") or "").lower() != ZERO_ADDRESS:
+            return False, f"{what}: not to 0x0 (to {tx.get('to')})"
+        try:
+            block = _hex_int(tx.get("blockNumber"))
+        except ValueError:
+            return False, f"{what}: not found in a block (still pending)"
+        try:
+            data = json.loads(bytes.fromhex(str(tx.get("input"))[2:]).decode("utf-8"))
+            carried = data["payload"]["over"]
+            is_hash = data["mode"] == "hash" and isinstance(carried, str)
+        except (ValueError, KeyError, TypeError, AttributeError):
+            is_hash = False
+        if not is_hash:
+            return False, f"{what}: the input is not a hash-mode datablock with a payload.over"
+        if carried != over:
+            return False, f"{what}: different over (the transaction carries {carried}, the seal's is {over})"
+        if block != anchor.get("block"):
+            return False, f"{what}: block mismatch (the transaction is in block {block}, the anchor says {anchor.get('block')})"
+        blk = _rpc_call(rpc, "eth_getBlockByNumber", [hex(block), False], timeout)
+        if not isinstance(blk, dict) or blk.get("hash") != tx.get("blockHash") or _hex_int(blk.get("number")) != block:
+            return False, f"{what}: block mismatch (block {block} on {_origin(rpc)} is not the transaction's block)"
+        stamp = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime(_hex_int(blk.get("timestamp"))))
+        if stamp != _utc(anchor.get("block_time")):
+            return False, f"{what}: time mismatch (the block's timestamp is {stamp}, the anchor says {anchor.get('block_time')})"
+    except ChainError as e:
+        return False, f"{what}: {e}"
+    except (ValueError, TypeError):
+        return False, f"{what}: {_origin(rpc)} answered something unreadable"
+    sender = str(tx.get("from") or "")
+    if sealers is None:
+        who = "the sender was not checked against a sealer list (the key list names none for base-sepolia and no --sealer was given)"
+    elif any(str(s.get("address", "")).lower() == sender.lower() and (s.get("valid_from") or "") <= stamp
+             and (s.get("valid_to") is None or stamp <= s["valid_to"]) for s in sealers):
+        who = f"the sender is a listed sealer at {stamp}"
+    else:
+        return False, f"{what}: the sender {sender} is not a sealer for {anchor.get('chain')} at {stamp}"
+    return True, f"{what} in block {block}, sent by {sender}; over {over} matches, to 0x0, block time {stamp}; {who}"
+
+
+def check_chain(r, rpc, landed, over, sealers):
+    """Step 4's seal-chain over the landed anchors: every base-sepolia anchor is read through `rpc`; any other chain (lab-qbft is
+    the operator's own) is a SKIP, never claimed as checked. Returns the earliest block time of the base-sepolia anchors that
+    passed (equal to their block_time to the second), or None."""
+    passed = []
+    for a in landed:
+        if a.get("chain") != CHAIN:
+            r.skip("seal-chain", f"{a.get('chain')} is the operator's own chain, not claimed as checked by this RPC "
+                                 f"(tx {a.get('tx_hash')})")
+            continue
+        ok, text = check_anchor_tx(rpc, a, over, sealers)
+        if ok:
+            r.ok("seal-chain", text)
+            passed.append(_utc(a.get("block_time")))
+        else:
+            r.fail("seal-chain", text)
+    return min(passed) if passed else None
+
+
 def check_seal(r, seal, raw, keys, kl, skip_text):
     """Step 4. Returns (failed, anchor): failed is True when the seal fails for a structural reason (path, header key or
     signature, witness, over, notary result, block time); anchor is the earliest landed block_time (UTC string) when one can be
@@ -393,8 +527,15 @@ def check_seal(r, seal, raw, keys, kl, skip_text):
     chains = ", ".join(sorted({a.get("chain") or "?" for a in landed}))
     r.ok("seal", f"leaf {seal['leaf_index']} of batch {hdr['batch_id'][:16]}... (size {hdr['size']}) gives its root; header "
                  f"signed by {hdr['key_id']}; notary over matches; anchored on {chains} at {anchor}")
-    r.skip("seal-chain", "the anchor transaction itself was not read: check it with armarium's POST /notary/v1/verify "
-                         "{over, chain, tx_hash} or an RPC you trust")
+    rpc = getattr(r, "rpc", None)
+    if not rpc:
+        r.skip("seal-chain", "the anchor transaction itself was not read: give --rpc URL (a Base Sepolia JSON-RPC endpoint, "
+                             "e.g. https://sepolia.base.org) to read it here, or check it with armarium's POST /notary/v1/verify "
+                             "{over, chain, tx_hash}")
+    else:
+        chain_time = check_chain(r, rpc, landed, notary["over"], _sealers_for(kl, getattr(r, "sealer_flags", ())))
+        if chain_time:  # the chain's own block time, equal to the anchor's block_time to the second
+            anchor = chain_time
     if key_errs:
         r.fail("key-validity", "; ".join(key_errs))
     return False, anchor
@@ -437,6 +578,7 @@ def key_validity(r, entry, kid, at, anchor, interval_s=None, what="payload"):
 class Report:
     def __init__(self, out):
         self.out, self.failed, self.nfail = out, False, 0
+        self.rpc, self.sealer_flags = None, ()  # --rpc URL and --sealer ADDRESS: the anchor transaction is read only with an RPC
 
     def line(self, text):
         print(text, file=self.out)
@@ -972,10 +1114,22 @@ def main(argv=None, out=None):
                     help="a folder holding an observation the record relied on: envelope.json, files/<name>, optionally seal.json and "
                          "disclosure.json (a bundle's observations/<id>/); repeatable")
     ap.add_argument("--seal", help="the seal JSON (GET /v1/records/{id}/seal); a whole answer's own seal is used otherwise")
+    ap.add_argument("--rpc", help="a Base Sepolia JSON-RPC URL (e.g. https://sepolia.base.org): reads each base-sepolia anchor "
+                                  "transaction of the seal (the only network use of this verifier)")
+    ap.add_argument("--sealer", action="append", default=[],
+                    help="an address that may have sent the anchor transaction (0x + 40 hex); repeatable; replaces the key "
+                         "list's sealers. With neither, the sender is reported, not checked")
     try:
         a = ap.parse_args(argv)
     except SystemExit:
         return 2
+    if a.rpc is not None and not a.rpc.lower().startswith(("http://", "https://")):
+        print("witness-verify: --rpc must be an http(s) URL", file=sys.stderr)
+        return 2
+    for s in a.sealer:
+        if not _ADDRESS.match(s):
+            print(f"witness-verify: --sealer {s!r} is not an address (0x and 40 hex digits)", file=sys.stderr)
+            return 2
     files, tar_bytes = [pathlib.Path(p).read_bytes() for p in a.evidence], None
     env_path, keys_path, disc_path, agent_path, tar_path = a.envelope, a.keys, a.disclosure, a.agent_key, a.methods
     seal_path = a.seal
@@ -1030,6 +1184,7 @@ def main(argv=None, out=None):
         print(f"witness-verify: cannot read input: {e}", file=sys.stderr)
         return 2
     r = Report(out)
+    r.rpc, r.sealer_flags = a.rpc, tuple(a.sealer)
     run_checks(r, env, keys_env, trusted, disclosure, agent_key, files, tar_bytes, a.record_id, seal, records, observations)
     r.line("RESULT: " + ("FAIL" if r.failed else "PASS"))
     return 1 if r.failed else 0
