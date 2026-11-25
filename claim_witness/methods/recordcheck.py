@@ -197,8 +197,11 @@ def _key_list(kl_raw, ed25519_verify):
 
 
 def _seal_errors(seal, raw, keys, kl, ed25519_verify):
-    """(errors, anchor time or None, anchored?, header key entry): verify.check_seal's checks for a seal that has a batch."""
-    errs, anchor, entry = [], None, None
+    """(errors, anchor time or None, anchored?, header key invalid?): verify.check_seal's checks for a seal that has a batch.
+    The errors are the structural ones (path, header-key, header-sig, header-witness, over, not-landed, block-time). The header
+    key revoked at or before the anchor time, or the batch closing outside the key's validity, is not a seal error: it is key
+    validity at the anchor time, the fourth value."""
+    errs, anchor, entry, key_invalid = [], None, None, False
     hdr = seal["batch_header"]
     leaf = sha256_hex(b"\x00" + raw)
     root = merkle_root_from_path(leaf, seal["leaf_index"], hdr["size"], seal["path"])
@@ -227,11 +230,11 @@ def _seal_errors(seal, raw, keys, kl, ed25519_verify):
         anchor = times[0] if times else None
         if anchor and entry is not None:
             if entry.get("revoked_at") and entry["revoked_at"] <= anchor:
-                errs.append("header-key-revoked")
+                key_invalid = True
             closed = hdr.get("closed_at", "")
             if not (entry.get("valid_from", "") <= closed and (entry.get("valid_to") is None or closed <= entry["valid_to"])):
-                errs.append("header-key-validity")
-    return errs, anchor, anchored
+                key_invalid = True
+    return errs, anchor, anchored, key_invalid
 
 
 def assess_valid(env, seal, kl_raw, record_id, ed25519_verify):
@@ -266,15 +269,17 @@ def assess_valid(env, seal, kl_raw, record_id, ed25519_verify):
     anchor, anchored = None, False
     if isinstance(seal, dict) and "batch_header" in seal:
         try:
-            errs, anchor, anchored = _seal_errors(seal, raw, keys, kl, ed25519_verify)
+            errs, anchor, anchored, header_key_invalid = _seal_errors(seal, raw, keys, kl, ed25519_verify)
         except (KeyError, TypeError, ValueError, AttributeError):
-            errs = ["unreadable"]
+            errs, anchor, header_key_invalid = ["unreadable"], None, False
         if errs:
             failed.add("seal")
-            anchor, anchored = None, False
+            anchored = False  # an anchor time that could be read still dates the record key's validity below
+        if header_key_invalid:
+            failed.add("key-validity")
     at = pred.get("witnessed_at", "")
-    if entry is not None and "seal" not in failed:
-        if anchored and anchor:
+    if entry is not None and (anchor or "seal" not in failed):
+        if anchor:
             try:
                 early = _secs(anchor) + ANCHOR_SKEW_S < _secs(at)
             except ValueError:

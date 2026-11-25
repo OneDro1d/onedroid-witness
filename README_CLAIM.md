@@ -1203,3 +1203,20 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      `judge.supports`' no-run answers all pass through it), and `POST /v1/observe` signs observations, which have no statement.
      The methods library is unchanged (1.5.0), so the tarball and `methods_code_sha256` are unchanged, and a finding's statement
      is byte for byte what it was. Tests: `tests_claim/test_statement_params.py`. Reversible.
+156. **record.valid and witness-verify name key validity at the anchor time** (live defect on witness-dev, 25 Nov: a sealed, anchored
+     record whose key list revoked the witness key before the anchor time was NOT_SUPPORTED `record-invalid` with detail
+     `failed: ["seal"]` only. SPEC §4 record.valid, §6 step 5, VR-16, TS-20). The same key signs the batch header and the record,
+     so `_seal_errors` counted the header key's revocation or validity as a seal error, and the record key's own check ran only
+     when "seal" had not failed. Now `seal` is the structural checks (path, header key in the list, header signature, header
+     witness, over, not-landed, block-time) and `key-validity` is the key's validity at the anchor time: the header key revoked at
+     or before the anchor time or the batch closed outside its validity, and the record key as before. When the seal fails for a
+     structural reason and an anchor time can still be read, the record key is still judged at it (`seal,key-validity`). With no
+     readable anchor time the record key is not judged, as before. `CHECKS` order is unchanged. witness-verify: `check_seal`
+     returns (failed, anchor). A revoked or out-of-validity header key is a `FAIL key-validity` of its own beside a `PASS seal`
+     (or beside a `FAIL seal` when that fails too), and step 5 judges the record key whenever an anchor time was read. No finding,
+     outcome or valid/invalid verdict changes: only which checks are named in `failed` and the verifier's lines. The methods
+     library is **1.6.0** because `recordcheck.py` is in the tarball (`methods_code_sha256` 0d691773... -> a3600712...: every pure
+     method's `code_sha256` moves). Both methods keep version 1.0.0 (output shape unchanged). Vectors regenerated (their own commit):
+     "public, key revoked before the anchor" now says `key-validity`, two vectors added (bad seal with a revoked key, bad seal
+     alone), the envelopes name the new `code_sha256`. Tests: `tests_claim/test_record_keyvalidity.py`. The library pins moved to
+     1.6.0 in their own commit. Reversible.

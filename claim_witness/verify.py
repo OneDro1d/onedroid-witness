@@ -336,11 +336,14 @@ def _secs(t):
 
 
 def check_seal(r, seal, raw, keys, kl, skip_text):
-    """Step 4. Returns the anchor time (UTC string) when the seal verifies and is anchored, "failed" when it fails, else None."""
+    """Step 4. Returns (failed, anchor): failed is True when the seal fails for a structural reason (path, header key or
+    signature, witness, over, notary result, block time); anchor is the earliest landed block_time (UTC string) when one can be
+    read from an anchored seal, else None. The header's key revoked at or before the anchor time, or the batch closing outside
+    its validity, is key validity, not the seal: it is its own `key-validity` FAIL here, and the record's key is judged in step 5."""
     if not isinstance(seal, dict) or "batch_header" not in seal:
         r.skip("seal", skip_text)
-        return None
-    errs, anchor = [], None
+        return False, None
+    errs, key_errs, anchor = [], [], None
     try:
         hdr = seal["batch_header"]
         leaf = sha256_hex(b"\x00" + raw)
@@ -370,25 +373,31 @@ def check_seal(r, seal, raw, keys, kl, skip_text):
             anchor = times[0] if times else None
             if anchor and entry is not None:
                 if entry.get("revoked_at") and entry["revoked_at"] <= anchor:
-                    errs.append(f"the header's key was revoked at {entry['revoked_at']}, before the anchor time {anchor}")
+                    key_errs.append(f"the batch header's key {hdr.get('key_id')} was revoked at {entry['revoked_at']} "
+                                    f"({entry.get('revoke_reason')}), before the anchor time {anchor}")
                 closed = hdr.get("closed_at", "")
                 if not (entry.get("valid_from", "") <= closed and (entry.get("valid_to") is None or closed <= entry["valid_to"])):
-                    errs.append(f"the batch closed at {closed}, outside its key's validity")
+                    key_errs.append(f"the batch closed at {closed}, outside its header key's validity "
+                                    f"{entry.get('valid_from')}..{entry.get('valid_to')}")
     except (KeyError, TypeError, ValueError, AttributeError) as e:
         errs.append(f"unreadable seal: {type(e).__name__}")
     if errs:
         r.fail("seal", "; ".join(errs))
-        return "failed"
+        if key_errs:
+            r.fail("key-validity", "; ".join(key_errs))
+        return True, anchor
     if not anchored:
         r.skip("seal", f"batched (leaf {seal['leaf_index']} of {hdr['size']}: the path and the header verify) but not anchored: "
                        "the time is not proven")
-        return None
+        return False, None
     chains = ", ".join(sorted({a.get("chain") or "?" for a in landed}))
     r.ok("seal", f"leaf {seal['leaf_index']} of batch {hdr['batch_id'][:16]}... (size {hdr['size']}) gives its root; header "
                  f"signed by {hdr['key_id']}; notary over matches; anchored on {chains} at {anchor}")
     r.skip("seal-chain", "the anchor transaction itself was not read: check it with armarium's POST /notary/v1/verify "
                          "{over, chain, tx_hash} or an RPC you trust")
-    return anchor
+    if key_errs:
+        r.fail("key-validity", "; ".join(key_errs))
+    return False, anchor
 
 
 def key_validity(r, entry, kid, at, anchor, interval_s=None, what="payload"):
@@ -828,8 +837,8 @@ def run_observation_checks(r, env, keys, st, raw, files, tar_bytes, expect_id, d
             r.fail("body-commitment", f"unreadable disclosure: {e}")
     else:
         r.skip("manifest-digest", "private observation and no disclosure given (--disclosure)")
-    anchor = check_seal(r, seal, raw, keys, kl, "pending: this observation is signed by its key; its time is not proven")
-    if entry is not None and anchor != "failed":
+    seal_failed, anchor = check_seal(r, seal, raw, keys, kl, "pending: this observation is signed by its key; its time is not proven")
+    if entry is not None and (anchor or not seal_failed):
         key_validity(r, entry, kid, pred.get("fetched_at", ""), anchor,
                      (seal or {}).get("batch_header", {}).get("interval_s"), "observation")
     if manifest is None:
@@ -916,9 +925,9 @@ def run_checks(r, env, keys_env, trusted=False, disclosure=None, agent_key=None,
         except (KeyError, TypeError, ValueError) as e:
             r.fail("claim-commitment", f"unreadable disclosure: {e}")
     # step 4
-    anchor = check_seal(r, seal, raw, keys, kl, "pending: this record is signed by its key; its time is not proven")
-    # step 5: at the anchor time when sealed, else at the record's own time
-    if entry is not None and anchor != "failed":
+    seal_failed, anchor = check_seal(r, seal, raw, keys, kl, "pending: this record is signed by its key; its time is not proven")
+    # step 5: at the anchor time when sealed (also when the seal failed but an anchor time can be read), else at the record's own time
+    if entry is not None and (anchor or not seal_failed):
         key_validity(r, entry, kid, pred.get("witnessed_at", ""), anchor,
                      (seal or {}).get("batch_header", {}).get("interval_s"), "record")
     # step 6
