@@ -154,9 +154,9 @@ TEMPLATE_CASES = [
     ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 9600), _obs(OBS_HTML)]),
     ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all.", 9600), _obs(OBS_HTML)]),
     ("match.screenshot", {}, True, [_shot("", 9600), _obs(OBS_HTML)]),
-    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 9149), _obs(OBS_HTML)]),   # one under the gate: unreadable
-    ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all.", 9149), _obs(OBS_HTML)]),
-    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 9150), _obs(OBS_HTML)]),   # at the gate: judged
+    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 8499), _obs(OBS_HTML)]),   # one under the gate: unreadable
+    ("match.screenshot", {}, False, [_shot("A cat asleep on a sofa in the sun, nothing else at all.", 8499), _obs(OBS_HTML)]),
+    ("match.screenshot", {}, True, [_shot("Vector page\nOne two three four five six.", 8500), _obs(OBS_HTML)]),   # at the gate: judged
     ("post.by-author", {"handle": "bsky.app"}, True, [_post_obs()]),
     ("post.by-author", {"handle": "bsky.app"}, False, [_post_obs()]),
     ("post.by-author", {"handle": "atproto.com"}, True,
