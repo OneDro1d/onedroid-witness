@@ -216,6 +216,15 @@ class BundleTarball(k.Base, unittest.TestCase):
         self.assertEqual(notes, ["witness-methods-missing.txt"])
         self.assertIn(NOT_ARCHIVED, (d / "witness-methods-missing.txt").read_text())
 
+    def test_the_skip_names_the_tarball_the_record_needs(self):
+        # holdout BT-08 (25 Nov): the SKIP said only "no methods tarball given", so a reader could not tell which tarball to find
+        out = self.signed_with(NOT_ARCHIVED)
+        d, _ = self.bundle(out)
+        code, text = self.verify(d)
+        self.assertIn(f"SKIP method-rerun: no methods tarball given (--methods); the record names methods tarball sha256 {NOT_ARCHIVED}",
+                      text)
+        self.assertEqual(code, 0, text)
+
     def test_a_non_tarball_code_sha256_keeps_todays_behaviour(self):
         """match.screenshot's code_sha256 is the image digest: not a methods tarball, so the bundle is what it was."""
         out = self.check()
