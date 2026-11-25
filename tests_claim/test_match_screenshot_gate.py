@@ -141,6 +141,39 @@ class Table(unittest.TestCase):
         self.assertGreater(n["unreadable"], 0)
 
 
+class RobustGate(unittest.TestCase):
+    """BD19 addendum 2 (decision 159): G 9150 sat 48 / 75 points from honest images on both sides (9102 gated, 9177 passing), a
+    knife edge. G 8500 sits clear of every image of the table, and with it the lowest passing honest image is 8740, so F = 8490
+    keeps 250 bp under it. T stays 9500."""
+    CLEAR = 400
+
+    @classmethod
+    def setUpClass(cls):
+        cls.rows = load("measured_gate.json")["cases"]
+
+    def test_the_constants(self):
+        self.assertEqual(match_screenshot.MIN_READABILITY_X100, 8500)
+        self.assertEqual(match_screenshot.F_BP, 8490)
+        self.assertEqual(match_screenshot.T_BP, 9500)
+
+    def test_no_image_of_any_kind_is_within_400_of_the_gate(self):
+        g = gate()
+        near = [(r["name"], r["kind"], value(r)) for r in self.rows if abs(value(r) - g) < self.CLEAR]
+        self.assertEqual(near, [], f"images within {self.CLEAR} of G={g}")
+
+    def test_every_honest_image_passing_the_gate_is_at_least_f_plus_250(self):
+        g, f = gate(), match_screenshot.F_BP
+        low = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] == "honest" and value(r) >= g
+               and r["similarity_bp"] < f + MARGIN]
+        self.assertEqual(low, [])
+
+    def test_gate_vectors_sit_either_side_of_8500(self):
+        self.assertEqual(gate(), 8500)
+        t =GateInTheMethod("test_the_gate_value_itself_passes")
+        self.assertEqual((t.result(8499).finding, t.result(8499).reason), (None, "unreadable"))
+        self.assertEqual(t.result(8500).finding, "consistent")
+
+
 class Production(unittest.TestCase):
     """measured_gate_prod.json: the same script run in the pod with the branch's claim_witness package on PYTHONPATH, so
     ocr.Ocr.readability and match.screenshot are the ones that ship."""
