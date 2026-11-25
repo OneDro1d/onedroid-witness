@@ -461,6 +461,67 @@ class Bundles(Base):
         self.assertNotIn("disclosure.json", names)
         self.assertNotIn(CANARY.encode(), data)
 
+    # BD17: a bundle is the portable proof file; the private body travels only through a deliberate share link.
+
+    def _kept_private(self):
+        out = self.private_check()
+        code, k, _ = self.keep(out)  # no kept evidence: the private source is not in the bundle by another door
+        self.assertEqual(code, 200, k)
+        self.seal_all()
+        return out
+
+    def test_bd17_no_reader_gets_the_disclosure_in_the_bundle(self):
+        out = self._kept_private()
+        rid = out["record_id"]
+        code, sh, _ = self.s.call("POST", f"/v1/records/{rid}/shares", {})
+        self.assertEqual(code, 200, sh)
+        for who, path, key in (("owner", f"/v1/records/{rid}/bundle", OWNER),
+                               ("token holder", f"/v1/records/{rid}/bundle?token={sh['token']}", None),
+                               ("anonymous", f"/v1/records/{rid}/bundle", None),
+                               ("other account", f"/v1/records/{rid}/bundle", OTHER)):
+            code, data = self.raw_get(path, key=key)
+            self.assertEqual(code, 200, who)
+            d, names = self.unpack(data)
+            self.assertNotIn("disclosure.json", names, who)
+            self.assertNotIn("disclosure.json", [n.rsplit("/", 1)[-1] for n in names], who)
+            self.assertNotIn(CANARY.encode(), data, who)  # the tar as bytes
+            with tarfile.open(fileobj=io.BytesIO(data)) as tf:
+                for m in tf.getmembers():
+                    if m.isfile():
+                        self.assertNotIn(CANARY.encode(), tf.extractfile(m).read(), f"{who}: {m.name}")
+
+    def test_bd17_owner_verifies_a_private_bundle_with_the_disclosure_flag(self):
+        out = self._kept_private()
+        rid = out["record_id"]
+        code, data = self.raw_get(f"/v1/records/{rid}/bundle", key=OWNER)
+        self.assertEqual(code, 200)
+        d, names = self.unpack(data)
+        self.assertNotIn("disclosure.json", names)
+        # the disclosure comes from GET /v1/records/{id} as the owner, and is handed to witness-verify on purpose
+        code, rec, _ = self.get(rid, key=OWNER)
+        self.assertEqual(code, 200, rec)
+        self.assertIn(CANARY, json.dumps(rec["disclosure"]))
+        dfile = pathlib.Path(tempfile.mkdtemp(prefix="cw-disc-")) / "disclosure.json"
+        dfile.write_text(json.dumps(rec["disclosure"]))
+        buf = io.StringIO()
+        self.assertEqual(verify.main(["--bundle", str(d), "--disclosure", str(dfile)], out=buf), 0, buf.getvalue())
+        for name in ("claim-commitment", "body-commitment", "seal", "key-validity"):
+            self.assertIn(f"PASS {name}", buf.getvalue())
+        self.assertNotIn("FAIL", buf.getvalue())
+        # the same bundle without the disclosure verifies what it can, and nothing fails
+        buf = io.StringIO()
+        self.assertEqual(verify.main(["--bundle", str(d)], out=buf), 0, buf.getvalue())
+        self.assertNotIn("FAIL", buf.getvalue())
+        self.assertNotIn("PASS body-commitment", buf.getvalue())
+        self.assertIn("PASS seal", buf.getvalue())
+        # a wrong disclosure still fails by name
+        bad = json.loads(dfile.read_text())
+        bad["body"]["tampered"] = True
+        bfile = dfile.with_name("bad.json")
+        bfile.write_text(json.dumps(bad))
+        buf = io.StringIO()
+        self.assertNotEqual(verify.main(["--bundle", str(d), "--disclosure", str(bfile)], out=buf), 0, buf.getvalue())
+
 
 class NdimWrites(Base):
     def test_the_sealer_writes_each_kept_envelope(self):
