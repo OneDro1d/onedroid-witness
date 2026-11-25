@@ -43,7 +43,7 @@ class OnPostgres:
 
 skip = unittest.skipIf(pg_bin_dir() is None, "no initdb/pg_ctl and no pgserver wheel: Postgres tests cannot run here")
 
-for cls in (g.GraphEdges, g.GraphDepth, g.GraphVisibility, g.GraphBackfill, g.SearchPublic, g.SearchPrivate, g.SearchModes,
+for cls in (g.GraphEdges, g.GraphDepth, g.GraphVisibility, g.GraphBackfill, g.SearchPublic, g.SearchBackfill, g.SearchPrivate, g.SearchModes,
             g.SearchWithEmbedder):
     globals()["Postgres" + cls.__name__] = skip(type("Postgres" + cls.__name__, (OnPostgres, cls, unittest.TestCase), {}))
 

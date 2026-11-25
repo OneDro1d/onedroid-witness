@@ -90,8 +90,26 @@ class Storage:
     def put_ndim_chain(self, row): raise NotImplementedError
     def update_ndim_chain(self, owner_tag, **fields): raise NotImplementedError
     def ndim_chains(self): raise NotImplementedError
+    # B7, the record graph: nodes (public ones hold no account), PROV-O edges with the visibility of their most private end
+    def put_nodes(self, rows): raise NotImplementedError
+    def get_nodes(self, ids): raise NotImplementedError
+    def delete_node(self, node_id): raise NotImplementedError
+    def put_edges(self, rows): raise NotImplementedError
+    def edges_touching(self, ids): raise NotImplementedError
+    def delete_edges_touching(self, node_id): raise NotImplementedError
+    def clear_graph(self): raise NotImplementedError
+    # B7, search: the text (and optional embedding) of public kept records; the query joins the kept rows
+    def put_search_doc(self, record_id, body, tokens, embedding=None): raise NotImplementedError
+    def get_search_doc(self, record_id): raise NotImplementedError
+    def delete_search_doc(self, record_id): raise NotImplementedError
+    def set_embedding(self, record_id, embedding): raise NotImplementedError
+    def docs_missing_embedding(self, limit): raise NotImplementedError
+    def search_records(self, tokens, method, outcome, since, account, limit, offset): raise NotImplementedError
+    def semantic_docs(self, method, outcome, since, limit): raise NotImplementedError
 
 
+NODE_FIELDS = ("id", "kind", "visibility", "account", "method", "outcome", "witnessed_at")
+EDGE_FIELDS = ("src", "dst", "rel", "visibility", "src_account", "dst_account", "at")
 OUTPUT_FIELDS = ("record_id", "model", "provider", "served_model", "raw", "created_at", "expires_at")
 
 
@@ -103,6 +121,7 @@ class MemoryStorage(Storage):
         self.observations, self.obs_files, self.fresh = {}, {}, {}
         self.batch_rows, self.seal_rows, self.kept, self.kept_ev, self.index, self.shares = {}, {}, {}, {}, set(), {}
         self.ndim_chain_rows = {}
+        self.nodes, self.edges, self.docs = {}, {}, {}
 
     def _changed(self):
         pass
@@ -450,6 +469,110 @@ class MemoryStorage(Storage):
     def ndim_chains(self):
         with self.lock:
             return [dict(r) for r in sorted(self.ndim_chain_rows.values(), key=lambda r: (r["created_at"], r["owner_tag"]))]
+
+    # ------------------------------------------------------------------------------------------------- B7: graph and search
+
+    def put_nodes(self, rows):
+        with self.lock:
+            for r in rows:
+                self.nodes.setdefault(r["id"], {k: r.get(k) for k in NODE_FIELDS})  # a node's visibility never changes
+            self._changed()
+
+    def get_nodes(self, ids):
+        with self.lock:
+            return {i: dict(self.nodes[i]) for i in ids if i in self.nodes}
+
+    def delete_node(self, node_id):
+        with self.lock:
+            self.nodes.pop(node_id, None)
+            self._changed()
+
+    def put_edges(self, rows):
+        with self.lock:
+            for r in rows:
+                self.edges.setdefault((r["src"], r["dst"], r["rel"]), {k: r.get(k) for k in EDGE_FIELDS})
+            self._changed()
+
+    def edges_touching(self, ids):
+        with self.lock:
+            ids = set(ids)
+            return [dict(e) for e in self.edges.values() if e["src"] in ids or e["dst"] in ids]
+
+    def delete_edges_touching(self, node_id):
+        with self.lock:
+            gone = [k for k, e in self.edges.items() if node_id in (e["src"], e["dst"])]
+            for k in gone:
+                del self.edges[k]
+            self._changed()
+            return len(gone)
+
+    def clear_graph(self):
+        with self.lock:
+            self.nodes.clear()
+            self.edges.clear()
+            self._changed()
+
+    def put_search_doc(self, record_id, body, tokens, embedding=None):
+        with self.lock:
+            self.docs[record_id] = {"body": body, "tokens": set(tokens), "embedding": list(embedding) if embedding else None}
+            self._changed()
+
+    def get_search_doc(self, record_id):
+        with self.lock:
+            d = self.docs.get(record_id)
+            if d is None:
+                return None
+            return {"record_id": record_id, "body": d["body"], "embedding": list(d["embedding"]) if d["embedding"] else None}
+
+    def delete_search_doc(self, record_id):
+        with self.lock:
+            self.docs.pop(record_id, None)
+            self._changed()
+
+    def set_embedding(self, record_id, embedding):
+        with self.lock:
+            if record_id in self.docs:
+                self.docs[record_id]["embedding"] = list(embedding)
+                self._changed()
+
+    def docs_missing_embedding(self, limit):
+        with self.lock:
+            return [(rid, d["body"]) for rid, d in sorted(self.docs.items()) if d["embedding"] is None][:int(limit)]
+
+    def _search_rows(self, method, outcome, since):
+        for k in self.kept.values():
+            if (method is None or k["method"] == method) and (outcome is None or k["outcome"] == outcome) \
+                    and (since is None or k["witnessed_at"] >= since):
+                yield k
+
+    def search_records(self, tokens, method, outcome, since, account, limit, offset):
+        """Record ids, newest kept first: the public kept records not taken down whose indexed words include every token;
+        with no tokens, every such record and, for `account`, that account's own live private ones (listed, never matched)."""
+        with self.lock:
+            want, rows = set(tokens), []
+            for k in self._search_rows(method, outcome, since):
+                if k["taken_down_at"] is not None:
+                    continue
+                public = k["visibility"] == "public"
+                mine = (not want and account is not None and k["visibility"] == "private" and k["account"] == account
+                        and k["deleted_at"] is None)
+                if not (public or mine):
+                    continue
+                if want:
+                    d = self.docs.get(k["record_id"])
+                    if d is None or not want <= d["tokens"]:
+                        continue
+                rows.append(k)
+            rows.sort(key=lambda k: (-k["kept_at"], k["record_id"]))
+            return [k["record_id"] for k in rows[int(offset):int(offset) + int(limit)]]
+
+    def semantic_docs(self, method, outcome, since, limit):
+        with self.lock:
+            rows = [k for k in self._search_rows(method, outcome, since)
+                    if k["visibility"] == "public" and k["taken_down_at"] is None
+                    and (self.docs.get(k["record_id"]) or {}).get("embedding")]
+            rows.sort(key=lambda k: (-k["kept_at"], k["record_id"]))
+            return [(k["record_id"], list(self.docs[k["record_id"]]["embedding"])) for k in rows[:int(limit)]]
 
 
 class FileStorage(MemoryStorage):

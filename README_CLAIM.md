@@ -985,3 +985,89 @@ unchanged.
 115. **Live smoke**: `tools/live_armarium_smoke.py`, run from a short-lived pod in witness-dev (the tokens are only there):
      1 claimant create for a throwaway owner, POST, PUT, GET, DELETE, GET (410), 1 notary seal (at most 2 requests) and its verify.
      It prints no token. The throwaway claimant chain stays.
+
+## B7: the record graph and search
+
+Branch `v1/claim-b7`, from `095e014`. `claim_witness/methods/` is not touched, so every `code_sha256` is unchanged. Migration
+`007_graph_search.sql` (006 is left free for the parallel B5b branch). Code: `claim_witness/graph.py`, `claim_witness/search.py`;
+storage methods on both backends (memory and Postgres); tests `tests_claim/test_graph_search.py` and `test_graph_search_pg.py`.
+
+**Graph**, `GET /v1/records/{id}/graph?depth=2` (the id is a record's or an observation's; a key is optional, a share token via
+`?token=` or `X-Witness-Share-Token`). Edges are W3C PROV-O, written when a record is signed:
+
+| from | edge | to | when |
+|---|---|---|---|
+| record | `prov:used` | observation | every observation in `relied_on` |
+| record | `prov:wasDerivedFrom` | record | evidence of kind `record` (the B5b hook; nothing writes such evidence yet) |
+| record | `prov:wasAttributedTo` | witness | every record |
+| record | `prov:wasAttributedTo` | agent `agt_...` | a public record signed for an agent (never the agent key id, key or account) |
+
+The answer is `{model: "W3C PROV-O", root, depth, nodes: [{id, kind, prov, visibility, method?, outcome?, witnessed_at?}], edges:
+[{from, to, rel, visibility}], truncated}`. `depth` is 0 to 5 (default 2; anything else is 422), the walk goes both ways, and
+stops at 300 nodes with `truncated: true`. The witness and agent nodes are leaves (two records are not one hop apart because
+the same witness signed both).
+
+**Visibility.** An edge has the visibility of its most private end; each private end names its owner in an internal column and a
+reader sees the edge only when every private end is theirs. A reader sees public nodes and edges plus their own private ones.
+Another account's private node, edge, flag or count is never in the answer: an answer with and without another account's private
+record over a shared public observation is byte-identical (TS-15), `truncated` is computed from visible nodes only, and no total
+or "n hidden" exists. A private node the reader may not see answers like an unknown id (404). A taken-down public record is 410
+to others and in nobody else's graph; its owner still sees it flagged `taken_down`. An owner-deleted private record loses its
+edges and the private observations deleted with it lose theirs; its owner still gets the lone node flagged `deleted`. A share
+token opens the private edges and nodes touching its one record, not the owner's other private records.
+
+**Search**, `GET /v1/search?q=&mode=hybrid|keyword|semantic&outcome=&method=&since=&limit=&offset=` (key optional).
+Public kept records are searched by Postgres full text (a `tsvector` with a GIN index, config `simple`); the reader's own live
+private records are listed when there is no `q`, with no statement or label, and are never matched by a `q`. `limit` 1 to 100
+(default 20), `offset` 0 to 10000, `next_offset` instead of a total. Bad `outcome`, `method`, `since`, `mode`, `limit`, `offset`,
+a `q` over 500 characters or over 32 distinct words: 422.
+
+**Without an embedder** (`WITNESS_EMBEDDER_URL` unset, as on dev): `mode=semantic` is `503 semantic-unavailable` with no
+records, `mode=hybrid` (the default) answers the keyword results with `mode_used: "keyword"`, `degraded: true` and a `note`, and
+`mode=keyword` is plain. Every answer carries both `mode` (asked) and `mode_used` (done). **With one**: records are embedded when
+kept and by `embed_missing`; `hybrid` fuses the keyword and cosine rankings by reciprocal rank; if the embedder does not answer
+at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as above.
+
+### Builder decisions, B7
+
+140. **Edges are written when a record is signed, in the same request**, from the predicate the witness has just built (for a
+     private record, the sealed body's predicate: the payload alone does not carry `relied_on`). A failure to write them is
+     logged and never loses the answer; `graph.backfill()` writes them at the next start, idempotently (`ON CONFLICT DO
+     NOTHING` on `(src, dst, rel)`).
+141. **Backfill reads what is still held**: every kept record (a private one through its sealed body, unless its owner deleted
+     it) and every stored job answer (24 h). A record that was neither kept nor in a job's 24 h is only in the signing log, so
+     its edges cannot be recovered; such a record is simply absent from the graph. Observation nodes are created when an
+     observation is signed and, for older ones, lazily when asked for.
+142. **Two columns name the owner of a private end** (`src_account`, `dst_account`; null for a public end), instead of one
+     edge account. A private record that relies on a disclosed private record of another account (B5b) then has an edge nobody
+     but a share-token holder can see. A public node row holds no account at all. A record or observation whose owner is not
+     known gets the owner `''`, which no account matches.
+143. **Taken-down and deleted state is read from `kept_records`, not copied into the graph**, so it cannot go stale. A takedown
+     also deletes the record's search row.
+144. **Not found and not allowed answer alike (404)** for a private record or observation, so the graph is not an oracle for private
+     ids. A taken-down public record is 410, as `GET /v1/records/{id}` already says.
+145. **The `agt_` id is in the public graph, the agent key id and key are not.** The `agt_` id is already in every public record's
+     `submitter`; it is a hash of the account and the key and names neither. A private record has no agent edge (its agent is
+     inside the body).
+146. **Search covers kept public records only.** A record that was signed and not kept has no stored envelope after 24 h, so it
+     has no text to index. Indexing happens in `keep`; `search.backfill()` indexes the public records kept before this slice.
+147. **The query parser is Python's, not Postgres's.** `q` is cut into `[^\W_]+` words (NFKC, casefolded), the words are
+     joined by spaces and bound as one parameter of `plainto_tsquery('simple', ...)`, and the document is indexed from the same
+     words. No tsquery operator, quote or SQL can come out of a query, and memory and Postgres storage agree on what matches.
+     Every query is an AND of its words; there is no prefix, phrase or OR search.
+148. **A `q` never matches or lists a private record, not even the owner's.** With a `q` the signed-in reader is told so
+     (`private.searched: false`, pointing at `GET /v1/records?q=`); with no `q` their own live private records are listed with
+     method, outcome and time only. Neither lists a deleted or taken-down record.
+149. **Default mode is `hybrid`** (SPEC lists it first), which with no embedder is the keyword result flagged degraded. A
+     semantic answer is never keyword results under the semantic name: 503.
+150. **`embedding` is `real[]`, not `vector`.** The migration works on any Postgres 16 (the pgserver wheel the tests use has no
+     pgvector) and the cosine is computed in Python over at most 1000 candidates; claim-pg runs `pgvector/pgvector:pg16`, so a
+     later migration can add a `vector` column and an index when the corpus needs one. The embedder is any OpenAI-compatible
+     `/v1/embeddings` URL (`WITNESS_EMBEDDER_URL`, optional `WITNESS_EMBEDDER_MODEL`, `WITNESS_EMBEDDER_KEY_FILE`); a private
+     record is never sent to it. `embed_missing()` runs at start; there is no scheduled re-embed yet.
+151. **Tests.** RED first (`e6de830`: 67 tests, all failing on 095e014). The migration-list test changed in its own commit
+     named "test change for B7" (it pins exact lists; they gain `007_graph_search.sql`). One test class, `SearchBackfill`, was
+     added in the GREEN commit. No existing assertion was loosened. `Storage.clear_graph()` exists for the backfill test and for
+     an operator rebuild.
+152. **The graph and search tables are not in the n-dim or bundle paths.** The bundle already includes the observations a record
+     relied on; the graph is a derived index of the same facts and is not signed or sealed.

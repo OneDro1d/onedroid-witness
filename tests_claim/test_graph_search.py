@@ -88,6 +88,7 @@ class Base:
             body["disclosure"] = out["disclosure"]
         code, k, _ = self.s.call("POST", f"/v1/records/{out['record_id']}/keep", body, key=key)
         self.assertEqual(code, 200, k)
+        self.s.clock.advance(1)  # "newest kept first" needs distinct kept_at seconds
         return k
 
     def graph(self, rid, key=None, depth=None, token=None):
@@ -369,7 +370,7 @@ class GraphVisibility(Base):
 
 class GraphBackfill(Base):
     def snapshot(self, rids, keys=(None, A, B)):
-        return {(r, k): self.graph(r, key=k, depth=3) for r in rids for k in keys}
+        return {(r, k): self.graph(r, key=k, depth=3)[:2] for r in rids for k in keys}  # status and body (headers carry a Date)
 
     def test_records_signed_before_this_slice_get_their_edges_idempotently(self):
         o = self.observe(U1)
@@ -418,7 +419,7 @@ class SearchPublic(Base):
         self.assertEqual(self.result_ids(res), [r1])
         item = res["records"][0]
         self.assertEqual(item["visibility"], "public")
-        self.assertEqual(item["method"], "match.text")
+        self.assertEqual(item["method"], "quote.in-source")
         self.assertIn("Gdansk", item["statement"])
         self.assertEqual(item["link"], f"https://evidence.example/r/{r1}")
         self.assertEqual(self.result_ids(self.search(q="OPENED")[1]), [r2, r1])  # newest kept first
@@ -442,7 +443,7 @@ class SearchPublic(Base):
         other = [o for o in ("SUPPORTED", "NOT_SUPPORTED", "CANNOT_WITNESS") if o != outcome][0]
         self.assertEqual(sorted(self.result_ids(self.search(q="filtered", outcome=outcome)[1])), sorted([r1, r2]))
         self.assertEqual(self.search(q="filtered", outcome=other)[1]["records"], [])
-        self.assertEqual(self.result_ids(self.search(q="filtered", method="match.text")[1]), [r2, r1])
+        self.assertEqual(self.result_ids(self.search(q="filtered", method="quote.in-source")[1]), [r2, r1])
         self.assertEqual(self.search(q="filtered", method="match.exact")[1]["records"], [])
         self.assertEqual(self.result_ids(self.search(q="filtered", since=since)[1]), [r2])
         for bad in ({"outcome": "MAYBE"}, {"method": "no.such-method"}, {"since": "yesterday"}, {"since": "2026-13-45T00:00:00Z"},
@@ -499,6 +500,22 @@ class SearchPublic(Base):
         r = self.kept("owner takedown thing")
         self.s.call("POST", f"/v1/records/{r}/takedown", {}, key=A)
         self.assertEqual(self.search(q="owner")[1]["records"], [])
+
+
+class SearchBackfill(Base):
+    """Added with the GREEN commit: a public record kept before this slice has no search row; search.backfill indexes it."""
+
+    def test_public_kept_records_without_a_row_are_indexed_at_start_and_taken_down_ones_are_not(self):
+        out = self.check(statement="legacy kept record words")
+        self.keep(out)
+        down = self.check(statement="legacy taken down words")
+        self.keep(down)
+        self.s.call("POST", f"/v1/records/{down['record_id']}/takedown", {}, key=A)
+        self.s.storage.delete_search_doc(out["record_id"])
+        self.assertEqual(self.search(q="legacy")[1]["records"], [])
+        self.assertEqual(self.s.witness.search.backfill(), 1)
+        self.assertEqual(self.result_ids(self.search(q="legacy")[1]), [out["record_id"]])
+        self.assertEqual(self.s.witness.search.backfill(), 0)  # idempotent
 
 
 class SearchPrivate(Base):
@@ -657,7 +674,8 @@ del_names = ("Base",)
 
 
 def _bind():
-    for cls in (GraphEdges, GraphDepth, GraphVisibility, GraphBackfill, SearchPublic, SearchPrivate, SearchModes, SearchWithEmbedder):
+    for cls in (GraphEdges, GraphDepth, GraphVisibility, GraphBackfill, SearchPublic, SearchBackfill, SearchPrivate, SearchModes,
+                SearchWithEmbedder):
         globals()["Memory" + cls.__name__] = type("Memory" + cls.__name__, (cls, unittest.TestCase), {})
 
 

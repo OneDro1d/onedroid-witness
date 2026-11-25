@@ -12,7 +12,8 @@ import time
 
 import psycopg
 
-from .storage import (BATCH_FIELDS, JOB_FIELDS, KEPT_FIELDS, NDIM_CHAIN_FIELDS, OBS_FIELDS, OUTCOMES, OUTPUT_FIELDS,
+from .storage import (BATCH_FIELDS, EDGE_FIELDS, JOB_FIELDS, KEPT_FIELDS, NDIM_CHAIN_FIELDS, NODE_FIELDS, OBS_FIELDS, OUTCOMES,
+                      OUTPUT_FIELDS,
                       SHARE_FIELDS, Conflict, Storage)
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
@@ -462,3 +463,92 @@ class PostgresStorage(Storage):
     def ndim_chains(self):
         return [dict(zip(NDIM_CHAIN_FIELDS, r)) for r in self._q(
             f"SELECT {', '.join(NDIM_CHAIN_FIELDS)} FROM ndim_chains ORDER BY created_at, owner_tag", fetch="all")]
+
+    # ------------------------------------------------------------------------------------------------- B7: graph and search
+
+    def put_nodes(self, rows):
+        for r in rows:
+            self._q(f"INSERT INTO graph_nodes ({', '.join(NODE_FIELDS)}) VALUES ({', '.join(['%s'] * len(NODE_FIELDS))}) "
+                    "ON CONFLICT (id) DO NOTHING", [r.get(k) for k in NODE_FIELDS])
+
+    def get_nodes(self, ids):
+        ids = list(ids)
+        if not ids:
+            return {}
+        rows = self._q(f"SELECT {', '.join(NODE_FIELDS)} FROM graph_nodes WHERE id = ANY(%s)", (ids,), fetch="all")
+        return {r[0]: dict(zip(NODE_FIELDS, r)) for r in rows}
+
+    def delete_node(self, node_id):
+        self._q("DELETE FROM graph_nodes WHERE id = %s", (node_id,))
+
+    def put_edges(self, rows):
+        for r in rows:
+            self._q(f"INSERT INTO graph_edges ({', '.join(EDGE_FIELDS)}) VALUES ({', '.join(['%s'] * len(EDGE_FIELDS))}) "
+                    "ON CONFLICT (src, dst, rel) DO NOTHING", [int(r["at"]) if k == "at" else r.get(k) for k in EDGE_FIELDS])
+
+    def edges_touching(self, ids):
+        ids = list(ids)
+        if not ids:
+            return []
+        rows = self._q(f"SELECT {', '.join(EDGE_FIELDS)} FROM graph_edges WHERE src = ANY(%s) OR dst = ANY(%s)", (ids, ids),
+                       fetch="all")
+        return [dict(zip(EDGE_FIELDS, r)) for r in rows]
+
+    def delete_edges_touching(self, node_id):
+        return self._q("DELETE FROM graph_edges WHERE src = %s OR dst = %s", (node_id, node_id))
+
+    def clear_graph(self):
+        self._q("DELETE FROM graph_edges")
+        self._q("DELETE FROM graph_nodes")
+
+    def put_search_doc(self, record_id, body, tokens, embedding=None):
+        """The tokens are plain alphanumeric words already normalised in Python, so the tsvector and the query parse them the
+        same way on both storage backends."""
+        self._q("INSERT INTO search_docs (record_id, body, fts, embedding) VALUES (%s, %s, to_tsvector('simple', %s), %s::real[]) "
+                "ON CONFLICT (record_id) DO UPDATE SET body = EXCLUDED.body, fts = EXCLUDED.fts, embedding = EXCLUDED.embedding",
+                (record_id, body, " ".join(tokens), list(embedding) if embedding else None))
+
+    def get_search_doc(self, record_id):
+        r = self._q("SELECT record_id, body, embedding FROM search_docs WHERE record_id = %s", (record_id,), fetch="one")
+        return {"record_id": r[0], "body": r[1], "embedding": [float(x) for x in r[2]] if r[2] else None} if r else None
+
+    def delete_search_doc(self, record_id):
+        self._q("DELETE FROM search_docs WHERE record_id = %s", (record_id,))
+
+    def set_embedding(self, record_id, embedding):
+        self._q("UPDATE search_docs SET embedding = %s::real[] WHERE record_id = %s", (list(embedding), record_id))
+
+    def docs_missing_embedding(self, limit):
+        return [(r[0], r[1]) for r in self._q("SELECT record_id, body FROM search_docs WHERE embedding IS NULL ORDER BY record_id "
+                                              "LIMIT %s", (int(limit),), fetch="all")]
+
+    @staticmethod
+    def _filters(method, outcome, since):
+        sql, args = "", []
+        for col, v, op in (("k.method", method, "="), ("k.outcome", outcome, "="), ("k.witnessed_at", since, ">=")):
+            if v is not None:
+                sql += f" AND {col} {op} %s"
+                args.append(v)
+        return sql, args
+
+    def search_records(self, tokens, method, outcome, since, account, limit, offset):
+        """See MemoryStorage.search_records. The words go to plainto_tsquery as ONE bound parameter (alphanumeric words joined
+        by spaces): no tsquery operator and no SQL can come out of a query."""
+        flt, fargs = self._filters(method, outcome, since)
+        if tokens:
+            sql = ("SELECT k.record_id FROM search_docs d JOIN kept_records k ON k.record_id = d.record_id "
+                   "WHERE k.visibility = 'public' AND k.taken_down_at IS NULL AND d.fts @@ plainto_tsquery('simple', %s)" + flt)
+            args = [" ".join(tokens), *fargs]
+        else:
+            sql = ("SELECT k.record_id FROM kept_records k WHERE k.taken_down_at IS NULL AND (k.visibility = 'public' "
+                   "OR (%s::text IS NOT NULL AND k.visibility = 'private' AND k.account = %s AND k.deleted_at IS NULL))" + flt)
+            args = [account, account, *fargs]
+        rows = self._q(sql + " ORDER BY k.kept_at DESC, k.record_id LIMIT %s OFFSET %s", (*args, int(limit), int(offset)), fetch="all")
+        return [r[0] for r in rows]
+
+    def semantic_docs(self, method, outcome, since, limit):
+        flt, fargs = self._filters(method, outcome, since)
+        rows = self._q("SELECT d.record_id, d.embedding FROM search_docs d JOIN kept_records k ON k.record_id = d.record_id "
+                       "WHERE k.visibility = 'public' AND k.taken_down_at IS NULL AND d.embedding IS NOT NULL" + flt
+                       + " ORDER BY k.kept_at DESC, k.record_id LIMIT %s", (*fargs, int(limit)), fetch="all")
+        return [(r[0], [float(x) for x in r[1]]) for r in rows]
