@@ -13,6 +13,8 @@
            WITNESS_NOTARY_CA_FILE, WITNESS_NOTARY_TIMEOUT_S (no token file: batches are closed but never anchored),
            ARMARIUM_URL, ARMARIUM_TOKEN_FILE, ARMARIUM_CA_FILE, ARMARIUM_CASE (no URL: nothing is written to n-dim),
            NDIM_STORE_EVIDENCE (0), WITNESS_LINK_BASE (https://evidence.onedroid.ai), WITNESS_OPERATOR_ACCOUNTS (comma list).
+           B7: WITNESS_EMBEDDER_URL (an OpenAI-compatible /v1/embeddings endpoint; unset: GET /v1/search mode=semantic answers
+           503 and mode=hybrid answers keyword results flagged degraded), WITNESS_EMBEDDER_MODEL, WITNESS_EMBEDDER_KEY_FILE.
   signer   the signer sidecar (`signer serve`) and the operator key-list commands (`signer keylist init|rotate|show`); see
            claim_witness/signer.py.
   dev      API and signer in one process for a laptop: memory storage unless WITNESS_DATABASE_URL is set, a throwaway
@@ -41,7 +43,7 @@ def _auth(env):
 def run_api(env, signer_client, storage, attempt_key, master_key):
     import shutil
 
-    from . import api, dns, fetcher, judge, ndim, notary, service
+    from . import api, dns, fetcher, judge, ndim, notary, search, service
     log = lambda line: print(line, flush=True)  # noqa: E731
     armarium, case = ndim.from_env(env)
     cfg = service.Config(witness_id=env.get("WITNESS_ID") or "witness:onedroid", attempt_key=attempt_key, master_key=master_key,
@@ -61,7 +63,8 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
                          batch_max_leaves=int(env.get("WITNESS_BATCH_MAX_LEAVES") or 100000),
                          sealer_poll_s=float(env.get("WITNESS_SEALER_POLL_S") or 30),
                          link_base=(env.get("WITNESS_LINK_BASE") or "").strip() or "https://evidence.onedroid.ai",
-                         operator_accounts=[a.strip() for a in (env.get("WITNESS_OPERATOR_ACCOUNTS") or "").split(",") if a.strip()])
+                         operator_accounts=[a.strip() for a in (env.get("WITNESS_OPERATOR_ACCOUNTS") or "").split(",") if a.strip()],
+                         embedder=search.embedder_from_env(env))
     print(f"claim-witness: fetcher {'configured' if cfg.fetcher else 'not configured (url evidence answers 503)'}; "
           f"match.screenshot {'ready' if cfg.image_digest and cfg.tesseract_bin else 'unavailable (needs WITNESS_IMAGE_DIGEST and tesseract)'}",
           flush=True)
@@ -69,6 +72,15 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
           f"n-dim {('claimant chain per owner under case ' + case) if armarium else 'not configured (nothing is written)'}"
           f"{' with kept evidence' if armarium and cfg.ndim_store_evidence else ''}", flush=True)
     witness = service.Witness(storage, signer_client, cfg)
+    try:  # B7: edges and search rows for records signed or kept before this version; idempotent, never fatal
+        g, s = witness.graph.backfill(), witness.search.backfill()
+        print(f"claim-witness: graph backfill {g['records']} record(s), {g['edges']} edge(s); search index +{s}; "
+              f"embedder {'configured' if cfg.embedder else 'not configured (semantic search answers 503, hybrid is keyword)'}",
+              flush=True)
+        if cfg.embedder:
+            witness.search.embed_missing(1000)
+    except Exception as e:
+        print(f"claim-witness: graph/search backfill failed ({type(e).__name__}); the API still starts", flush=True)
     if (env.get("WITNESS_SEALER") or "1").strip() != "0":
         witness.sealer.start()
         print(f"claim-witness: sealer every {cfg.sealer_poll_s:g} s, batches of {cfg.batch_interval_s} s or "

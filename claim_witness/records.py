@@ -257,6 +257,8 @@ class Records:
             self.st.put_kept_evidence(rid, ev_rows)
         if disclosure is not None:
             self.st.put_index(rid, account, [self._token(account, w) for w in _words(searchable(view))])
+        else:  # B7: a public record's text goes to the public full-text index; a private one's never does
+            self.w.search.index(rid, view)
         for r in view.get("relied_on") or []:
             if isinstance(r, dict) and isinstance(r.get("id"), str) and self.st.get_observation(r["id"]) is not None:
                 self.st.set_observation_kept(r["id"], True)  # kept as long as the record (SPEC §8 retention)
@@ -443,12 +445,14 @@ class Records:
         n_idx = self.st.delete_index(rid)
         n_sh = self.st.delete_shares(rid)
         n_jobs = self.st.delete_jobs_for_record(rid)
-        n_obs = 0
+        n_obs, gone_obs = 0, []
         for r in ((d or {}).get("body") or {}).get("relied_on") or []:
             o = self.st.get_observation(r.get("id")) if isinstance(r, dict) else None
             if o is not None and o["visibility"] == "private" and o["account"] == account:
                 self.st.delete_observation(o["id"])
+                gone_obs.append(o["id"])
                 n_obs += 1
+        self.w.graph.record_deleted(rid, gone_obs)  # B7: its edges, and the private observations' nodes and edges
         now = self.now()
         self.st.update_kept(rid, wrapped_key=None, body_box=None, evidence_key_box=None, deleted_at=now,
                             evidence_deleted_at=now if had_evidence and row["evidence_deleted_at"] is None else row["evidence_deleted_at"])
@@ -506,6 +510,7 @@ class Records:
             raise WitnessError(422, "invalid-request", "a takedown is {reason?: text}; the reason is not stored")
         if row["taken_down_at"] is None:
             self.st.update_kept(rid, taken_down_at=self.now(), takedown_by="owner" if owner else "operator")
+            self.w.search.remove(rid)  # B7: the indexed text goes with the page (graph reads the kept row's taken_down_at)
             row = self.st.get_kept(rid)
         return {"record_id": rid, "taken_down_at": iso(row["taken_down_at"]), "by": row["takedown_by"],
                 "note": "the public page and the bundle are hidden; the signed record and its seal stay valid wherever someone holds them"}

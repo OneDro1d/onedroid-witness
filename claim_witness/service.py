@@ -86,7 +86,8 @@ class Config:
                  fetcher=None, resolvers=None, confirm_delay_s=60, sleep=time.sleep, free_observations_per_day=50,
                  observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY,
                  notary=None, armarium=None, ndim_case=None, ndim_store_evidence=False, batch_interval_s=3600,
-                 batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None):
+                 batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None,
+                 embedder=None):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
         if not master_key or len(master_key) < 32:
@@ -120,6 +121,9 @@ class Config:
         self.batch_interval_s, self.batch_max_leaves = int(batch_interval_s), int(batch_max_leaves)
         self.sealer_poll_s, self.link_base = float(sealer_poll_s), str(link_base)
         self.operator_accounts = list(operator_accounts or [])
+        # B7: an object with embed(text) -> list of floats (search.HttpEmbedder), or None: semantic search is then unavailable
+        # and hybrid search answers keyword results with a flag
+        self.embedder = embedder
 
 
 def iso(t):
@@ -207,7 +211,11 @@ class Witness:
         self.lookup_key = hmac.new(config.master_key, b"claim-witness/observation-lookup/1", hashlib.sha256).digest()
         from .records import Records  # B3; imported here: records.py imports WitnessError from this module
         from .sealer import Sealer
+        from .graph import Graph  # B7
+        from .search import Search
         self.records = Records(self)
+        self.graph = Graph(self)
+        self.search = Search(self)
         self.sealer = Sealer(self)
 
     def now(self):
@@ -473,6 +481,10 @@ class Witness:
             self.storage.add_attempt(tag, pred["outcome"], now)
         env = out["envelope"]
         rid = ids.record_id(base64.b64decode(env["payload"]))
+        try:  # B7: the PROV-O edges; a failure here must not lose the answer (graph.backfill writes them at the next start)
+            self.graph.record_signed(rid, pred, p.options["visibility"], p.account)
+        except Exception as e:
+            print(f"graph: edges for {rid[:12]} not written ({type(e).__name__})", flush=True)
         if public:  # §5.8: raw outputs of a public record are kept 24 h; a private record's are discarded (BD1)
             for spec, text, provider, served in raw_outputs:
                 if text is not None:
@@ -639,6 +651,10 @@ class Witness:
             self.storage.put_observation(row, stored)
         except Conflict:
             pass  # the very same signed payload again (same capture in the same second): one observation, stored once
+        try:  # B7: the observation's graph node (a record that relies on it adds the edge)
+            self.graph.observation_signed(oid, visibility, account)
+        except Exception as e:
+            print(f"graph: node for {oid[:12]} not written ({type(e).__name__})", flush=True)
         n = self.storage.bump_fresh(account, now // DAY)
         ctx.fresh += 1
         if n > self.cfg.free_observations_per_day:

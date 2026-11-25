@@ -25,6 +25,8 @@ B3 (kept records, SPEC §3 and DECISIONS BD1; claim_witness/records.py, sealer.p
     GET    /v1/records/{id}/evidence/{sha}    one kept evidence file (public record: anyone; private: owner, evidence token)
     POST   /v1/records/{id}/shares            owner: a share token {days?, evidence?}; GET lists; DELETE .../shares/{token_id}
     GET    /v1/records?q=&method=&outcome=&since=   owner search over the caller's own kept private records
+    GET    /v1/records/{id}/graph?depth=2     (B7) the PROV-O nodes and edges this reader may see (claim_witness/graph.py)
+    GET    /v1/search?q=&mode=&outcome=&method=&since=&limit=&offset=   (B7) public records plus the reader's own (claim_witness/search.py)
     DELETE /v1/records/{id}                   owner delete (private records)
     DELETE /v1/records/{id}/evidence          owner: delete the kept evidence
     POST   /v1/records/{id}/takedown          owner or operator: hide the record and its bundle (the seal stays)
@@ -52,7 +54,7 @@ KEYLIST_PATH = re.compile(r"^/v1/key-lists/([0-9]{1,9})$")
 OBS_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})$")
 OBS_FILE_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})/files/([A-Za-z0-9][A-Za-z0-9._-]{0,63})$")
 REC_PATH = re.compile(r"^/v1/records/([0-9a-f]{64})$")
-REC_SUB = re.compile(r"^/v1/records/([0-9a-f]{64})/(seal|bundle|shares|keep|takedown|evidence)$")
+REC_SUB = re.compile(r"^/v1/records/([0-9a-f]{64})/(seal|bundle|shares|keep|takedown|evidence|graph)$")
 REC_EVIDENCE = re.compile(r"^/v1/records/([0-9a-f]{64})/evidence/([0-9a-f]{64})$")
 REC_SHARE = re.compile(r"^/v1/records/([0-9a-f]{64})/shares/(tok_[0-9a-f]{16})$")
 
@@ -225,6 +227,9 @@ def make_handler(witness, auth):
                 return self._send(200, seal)
             if m and m.group(2) == "bundle":
                 return self._send_bytes(200, rec.bundle(self._maybe_account(path), m.group(1), self._token()), "application/x-tar")
+            if m and m.group(2) == "graph":  # B7: the nodes and edges this reader may see
+                return self._send(200, witness.graph.view(self._maybe_account(path), m.group(1), self._query().get("depth"),
+                                                          self._token()))
             if m and m.group(2) == "shares":
                 return self._send(200, rec.share_list(auth.account("GET", path, b"", self.headers), m.group(1)))
             if path.startswith("/v1/records/"):
@@ -236,6 +241,8 @@ def make_handler(witness, auth):
             try:
                 if path == "/v1/records" or path.startswith("/v1/records/"):
                     return self._records_get(path)
+                if path == "/v1/search":  # B7: public records, plus the reader's own listed (key optional)
+                    return self._send(200, witness.search.query(self._maybe_account(path), self._query()))
                 if path == "/healthz":
                     ok, out = witness.health()
                     return self._send(200 if ok else 503, out)
