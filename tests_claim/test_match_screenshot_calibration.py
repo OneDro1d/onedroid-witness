@@ -90,26 +90,33 @@ class Thresholds(unittest.TestCase):
         cls.rows = load("measured.json")["cases"]
 
     def test_thresholds_are_the_calibrated_integers(self):
-        self.assertEqual((match_screenshot.T_BP, match_screenshot.F_BP), (9500, 9300))
-        self.assertEqual((self.T, self.F), (9500, 9300))
+        # BD19 (decision 157): F moved from 9300 to 1200 over the widened set (../screenshots2/); T stays 9500
+        self.assertEqual((match_screenshot.T_BP, match_screenshot.F_BP), (9500, 1200))
+        self.assertEqual((self.T, self.F), (9500, 1200))
         self.assertLessEqual(self.F, self.T)
 
-    def test_every_honest_screenshot_is_at_or_above_t(self):
-        low = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] == "honest" and r["similarity_bp"] < self.T]
-        self.assertEqual(low, [], f"honest screenshots under T={self.T}")
+    def test_every_honest_screenshot_is_at_or_above_f(self):
+        # was: every honest screenshot >= T (BD16). Honest screenshots between F and T are `undecided`, never `differs`.
+        low = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] == "honest" and r["similarity_bp"] < self.F]
+        self.assertEqual(low, [], f"honest screenshots under F={self.F}")
 
-    def test_every_forgery_and_unrelated_screenshot_is_below_f(self):
-        high = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] != "honest" and r["similarity_bp"] >= self.F]
-        self.assertEqual(high, [], f"forgeries at or above F={self.F}")
+    def test_every_forgery_and_unrelated_screenshot_is_below_t(self):
+        # was: below F (BD16). A forgery between F and T gets no finding (BD19); none may be `consistent`.
+        high = [(r["name"], r["similarity_bp"]) for r in self.rows if r["kind"] != "honest" and r["similarity_bp"] >= self.T]
+        self.assertEqual(high, [], f"forgeries at or above T={self.T}")
 
     def test_findings_under_the_thresholds(self):
+        # was: honest consistent, every forgery and unrelated screenshot differs (BD16)
         m = measure_module()
         by_name = {c["name"]: c for c in load("cases.json")["cases"]}
         for r in self.rows:
             c = by_name[r["name"]]
             res = methods.run("match.screenshot", {}, m.evidence(c, (SET / c["image"]).read_bytes(), r["ocr_text"],
                                                                  (SET / c["page"]).read_bytes()))
-            self.assertEqual(res.finding, "consistent" if r["kind"] == "honest" else "differs", r["name"])
+            if r["kind"] == "honest":
+                self.assertEqual(res.finding, "consistent", r["name"])
+            else:
+                self.assertNotEqual(res.finding, "consistent", r["name"])
 
 
 if __name__ == "__main__":

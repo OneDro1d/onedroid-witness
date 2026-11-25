@@ -82,8 +82,15 @@ class Screenshot(Base):
     def test_edited_text_differs(self):
         out, p = self.check(image("Ferry timetable\nThe ferry has been cancelled for the whole summer season this year.\n"
                                   "Refunds will be paid to every passenger who booked online before the change."))
-        self.assertEqual((p["finding"], p["outcome"]), ("differs", "NOT_SUPPORTED"))
+        # BD19: F is 1200 now, so this edit (1764 bp) is no finding, not `differs`; a text that shares no word with the page
+        # (0 bp) still differs. The cat sentence (1875 bp, it shares "the" and "a") is no finding either.
+        self.assertEqual((p["finding"], p["reason"]), (None, "undecided"))
         out, p = self.check(image("Nothing at all like the page, a picture of a cat sleeping on a warm sofa."), assertion=False)
+        self.assertEqual((p["finding"], p["reason"]), (None, "undecided"))
+        words = "Quokkas juggle violet marmots beyond frozen glaciers whenever nobody watches."
+        out, p = self.check(image(words))
+        self.assertEqual((p["finding"], p["outcome"], p["detail"]["similarity_bp"]), ("differs", "NOT_SUPPORTED", 0))
+        out, p = self.check(image(words), assertion=False)
         self.assertEqual((p["finding"], p["outcome"]), ("differs", "SUPPORTED"))
 
     def test_no_text_read_is_unreadable(self):
