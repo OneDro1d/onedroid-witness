@@ -93,7 +93,7 @@ class Screenshot(Base):
     def test_edited_text_differs(self):
         out, p = self.check(image("Ferry timetable\nThe ferry has been cancelled for the whole summer season this year.\n"
                                   "Refunds will be paid to every passenger who booked online before the change."))
-        # BD19 addendum (decision 158): F is 8700 again, so the edit (1764 bp) and the cat sentence (1875 bp) differ as they did
+        # BD19 addendum (decisions 158, 159): F is 8490 (still far above those), so the edit (1764 bp) and the cat sentence (1875 bp) differ as they did
         # before decision 157 (F 1200 had made them no finding); a text that shares no word with the page (0 bp) differs too.
         self.assertEqual((p["finding"], p["outcome"]), ("differs", "NOT_SUPPORTED"))
         out, p = self.check(image("Nothing at all like the page, a picture of a cat sleeping on a warm sofa."), assertion=False)
