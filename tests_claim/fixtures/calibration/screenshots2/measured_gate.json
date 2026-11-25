@@ -1,0 +1,4278 @@
+{
+ "cases": [
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b1-honest-crop-jpg.jpg",
+   "image_sha256": "b5396235ce5a962bdcf1144350d258b037e207c286d63a860ccdde9dd711ef8a",
+   "kind": "honest",
+   "name": "b1-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "5af44ba37ef0d9e0bfa8ec01c6e92481917b694995dae4922e65ed6f7850a1ff",
+   "ocr_tokens": 35,
+   "readability": {
+    "mean_conf_x100": 9661,
+    "px": [
+     1000,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 35,
+    "words_per_mpx": 315
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b1-honest-crop-png.png",
+   "image_sha256": "6e81cb1309dddbb651900de744cf164832c99620e07d2e972223d7c19197adee",
+   "kind": "honest",
+   "name": "b1-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "5af44ba37ef0d9e0bfa8ec01c6e92481917b694995dae4922e65ed6f7850a1ff",
+   "ocr_tokens": 35,
+   "readability": {
+    "mean_conf_x100": 9662,
+    "px": [
+     1000,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 35,
+    "words_per_mpx": 315
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b1-honest-full-jpg.jpg",
+   "image_sha256": "4aeafafee322bf7e245a0cbef95115eee76bce90a0083eff2fa9067465ce1594",
+   "kind": "honest",
+   "name": "b1-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f59f42f1b193f796927047e39026677cc7346b957c4cefa12a7855dc3d158cc9",
+   "ocr_tokens": 86,
+   "readability": {
+    "mean_conf_x100": 9551,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9884,
+    "words": 86,
+    "words_per_mpx": 108
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9221,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-honest-full-png.png",
+   "image_sha256": "c58cb8ccea639f62a0dfcb9f4c3544a50ebaad020f682fa73f226748f2929a34",
+   "kind": "honest",
+   "name": "b1-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f59f42f1b193f796927047e39026677cc7346b957c4cefa12a7855dc3d158cc9",
+   "ocr_tokens": 86,
+   "readability": {
+    "mean_conf_x100": 9554,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9884,
+    "words": 86,
+    "words_per_mpx": 108
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9221,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-honest-full-s50-png.png",
+   "image_sha256": "7ee17f732e5d081368f92055e587bc7ff8eb71fd3154ac56f1bf35143129f7cc",
+   "kind": "honest",
+   "name": "b1-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "8724e3b35eb4dceedca4933155c3769cc76f6ee3836fcb1e903cbc83ef7ac301",
+   "ocr_tokens": 82,
+   "readability": {
+    "mean_conf_x100": 8050,
+    "px": [
+     500,
+     400
+    ],
+    "share60_bp": 8659,
+    "words": 82,
+    "words_per_mpx": 410
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7361,
+   "view": "full-s50",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-honest-full-s75-png.png",
+   "image_sha256": "58e1b8adea7dd9fdc01d02b3ba6bbbd6e955e4f27d650acd40314edd8075ddfc",
+   "kind": "honest",
+   "name": "b1-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "eedafe9a89a42bd890a5c25acfe0dc5326ee42c864531f1dd7abd6d6d125d336",
+   "ocr_tokens": 87,
+   "readability": {
+    "mean_conf_x100": 9395,
+    "px": [
+     750,
+     600
+    ],
+    "share60_bp": 9770,
+    "words": 87,
+    "words_per_mpx": 193
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9047,
+   "view": "full-s75",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b1-forgery-crop-jpg.jpg",
+   "image_sha256": "9613d1c0b2b00855fa99dfb3192c5152304fae7994287d85b066f1f3ccdcd417",
+   "kind": "forgery",
+   "name": "b1-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "d7f4b36c5875d9501e5681ffaa22fcdbe296c68cb5dd72b6ee89390271213b00",
+   "ocr_tokens": 37,
+   "readability": {
+    "mean_conf_x100": 9658,
+    "px": [
+     1000,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 37,
+    "words_per_mpx": 333
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7222,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-forgery-crop-png.png",
+   "image_sha256": "b8c398029b6b39c87e00f08ea1e0f0ae79269c0c08ba3bb7ba88300dadf05024",
+   "kind": "forgery",
+   "name": "b1-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "d7f4b36c5875d9501e5681ffaa22fcdbe296c68cb5dd72b6ee89390271213b00",
+   "ocr_tokens": 37,
+   "readability": {
+    "mean_conf_x100": 9659,
+    "px": [
+     1000,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 37,
+    "words_per_mpx": 333
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7222,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b1-forgery-full-jpg.jpg",
+   "image_sha256": "8a02f91a961b7ec69feaaf20a44d8fbef14d3c919d9009d0b08154447fbb75af",
+   "kind": "forgery",
+   "name": "b1-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "e605e39a3ae7e16965e4182433fabc8d7e55fe7702544cd90eb4f3f97933a99e",
+   "ocr_tokens": 88,
+   "readability": {
+    "mean_conf_x100": 9554,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9886,
+    "words": 88,
+    "words_per_mpx": 110
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8047,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-forgery-full-png.png",
+   "image_sha256": "3f5fbc455d3f3d068f1c29f129e262b09b466d088f46d68f7f41c63281e0a09c",
+   "kind": "forgery",
+   "name": "b1-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "e605e39a3ae7e16965e4182433fabc8d7e55fe7702544cd90eb4f3f97933a99e",
+   "ocr_tokens": 88,
+   "readability": {
+    "mean_conf_x100": 9555,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9886,
+    "words": 88,
+    "words_per_mpx": 110
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8047,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-forgery-full-s50-png.png",
+   "image_sha256": "bba95735a52259cb97a17e26543056eda2cddee1764ff3e863fd20dc1e33487a",
+   "kind": "forgery",
+   "name": "b1-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "e6de314630f91d3fb2f6d0f49bb05e075b5e0a9b8b56174a7e0e119ee77eb866",
+   "ocr_tokens": 83,
+   "readability": {
+    "mean_conf_x100": 8027,
+    "px": [
+     500,
+     400
+    ],
+    "share60_bp": 8313,
+    "words": 83,
+    "words_per_mpx": 415
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6219,
+   "view": "full-s50",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b1-forgery-full-s75-png.png",
+   "image_sha256": "682c6b14b44a9adbd913d3a90404476aa037c9a29c71968b8c0a81f67f8c8d15",
+   "kind": "forgery",
+   "name": "b1-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "9977429e2678f138138fc401ac527daf25dd0df72d1f0ca66d3bc8bba2bec2c9",
+   "ocr_tokens": 89,
+   "readability": {
+    "mean_conf_x100": 9425,
+    "px": [
+     750,
+     600
+    ],
+    "share60_bp": 9775,
+    "words": 89,
+    "words_per_mpx": 198
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7882,
+   "view": "full-s75",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b2-honest-crop-jpg.jpg",
+   "image_sha256": "2e0cd7bb64ced813b58fa15bae33b9902fabf3b0c68c923f643dda3691c14333",
+   "kind": "honest",
+   "name": "b2-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "e525110b978f3a166711fe542eac6ea5ab779334f7675034c85ea7a3c8c9a864",
+   "ocr_tokens": 59,
+   "readability": {
+    "mean_conf_x100": 9555,
+    "px": [
+     1000,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 59,
+    "words_per_mpx": 562
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b2-honest-crop-png.png",
+   "image_sha256": "dfd8442f5b6976411584ee6ecbe46f9f440f0e3efd63b3c355abcb53e351e7a8",
+   "kind": "honest",
+   "name": "b2-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "e525110b978f3a166711fe542eac6ea5ab779334f7675034c85ea7a3c8c9a864",
+   "ocr_tokens": 59,
+   "readability": {
+    "mean_conf_x100": 9504,
+    "px": [
+     1000,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 59,
+    "words_per_mpx": 562
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b2-honest-full-jpg.jpg",
+   "image_sha256": "007941a6aabea6b4864ecbfa70f47a70f756586b232b03412e897bb0dd3f93fc",
+   "kind": "honest",
+   "name": "b2-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f94e4820d8b12e8208c86621803cd1b32f467033f7ab595a8ddebcc5992dd884",
+   "ocr_tokens": 222,
+   "readability": {
+    "mean_conf_x100": 9479,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9910,
+    "words": 222,
+    "words_per_mpx": 278
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9680,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "png",
+   "image": "images/b2-honest-full-png.png",
+   "image_sha256": "0551368130f0dcc1b5598f755a8d7fd4553b59f3655df7ad5c4105bbb3329519",
+   "kind": "honest",
+   "name": "b2-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "0cecb2fc1aa0b9b08a267c05ff1ec6e4021bfe81d63db0ae7d6fb6d92f8f81cf",
+   "ocr_tokens": 221,
+   "readability": {
+    "mean_conf_x100": 9435,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9864,
+    "words": 221,
+    "words_per_mpx": 276
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9473,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b2-honest-full-s50-png.png",
+   "image_sha256": "7838ebace6ea2ef6c1f434b3911dd5260b36388fede8be013e8498a35aeabf26",
+   "kind": "honest",
+   "name": "b2-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "edfbb975b892db43a84103d8db9349d9f8915c076334c59bd18cc3c04b8cda90",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 5016,
+    "px": [
+     500,
+     400
+    ],
+    "share60_bp": 2759,
+    "words": 174,
+    "words_per_mpx": 870
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1343,
+   "view": "full-s50",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "png",
+   "image": "images/b2-honest-full-s75-png.png",
+   "image_sha256": "893b2478670aad7fffdfca1ad65e8d55cc6ec2973fdacda08318385ee3338da2",
+   "kind": "honest",
+   "name": "b2-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "25a70891f577090f46a23335c25aefd40413eed0c47cc1b177715d7248879e4d",
+   "ocr_tokens": 221,
+   "readability": {
+    "mean_conf_x100": 9251,
+    "px": [
+     750,
+     600
+    ],
+    "share60_bp": 9729,
+    "words": 221,
+    "words_per_mpx": 491
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9495,
+   "view": "full-s75",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b2-forgery-crop-jpg.jpg",
+   "image_sha256": "00e4e4ad68afac3e5d06ec3570209e3cd06217595e3f2b79223a2d65db34c5b0",
+   "kind": "forgery",
+   "name": "b2-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3ba4d5cfec5611fc7eb11d45f59b3fa8728a8570d755f4aa037a7b3fc46a2290",
+   "ocr_tokens": 58,
+   "readability": {
+    "mean_conf_x100": 9550,
+    "px": [
+     1000,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 58,
+    "words_per_mpx": 552
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7863,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b2-forgery-crop-png.png",
+   "image_sha256": "c5d348a762ec1dbb79c97c9f110dc9092d96cb6124454b488e1ed7800efed7ed",
+   "kind": "forgery",
+   "name": "b2-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3ba4d5cfec5611fc7eb11d45f59b3fa8728a8570d755f4aa037a7b3fc46a2290",
+   "ocr_tokens": 58,
+   "readability": {
+    "mean_conf_x100": 9485,
+    "px": [
+     1000,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 58,
+    "words_per_mpx": 552
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7863,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b2-forgery-full-jpg.jpg",
+   "image_sha256": "2372a853d92e9d7edd26048cac2bc6b04fe6063c4bf8fa3aac1bb4a17a892ad5",
+   "kind": "forgery",
+   "name": "b2-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "2b6321360a78c5087823fbb042423b907fa756bacfb40bfed8a56a1118d39f72",
+   "ocr_tokens": 221,
+   "readability": {
+    "mean_conf_x100": 9483,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9910,
+    "words": 221,
+    "words_per_mpx": 276
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9107,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b2-forgery-full-png.png",
+   "image_sha256": "b354e3d5a9c600c65e0959c88d0f55d0ddcfd050be000504874216114b41fb59",
+   "kind": "forgery",
+   "name": "b2-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "d95deeb348fa63bfe9f1192f794d0cd677d52a695e643c7787150039e7c5d1f1",
+   "ocr_tokens": 220,
+   "readability": {
+    "mean_conf_x100": 9434,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9864,
+    "words": 220,
+    "words_per_mpx": 275
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8899,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b2-forgery-full-s50-png.png",
+   "image_sha256": "0695ab13f8fe4268e4a69bd92d2a086334b15b92437edba9a2a1cf5b547bf1d6",
+   "kind": "forgery",
+   "name": "b2-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "480f9d1ea8718d28e894317da82418f054ceca992513ac712f251c086a792640",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 4983,
+    "px": [
+     500,
+     400
+    ],
+    "share60_bp": 2529,
+    "words": 174,
+    "words_per_mpx": 870
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1343,
+   "view": "full-s50",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b2-forgery-full-s75-png.png",
+   "image_sha256": "4038f7c4ab13abd5d09d89cfa5a201cd1787f900a7e6150ffe58f922b9d8525d",
+   "kind": "forgery",
+   "name": "b2-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "af8c9f08cb65ef3da06b6353b448643b23b54a0f0c4df1b751bff4a117759f5c",
+   "ocr_tokens": 220,
+   "readability": {
+    "mean_conf_x100": 9229,
+    "px": [
+     750,
+     600
+    ],
+    "share60_bp": 9727,
+    "words": 220,
+    "words_per_mpx": 489
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8965,
+   "view": "full-s75",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b3-honest-crop-jpg.jpg",
+   "image_sha256": "51dab58ba077e661f8e2f899ef134b063d1ab99112da4ef9992e1d034509c1bc",
+   "kind": "honest",
+   "name": "b3-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3ab1edb0915b5d3ea1e07f4d87bb82b28ceac59c1bffd709e22977d8a92f3a6f",
+   "ocr_tokens": 22,
+   "readability": {
+    "mean_conf_x100": 9533,
+    "px": [
+     1024,
+     66
+    ],
+    "share60_bp": 10000,
+    "words": 22,
+    "words_per_mpx": 326
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b3-honest-crop-png.png",
+   "image_sha256": "ee4239241c672eda16ac907a52bb63cb9c172598eada10141b49b2991f56e2cc",
+   "kind": "honest",
+   "name": "b3-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "306abff67c95c581e73c92b1be6db11af5c2eaa66440068cda92e13f6aa2e977",
+   "ocr_tokens": 22,
+   "readability": {
+    "mean_conf_x100": 9414,
+    "px": [
+     1024,
+     66
+    ],
+    "share60_bp": 10000,
+    "words": 22,
+    "words_per_mpx": 326
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9545,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b3-honest-full-jpg.jpg",
+   "image_sha256": "0c897dd76fe6fe379173ed51772aaf26dd76f3c3cc6482d6184011adbbb1ae7b",
+   "kind": "honest",
+   "name": "b3-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "9ca31786f9d93cbfa4cff1c8da8c6d7e52eab7e6f111c35e7f33d354c9e05cde",
+   "ocr_tokens": 70,
+   "readability": {
+    "mean_conf_x100": 9467,
+    "px": [
+     1024,
+     800
+    ],
+    "share60_bp": 9714,
+    "words": 70,
+    "words_per_mpx": 85
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8955,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-honest-full-png.png",
+   "image_sha256": "417d0194d524eca37f2f82af863e45db8e0112246ea5855c4f1d69b465be79eb",
+   "kind": "honest",
+   "name": "b3-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "47a7709100ed3920274ba086d2eeaa8ba1b4ac500509c578d52a7406d7a9f140",
+   "ocr_tokens": 70,
+   "readability": {
+    "mean_conf_x100": 9435,
+    "px": [
+     1024,
+     800
+    ],
+    "share60_bp": 9857,
+    "words": 70,
+    "words_per_mpx": 85
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8955,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-honest-full-s50-png.png",
+   "image_sha256": "5d8acaff7505cb71f435f715df545afe783855922c673c84fd5f6c54401b1361",
+   "kind": "honest",
+   "name": "b3-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "986272a6ea94c02607fdb6d7a9aa4959d034076297188551c6657f8d673b0bfc",
+   "ocr_tokens": 48,
+   "readability": {
+    "mean_conf_x100": 5697,
+    "px": [
+     512,
+     400
+    ],
+    "share60_bp": 4792,
+    "words": 48,
+    "words_per_mpx": 234
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 4081,
+   "view": "full-s50",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-honest-full-s75-png.png",
+   "image_sha256": "473b6e8b4f6da9ef14dc0b17c2389cbe62e7ee2d6f51b49f4b3806f84e2f3fbb",
+   "kind": "honest",
+   "name": "b3-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "8269d9c17139f0753776aeb5c39d3ba8e115344612975934c7c0fecc7ecc85e7",
+   "ocr_tokens": 71,
+   "readability": {
+    "mean_conf_x100": 9100,
+    "px": [
+     768,
+     600
+    ],
+    "share60_bp": 9718,
+    "words": 71,
+    "words_per_mpx": 154
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8740,
+   "view": "full-s75",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b3-forgery-crop-jpg.jpg",
+   "image_sha256": "9415d14825797dc21ad2fedb8e3e68e75612efee3682e6d086ea4389dc779755",
+   "kind": "forgery",
+   "name": "b3-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "1906f64cc5d9d4383df7b814f4fff80cf9903c3fb7fa3d72acf7527173c86c5a",
+   "ocr_tokens": 22,
+   "readability": {
+    "mean_conf_x100": 9448,
+    "px": [
+     1024,
+     66
+    ],
+    "share60_bp": 10000,
+    "words": 22,
+    "words_per_mpx": 326
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 3421,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-forgery-crop-png.png",
+   "image_sha256": "e27ddabe54afea7882ea2821e7032298b93d96c4768cf3d9d13ada2de3c1853f",
+   "kind": "forgery",
+   "name": "b3-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "5db28be3d2fc924250e55258116fdcae921e364af87394cb788fc254da9cd511",
+   "ocr_tokens": 22,
+   "readability": {
+    "mean_conf_x100": 9418,
+    "px": [
+     1024,
+     66
+    ],
+    "share60_bp": 10000,
+    "words": 22,
+    "words_per_mpx": 326
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 3157,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b3-forgery-full-jpg.jpg",
+   "image_sha256": "b98bc79cf9dda3e573c4cf09b1546b2235f8b119319649178b268ee40af055d4",
+   "kind": "forgery",
+   "name": "b3-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "9bfc1ea3e4f8c5f7fcf7383a10dadde9638080fcf6bc217511744e7060c162c3",
+   "ocr_tokens": 70,
+   "readability": {
+    "mean_conf_x100": 9469,
+    "px": [
+     1024,
+     800
+    ],
+    "share60_bp": 9714,
+    "words": 70,
+    "words_per_mpx": 85
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7313,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-forgery-full-png.png",
+   "image_sha256": "0a56c8abdc36772da8eaab56579e386bb7cf90cc349dacc2aed8452c243f0cdf",
+   "kind": "forgery",
+   "name": "b3-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "565916bd748cd6030a2a29b7e23d77538f250111a04471e0ed23016e2e74b493",
+   "ocr_tokens": 70,
+   "readability": {
+    "mean_conf_x100": 9439,
+    "px": [
+     1024,
+     800
+    ],
+    "share60_bp": 9857,
+    "words": 70,
+    "words_per_mpx": 85
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7313,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-forgery-full-s50-png.png",
+   "image_sha256": "72a6c261f7a83e82117808aace24619a8bc6e84d8896ee69d445bb19b5b49f95",
+   "kind": "forgery",
+   "name": "b3-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "329ad11e42c78694b7ebb65be7d21df99666c26f33595d697f346d9852b60532",
+   "ocr_tokens": 47,
+   "readability": {
+    "mean_conf_x100": 5514,
+    "px": [
+     512,
+     400
+    ],
+    "share60_bp": 4468,
+    "words": 47,
+    "words_per_mpx": 229
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 3800,
+   "view": "full-s50",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b3-forgery-full-s75-png.png",
+   "image_sha256": "1fc994e0bf62dd530d3bcb1cfae53b940c08df6bf0373ed16c571a64a770a795",
+   "kind": "forgery",
+   "name": "b3-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "95536367f55f5d50d149f701e97f0e7aa71377f8ead2ea5ec7d1ec8088d032f6",
+   "ocr_tokens": 70,
+   "readability": {
+    "mean_conf_x100": 8987,
+    "px": [
+     768,
+     600
+    ],
+    "share60_bp": 9714,
+    "words": 70,
+    "words_per_mpx": 152
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7164,
+   "view": "full-s75",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b4-honest-crop-jpg.jpg",
+   "image_sha256": "d03edd2aca9c15fdcdf1634f515e39ec89fa94e308a2c7387d7e944d9be4d1c9",
+   "kind": "honest",
+   "name": "b4-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3dc0a40dc0b63e04be87db587887a0dd1b94af75922fd01d930ba5519aa8eb27",
+   "ocr_tokens": 66,
+   "readability": {
+    "mean_conf_x100": 9664,
+    "px": [
+     1024,
+     192
+    ],
+    "share60_bp": 10000,
+    "words": 66,
+    "words_per_mpx": 336
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b4-honest-crop-png.png",
+   "image_sha256": "e9bfd2cab69efe2541ecf68ec71f1ea445840e04828b4b01a40265dc7a1bb4b5",
+   "kind": "honest",
+   "name": "b4-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3dc0a40dc0b63e04be87db587887a0dd1b94af75922fd01d930ba5519aa8eb27",
+   "ocr_tokens": 66,
+   "readability": {
+    "mean_conf_x100": 9652,
+    "px": [
+     1024,
+     192
+    ],
+    "share60_bp": 10000,
+    "words": 66,
+    "words_per_mpx": 336
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b4-honest-full-jpg.jpg",
+   "image_sha256": "1592ebb4ccee67b6b8a8f3512711e1d0ff82b9e5bf26d0cd7f0e67ffa4ccdac0",
+   "kind": "honest",
+   "name": "b4-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "322a2940a9d1718824f07ffc679492c60890923e1b92d7e53c18f80801705d85",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9629,
+    "px": [
+     1024,
+     802
+    ],
+    "share60_bp": 10000,
+    "words": 174,
+    "words_per_mpx": 212
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9707,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b4-honest-full-png.png",
+   "image_sha256": "56f80d690ac67175efcd0900471f0e005b9985223a589a33da83adef82d9c558",
+   "kind": "honest",
+   "name": "b4-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "322a2940a9d1718824f07ffc679492c60890923e1b92d7e53c18f80801705d85",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9627,
+    "px": [
+     1024,
+     802
+    ],
+    "share60_bp": 10000,
+    "words": 174,
+    "words_per_mpx": 212
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9707,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b4-honest-full-s50-png.png",
+   "image_sha256": "987abc4a042f8f5371ac3debb458d8e3689d818a2f5963b68ab60bda6c29e698",
+   "kind": "honest",
+   "name": "b4-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6066b50c2df1215ff5c98d532d5e95ee91f709bb8f0bb43c88b119d7b3dff16b",
+   "ocr_tokens": 168,
+   "readability": {
+    "mean_conf_x100": 7782,
+    "px": [
+     512,
+     401
+    ],
+    "share60_bp": 8036,
+    "words": 168,
+    "words_per_mpx": 818
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8035,
+   "view": "full-s50",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b4-honest-full-s75-png.png",
+   "image_sha256": "31bbd125dc107ba8ae15103f178a43ffa2bdbe0595f2ea0344b32fd05eb9c653",
+   "kind": "honest",
+   "name": "b4-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "951b33b73815b2e8680ee6b1338c1404cfb74a8f5729f078cc901e61f96cf804",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9487,
+    "px": [
+     768,
+     602
+    ],
+    "share60_bp": 9943,
+    "words": 174,
+    "words_per_mpx": 376
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9590,
+   "view": "full-s75",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b4-forgery-crop-jpg.jpg",
+   "image_sha256": "ca9c769e4fe2c49d5399fdd4ba74ff735a8a9be4a341cf4676f245a4f8780f93",
+   "kind": "forgery",
+   "name": "b4-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "30fa94ccc5806badc9103c7f66800a90417b66ed91e5536233fc851d83c3c4e5",
+   "ocr_tokens": 66,
+   "readability": {
+    "mean_conf_x100": 9663,
+    "px": [
+     1024,
+     192
+    ],
+    "share60_bp": 10000,
+    "words": 66,
+    "words_per_mpx": 336
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8636,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b4-forgery-crop-png.png",
+   "image_sha256": "86540a07c0fda3e636d93188daee70fdde965c27e9d98f4feeda1c853e8c4293",
+   "kind": "forgery",
+   "name": "b4-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "30fa94ccc5806badc9103c7f66800a90417b66ed91e5536233fc851d83c3c4e5",
+   "ocr_tokens": 66,
+   "readability": {
+    "mean_conf_x100": 9648,
+    "px": [
+     1024,
+     192
+    ],
+    "share60_bp": 10000,
+    "words": 66,
+    "words_per_mpx": 336
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8636,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b4-forgery-full-jpg.jpg",
+   "image_sha256": "baa54da93fde43562c79b76280468e4adf3d79215075cdecc86162f29479ce2e",
+   "kind": "forgery",
+   "name": "b4-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "4d7c3aaadc6c919be13cc81c47725de640bc8b71fb2ccef48ea2bf40bbeabfb2",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9629,
+    "px": [
+     1024,
+     802
+    ],
+    "share60_bp": 10000,
+    "words": 174,
+    "words_per_mpx": 212
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9181,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b4-forgery-full-png.png",
+   "image_sha256": "5b442e7b8bf464eb5e7ab7c4d085488bb663d873b42d41cc6ef3545bd9e44fcf",
+   "kind": "forgery",
+   "name": "b4-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "4d7c3aaadc6c919be13cc81c47725de640bc8b71fb2ccef48ea2bf40bbeabfb2",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9626,
+    "px": [
+     1024,
+     802
+    ],
+    "share60_bp": 10000,
+    "words": 174,
+    "words_per_mpx": 212
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9181,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b4-forgery-full-s50-png.png",
+   "image_sha256": "81145e415a3b7ed762a1232d83b45405eed6843de862bb28ff1fafbb54147ea3",
+   "kind": "forgery",
+   "name": "b4-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "305d9a712c581ad1994ceda59488a18d0e88d47e8b225f8c1c40bb1fa58dfcd9",
+   "ocr_tokens": 170,
+   "readability": {
+    "mean_conf_x100": 7819,
+    "px": [
+     512,
+     401
+    ],
+    "share60_bp": 8059,
+    "words": 170,
+    "words_per_mpx": 828
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7692,
+   "view": "full-s50",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b4-forgery-full-s75-png.png",
+   "image_sha256": "14f30acfd08fc20029949fa9bd15ce67705574c948950aed672d9196ee4baafa",
+   "kind": "forgery",
+   "name": "b4-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "2ffe94f3a066088f4e1a21568e8b6a72857d9554598330bb21b53c2e4e981648",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9484,
+    "px": [
+     768,
+     602
+    ],
+    "share60_bp": 9943,
+    "words": 174,
+    "words_per_mpx": 376
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9122,
+   "view": "full-s75",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b5-honest-crop-jpg.jpg",
+   "image_sha256": "5a39d60d24140a14dc83abce05909260418d5866c5b2f15a5784441e2534bdd8",
+   "kind": "honest",
+   "name": "b5-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "92365eac4fedb22a09302a8339c4b7fa0d9724e1c94d71ad989aa8ac028446ed",
+   "ocr_tokens": 44,
+   "readability": {
+    "mean_conf_x100": 9641,
+    "px": [
+     1440,
+     138
+    ],
+    "share60_bp": 10000,
+    "words": 44,
+    "words_per_mpx": 221
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b5-honest-crop-png.png",
+   "image_sha256": "f027eeff7c19e693574d55609d35b11238d806f05256c5e6ee12f548c8a10f16",
+   "kind": "honest",
+   "name": "b5-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "92365eac4fedb22a09302a8339c4b7fa0d9724e1c94d71ad989aa8ac028446ed",
+   "ocr_tokens": 44,
+   "readability": {
+    "mean_conf_x100": 9639,
+    "px": [
+     1440,
+     138
+    ],
+    "share60_bp": 10000,
+    "words": 44,
+    "words_per_mpx": 221
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b5-honest-full-jpg.jpg",
+   "image_sha256": "0fca556144075397adecba1f3f7baf5933d6b159b92136a08f61d2aa730c4306",
+   "kind": "honest",
+   "name": "b5-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b2dbbc4084762019b11100cbfcf6b82a0e7165dfe44f1b10a7f6a4b3eca0b560",
+   "ocr_tokens": 95,
+   "readability": {
+    "mean_conf_x100": 9515,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 9789,
+    "words": 95,
+    "words_per_mpx": 82
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9289,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-honest-full-png.png",
+   "image_sha256": "19000454ef5035221ec13611141f7f8a47ceee9eb210ccf8f30d4503a40a8185",
+   "kind": "honest",
+   "name": "b5-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b2dbbc4084762019b11100cbfcf6b82a0e7165dfe44f1b10a7f6a4b3eca0b560",
+   "ocr_tokens": 95,
+   "readability": {
+    "mean_conf_x100": 9497,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 9789,
+    "words": 95,
+    "words_per_mpx": 82
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9289,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-honest-full-s50-png.png",
+   "image_sha256": "1c126246694187a6c316d3a6c55c0b16df34d4d76d7f1eb0a847696ba3b04780",
+   "kind": "honest",
+   "name": "b5-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "956c8bda84b9cdd2c591f0a16b839f1143af780edbcb141b7869c522e11e8c68",
+   "ocr_tokens": 92,
+   "readability": {
+    "mean_conf_x100": 7815,
+    "px": [
+     720,
+     400
+    ],
+    "share60_bp": 8478,
+    "words": 92,
+    "words_per_mpx": 319
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7555,
+   "view": "full-s50",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-honest-full-s75-png.png",
+   "image_sha256": "f5d10413d5e9b0bcb221f38fbed34df9333a17b540c58de9577730e05ac651f2",
+   "kind": "honest",
+   "name": "b5-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "8a4bf3eae251f42879f70cc6629610149c9ba6274f32abe716681591ad088df8",
+   "ocr_tokens": 95,
+   "readability": {
+    "mean_conf_x100": 9399,
+    "px": [
+     1080,
+     600
+    ],
+    "share60_bp": 9789,
+    "words": 95,
+    "words_per_mpx": 147
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9180,
+   "view": "full-s75",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b5-forgery-crop-jpg.jpg",
+   "image_sha256": "ef98d13031b44b5e75f9c1bc2c8fd1956c113f3229817b76e20529d170fa3b8b",
+   "kind": "forgery",
+   "name": "b5-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a6a018cef260adca6d572eb2d9a44b6d494856fe3d303c3b0f849e18030cc582",
+   "ocr_tokens": 42,
+   "readability": {
+    "mean_conf_x100": 9641,
+    "px": [
+     1440,
+     138
+    ],
+    "share60_bp": 10000,
+    "words": 42,
+    "words_per_mpx": 211
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6947,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-forgery-crop-png.png",
+   "image_sha256": "aa7321b971e8b6995a775e99b359da685be2f3753588bde008450c83ccb0c7e1",
+   "kind": "forgery",
+   "name": "b5-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a6a018cef260adca6d572eb2d9a44b6d494856fe3d303c3b0f849e18030cc582",
+   "ocr_tokens": 42,
+   "readability": {
+    "mean_conf_x100": 9647,
+    "px": [
+     1440,
+     138
+    ],
+    "share60_bp": 10000,
+    "words": 42,
+    "words_per_mpx": 211
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6947,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b5-forgery-full-jpg.jpg",
+   "image_sha256": "37f799b6325daf268444bcb49e012b8ac4c8505face60f79913d137576f02eea",
+   "kind": "forgery",
+   "name": "b5-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6921da3ec578903bdcae580162abfb702c53bebc444c7210c091b7a77b011ea3",
+   "ocr_tokens": 93,
+   "readability": {
+    "mean_conf_x100": 9510,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 9785,
+    "words": 93,
+    "words_per_mpx": 81
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8066,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-forgery-full-png.png",
+   "image_sha256": "a2908880a3fd82549d4819448c9e3a84909d2c341812fd8883685455f40c3aac",
+   "kind": "forgery",
+   "name": "b5-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6921da3ec578903bdcae580162abfb702c53bebc444c7210c091b7a77b011ea3",
+   "ocr_tokens": 93,
+   "readability": {
+    "mean_conf_x100": 9498,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 9785,
+    "words": 93,
+    "words_per_mpx": 81
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8066,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-forgery-full-s50-png.png",
+   "image_sha256": "cf9c2912520a13e19440c0328aabb4a427b170a79a3a7cc1fab26aa6a84298c5",
+   "kind": "forgery",
+   "name": "b5-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "25e1250336be9fe406e7a1dd8a8c6e76015c206aef91d440b190ad7b30dc61e6",
+   "ocr_tokens": 90,
+   "readability": {
+    "mean_conf_x100": 7872,
+    "px": [
+     720,
+     400
+    ],
+    "share60_bp": 8222,
+    "words": 90,
+    "words_per_mpx": 312
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6516,
+   "view": "full-s50",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b5-forgery-full-s75-png.png",
+   "image_sha256": "b829b138fc6805488ba51d188c2523e0ef8bda3a8845dc4498f40bfe2d7228c1",
+   "kind": "forgery",
+   "name": "b5-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "559bcd745914587e8e421ac70e6cc24b750bc5d98f0f0d091e7a989cd18b4b4d",
+   "ocr_tokens": 93,
+   "readability": {
+    "mean_conf_x100": 9384,
+    "px": [
+     1080,
+     600
+    ],
+    "share60_bp": 9785,
+    "words": 93,
+    "words_per_mpx": 144
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7955,
+   "view": "full-s75",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b6-honest-crop-jpg.jpg",
+   "image_sha256": "e753afc5c474596b7619d51e91573becd47d00dc560f68c82d566e50eb178c9c",
+   "kind": "honest",
+   "name": "b6-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "970fac628ea7140504aaf1c7594787e65d765d7fecb2fddfb5c02f3dba8d8a8b",
+   "ocr_tokens": 52,
+   "readability": {
+    "mean_conf_x100": 9510,
+    "px": [
+     1440,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 52,
+    "words_per_mpx": 344
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b6-honest-crop-png.png",
+   "image_sha256": "e9f0a3cf3a5c68da3d8bdb7476e35e61de337dd5607efda4e0525067725b5734",
+   "kind": "honest",
+   "name": "b6-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "970fac628ea7140504aaf1c7594787e65d765d7fecb2fddfb5c02f3dba8d8a8b",
+   "ocr_tokens": 52,
+   "readability": {
+    "mean_conf_x100": 9470,
+    "px": [
+     1440,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 52,
+    "words_per_mpx": 344
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b6-honest-full-jpg.jpg",
+   "image_sha256": "71d54769e86a71e7fd93ccad02aabd3e1b5129ac047e1c40b443aab8bc2cead9",
+   "kind": "honest",
+   "name": "b6-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "03f1cd0aba1250f3cbbfe0ff3fe4b64e9cf92fb2d850dcef5c454dd0303f11f6",
+   "ocr_tokens": 219,
+   "readability": {
+    "mean_conf_x100": 9459,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 9863,
+    "words": 219,
+    "words_per_mpx": 190
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9722,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b6-honest-full-png.png",
+   "image_sha256": "3c825b00313a7f0737899f3cb0d08662988a6d6baf83f1df8c5efcb195740fd7",
+   "kind": "honest",
+   "name": "b6-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "163d9dec31dce9f06582f94172bbd1d9aaca531b1005336545a491bf2d3877ac",
+   "ocr_tokens": 219,
+   "readability": {
+    "mean_conf_x100": 9499,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 219,
+    "words_per_mpx": 190
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9722,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-honest-full-s50-png.png",
+   "image_sha256": "df13a5df916d8b2575e326631a14185db7269a841607218ae03be6fcce6e7eef",
+   "kind": "honest",
+   "name": "b6-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "2447c6fadac547ccc07eef03a897420c788e57770c968d5f484db99a99b86cbd",
+   "ocr_tokens": 153,
+   "readability": {
+    "mean_conf_x100": 4903,
+    "px": [
+     720,
+     400
+    ],
+    "share60_bp": 2941,
+    "words": 153,
+    "words_per_mpx": 531
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1873,
+   "view": "full-s50",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-honest-full-s75-png.png",
+   "image_sha256": "464c35cf44eefcbf72f456abc2312aa1a5c5c521d5ab5d463877eedb6f0e5c29",
+   "kind": "honest",
+   "name": "b6-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "71b4cdd165b93265bcbad8f905b8cba07ada727ba9ec9ec7eb76ee9af0e71927",
+   "ocr_tokens": 218,
+   "readability": {
+    "mean_conf_x100": 8996,
+    "px": [
+     1080,
+     600
+    ],
+    "share60_bp": 9679,
+    "words": 218,
+    "words_per_mpx": 336
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9292,
+   "view": "full-s75",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b6-forgery-crop-jpg.jpg",
+   "image_sha256": "a5fdf6dbc59e5b495fb3e93ff24bde125daaacba46b7fa631e74d04cfcf5bb92",
+   "kind": "forgery",
+   "name": "b6-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "4222f32c99016042fe597c1ef865b145abbe87ffae69e459e31694e8b3dba315",
+   "ocr_tokens": 50,
+   "readability": {
+    "mean_conf_x100": 9527,
+    "px": [
+     1440,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 50,
+    "words_per_mpx": 331
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7843,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-forgery-crop-png.png",
+   "image_sha256": "7ce4ad480f0155772795309e25cd87bfebb0d880191058f602ce1073df30209c",
+   "kind": "forgery",
+   "name": "b6-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "4222f32c99016042fe597c1ef865b145abbe87ffae69e459e31694e8b3dba315",
+   "ocr_tokens": 50,
+   "readability": {
+    "mean_conf_x100": 9520,
+    "px": [
+     1440,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 50,
+    "words_per_mpx": 331
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7843,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b6-forgery-full-jpg.jpg",
+   "image_sha256": "dc7d5948fbf53b08823a0aee71431665215974faef65c31b79a04d965d0ae209",
+   "kind": "forgery",
+   "name": "b6-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a5422b5bc8636e573582657a6692bcd7186a7893e58b39ca5ec1ffa2b2441d53",
+   "ocr_tokens": 217,
+   "readability": {
+    "mean_conf_x100": 9496,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 9954,
+    "words": 217,
+    "words_per_mpx": 188
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9209,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-forgery-full-png.png",
+   "image_sha256": "5f5deb49ba026733b9e9d9058c0b146d8b6fc20473eee17ac6f27aba824ddcef",
+   "kind": "forgery",
+   "name": "b6-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a748b29ee800c90224b3fa4297886f76171679b2bdb5a42e86b87d29423e1a78",
+   "ocr_tokens": 217,
+   "readability": {
+    "mean_conf_x100": 9511,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 217,
+    "words_per_mpx": 188
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9209,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-forgery-full-s50-png.png",
+   "image_sha256": "d39253c99b04e8a58d3295cad6a2968f054ff8dc36c4a1591d41f039ae8bda37",
+   "kind": "forgery",
+   "name": "b6-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "5a3826d2d5837d8ab3dab0247a594ce6dfb29b5db2921572b47defa063b97a03",
+   "ocr_tokens": 150,
+   "readability": {
+    "mean_conf_x100": 4933,
+    "px": [
+     720,
+     400
+    ],
+    "share60_bp": 3467,
+    "words": 150,
+    "words_per_mpx": 521
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1777,
+   "view": "full-s50",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-forgery-full-s75-png.png",
+   "image_sha256": "ec6b5428350e628a8461067a52198e97b7bd7f77def2eb2ba294d629aa637ded",
+   "kind": "forgery",
+   "name": "b6-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "669ad76ead0fe74fb7dd1632aa18137b14fe83d7b876679c6878e0ecb585ec51",
+   "ocr_tokens": 216,
+   "readability": {
+    "mean_conf_x100": 9003,
+    "px": [
+     1080,
+     600
+    ],
+    "share60_bp": 9583,
+    "words": 216,
+    "words_per_mpx": 333
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8767,
+   "view": "full-s75",
+   "width": 1440
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b7-honest-crop-jpg.jpg",
+   "image_sha256": "a32199305bedfd1f7ce0a5b32c3b762452bb13bf82444a417319402bce33d113",
+   "kind": "honest",
+   "name": "b7-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6c776116e3ee338ba7ddd1d4626c9472fbee720f54aa325f49c525812710a865",
+   "ocr_tokens": 32,
+   "readability": {
+    "mean_conf_x100": 9639,
+    "px": [
+     2560,
+     170
+    ],
+    "share60_bp": 10000,
+    "words": 32,
+    "words_per_mpx": 74
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b7-honest-crop-png.png",
+   "image_sha256": "35e33f36b0e9475e30f2c686fe9aaa9b6fc8ffed3558cfc86f4993f7ffdbeefc",
+   "kind": "honest",
+   "name": "b7-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6c776116e3ee338ba7ddd1d4626c9472fbee720f54aa325f49c525812710a865",
+   "ocr_tokens": 32,
+   "readability": {
+    "mean_conf_x100": 9644,
+    "px": [
+     2560,
+     170
+    ],
+    "share60_bp": 10000,
+    "words": 32,
+    "words_per_mpx": 74
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b7-honest-full-jpg.jpg",
+   "image_sha256": "6040f1a0bf63e0bc800643000a3342340debf116c149d9b2ce911ef1bc9d75d6",
+   "kind": "honest",
+   "name": "b7-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "bf301558fd24b2486d610de30a13ace67969fc839909dc266ae33870bd9c2dd1",
+   "ocr_tokens": 94,
+   "readability": {
+    "mean_conf_x100": 9409,
+    "px": [
+     2560,
+     1600
+    ],
+    "share60_bp": 9681,
+    "words": 94,
+    "words_per_mpx": 23
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9039,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-honest-full-png.png",
+   "image_sha256": "d3fd5d4d3a63a98231d9cd287e81f88ba5e42196b91299faa1e5b59a5b3fd43c",
+   "kind": "honest",
+   "name": "b7-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "bf301558fd24b2486d610de30a13ace67969fc839909dc266ae33870bd9c2dd1",
+   "ocr_tokens": 94,
+   "readability": {
+    "mean_conf_x100": 9395,
+    "px": [
+     2560,
+     1600
+    ],
+    "share60_bp": 9787,
+    "words": 94,
+    "words_per_mpx": 23
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9039,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-honest-full-s50-png.png",
+   "image_sha256": "dc4e6cc265bde217922edb681b1550ff34fd36180f83e7bac347e9cb1a58bdae",
+   "kind": "honest",
+   "name": "b7-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3f6b1997a96ef1812c97add2841399c85bd5c776886bf13a12378c5983b0afde",
+   "ocr_tokens": 89,
+   "readability": {
+    "mean_conf_x100": 9504,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 9888,
+    "words": 89,
+    "words_per_mpx": 87
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9186,
+   "view": "full-s50",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-honest-full-s75-png.png",
+   "image_sha256": "4862828cb8b82898a8539ecbbd1391be44c4e3d6511447db3028727e8fda4687",
+   "kind": "honest",
+   "name": "b7-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "cb9aa14627eac915d96e7b677eb47add70a4c53a825987abe635a2c3bc139ef8",
+   "ocr_tokens": 94,
+   "readability": {
+    "mean_conf_x100": 9415,
+    "px": [
+     1920,
+     1200
+    ],
+    "share60_bp": 10000,
+    "words": 94,
+    "words_per_mpx": 41
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9039,
+   "view": "full-s75",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b7-forgery-crop-jpg.jpg",
+   "image_sha256": "6b3163ed1126fa2f8ae718de3b645eff602a52874c609b543ccded0fb6d9e999",
+   "kind": "forgery",
+   "name": "b7-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6e7dc7dee815e45f9eb6eb5791cc8d9ff191ab256679c9c73c65d4747701a395",
+   "ocr_tokens": 34,
+   "readability": {
+    "mean_conf_x100": 9635,
+    "px": [
+     2560,
+     170
+    ],
+    "share60_bp": 10000,
+    "words": 34,
+    "words_per_mpx": 78
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6760,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-forgery-crop-png.png",
+   "image_sha256": "233d04945f5458a316b7220871a9b06e450d0cd619bbac8bd65a1d7ef67e8f5e",
+   "kind": "forgery",
+   "name": "b7-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6e7dc7dee815e45f9eb6eb5791cc8d9ff191ab256679c9c73c65d4747701a395",
+   "ocr_tokens": 34,
+   "readability": {
+    "mean_conf_x100": 9629,
+    "px": [
+     2560,
+     170
+    ],
+    "share60_bp": 10000,
+    "words": 34,
+    "words_per_mpx": 78
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6760,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b7-forgery-full-jpg.jpg",
+   "image_sha256": "e91f6bc879e8beec65e93feb891e02c7513ac6273724f268c1e1a3006c018d24",
+   "kind": "forgery",
+   "name": "b7-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "456c3f3ae5f11c880e12e5412648515c062f16e35049f61e87e0b8fa3501adc1",
+   "ocr_tokens": 96,
+   "readability": {
+    "mean_conf_x100": 9413,
+    "px": [
+     2560,
+     1600
+    ],
+    "share60_bp": 9688,
+    "words": 96,
+    "words_per_mpx": 23
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7932,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-forgery-full-png.png",
+   "image_sha256": "5715a8d3271c661b263baa3e59dd54df12b0774c9c0fde56beef83b0d62f2f45",
+   "kind": "forgery",
+   "name": "b7-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "456c3f3ae5f11c880e12e5412648515c062f16e35049f61e87e0b8fa3501adc1",
+   "ocr_tokens": 96,
+   "readability": {
+    "mean_conf_x100": 9403,
+    "px": [
+     2560,
+     1600
+    ],
+    "share60_bp": 9792,
+    "words": 96,
+    "words_per_mpx": 23
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7932,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-forgery-full-s50-png.png",
+   "image_sha256": "0edfded4212eb23d783ee09d5829fd2885a9f8057abadb5569f7932af9937109",
+   "kind": "forgery",
+   "name": "b7-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "716ddc287b6836e8246e42cc6a2ea10d72bf3a1bcd69b8948595c07e04a56551",
+   "ocr_tokens": 91,
+   "readability": {
+    "mean_conf_x100": 9505,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 9890,
+    "words": 91,
+    "words_per_mpx": 89
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8045,
+   "view": "full-s50",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b7-forgery-full-s75-png.png",
+   "image_sha256": "a9384958fde4061f5cfeede4c0f32dd19dc759f3bc6af40a72309d11651c0c28",
+   "kind": "forgery",
+   "name": "b7-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f7da1624a020f2cd0498d7de8d4dc3ebf9af621e2a178b7fd041463a47d50f8a",
+   "ocr_tokens": 96,
+   "readability": {
+    "mean_conf_x100": 9423,
+    "px": [
+     1920,
+     1200
+    ],
+    "share60_bp": 10000,
+    "words": 96,
+    "words_per_mpx": 42
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7932,
+   "view": "full-s75",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b8-honest-crop-jpg.jpg",
+   "image_sha256": "94dfc326e1cd3507cb981066d072e0923095008a40bb72663f1a7a3e241c719b",
+   "kind": "honest",
+   "name": "b8-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f79e8f895e77402d5bddd05957f8038d683e9ddeb89fdca027e68612f6c1e845",
+   "ocr_tokens": 57,
+   "readability": {
+    "mean_conf_x100": 9632,
+    "px": [
+     2000,
+     330
+    ],
+    "share60_bp": 10000,
+    "words": 57,
+    "words_per_mpx": 86
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b8-honest-crop-png.png",
+   "image_sha256": "11bf29b20f7b35811b492206010fc3132fb04835c581bdfbfbc306594a78cfe8",
+   "kind": "honest",
+   "name": "b8-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f79e8f895e77402d5bddd05957f8038d683e9ddeb89fdca027e68612f6c1e845",
+   "ocr_tokens": 57,
+   "readability": {
+    "mean_conf_x100": 9639,
+    "px": [
+     2000,
+     330
+    ],
+    "share60_bp": 10000,
+    "words": 57,
+    "words_per_mpx": 86
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b8-honest-full-jpg.jpg",
+   "image_sha256": "abc23abb4954e898837e6f1e8f3e58d070da39169653df9aff67a153a76c8aac",
+   "kind": "honest",
+   "name": "b8-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "243c5af8bfa506b081331963475d93f8666c01127b0cbf37031d00af82ef39d2",
+   "ocr_tokens": 195,
+   "readability": {
+    "mean_conf_x100": 9591,
+    "px": [
+     2000,
+     1784
+    ],
+    "share60_bp": 10000,
+    "words": 195,
+    "words_per_mpx": 55
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9739,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b8-honest-full-png.png",
+   "image_sha256": "285b2e46146f112e979d8114536913385e4c395a70f6a6873072d2ea592b4755",
+   "kind": "honest",
+   "name": "b8-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "243c5af8bfa506b081331963475d93f8666c01127b0cbf37031d00af82ef39d2",
+   "ocr_tokens": 195,
+   "readability": {
+    "mean_conf_x100": 9606,
+    "px": [
+     2000,
+     1784
+    ],
+    "share60_bp": 10000,
+    "words": 195,
+    "words_per_mpx": 55
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9739,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b8-honest-full-s50-png.png",
+   "image_sha256": "e1455d4b9765ddc66f13cd5847e4cd090673ae73e649f80952b5b4bfc7d23655",
+   "kind": "honest",
+   "name": "b8-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "243c5af8bfa506b081331963475d93f8666c01127b0cbf37031d00af82ef39d2",
+   "ocr_tokens": 195,
+   "readability": {
+    "mean_conf_x100": 9593,
+    "px": [
+     1000,
+     892
+    ],
+    "share60_bp": 9949,
+    "words": 195,
+    "words_per_mpx": 219
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9739,
+   "view": "full-s50",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b8-honest-full-s75-png.png",
+   "image_sha256": "c8ac318b61c92a908bbc8f53bd6c4f784b139fd0d7d446138c8e910d24a8f037",
+   "kind": "honest",
+   "name": "b8-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "243c5af8bfa506b081331963475d93f8666c01127b0cbf37031d00af82ef39d2",
+   "ocr_tokens": 195,
+   "readability": {
+    "mean_conf_x100": 9611,
+    "px": [
+     1500,
+     1338
+    ],
+    "share60_bp": 10000,
+    "words": 195,
+    "words_per_mpx": 97
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9739,
+   "view": "full-s75",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b8-forgery-crop-jpg.jpg",
+   "image_sha256": "3252dc8b3c5d06a485490b428be01641f8c9755f6d211f7cb15f0ffe258ec31e",
+   "kind": "forgery",
+   "name": "b8-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6f5fe9765eed3dbad738dab7bc94f27548a99741dd5f70675cb358b129f86469",
+   "ocr_tokens": 58,
+   "readability": {
+    "mean_conf_x100": 9631,
+    "px": [
+     2000,
+     330
+    ],
+    "share60_bp": 10000,
+    "words": 58,
+    "words_per_mpx": 88
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8347,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b8-forgery-crop-png.png",
+   "image_sha256": "23cd3b397351961325fc1b99702cbb28a10e472b4a9120a2f0da568deb0894f4",
+   "kind": "forgery",
+   "name": "b8-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6f5fe9765eed3dbad738dab7bc94f27548a99741dd5f70675cb358b129f86469",
+   "ocr_tokens": 58,
+   "readability": {
+    "mean_conf_x100": 9631,
+    "px": [
+     2000,
+     330
+    ],
+    "share60_bp": 10000,
+    "words": 58,
+    "words_per_mpx": 88
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8347,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b8-forgery-full-jpg.jpg",
+   "image_sha256": "041cfd6736485a158fecea0d391b1eb415373bf8d55057bdfdcdc7e79d4b5d9f",
+   "kind": "forgery",
+   "name": "b8-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b551375f6412b483efbfce3f8fd89f5036e9120c8d1be1debf6e6429cce262af",
+   "ocr_tokens": 196,
+   "readability": {
+    "mean_conf_x100": 9591,
+    "px": [
+     2000,
+     1784
+    ],
+    "share60_bp": 10000,
+    "words": 196,
+    "words_per_mpx": 55
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9246,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b8-forgery-full-png.png",
+   "image_sha256": "c5f1185090cba1d613f2774459e7cbce7b9a7731cbfe028ad5b960cb68fb7ddc",
+   "kind": "forgery",
+   "name": "b8-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b551375f6412b483efbfce3f8fd89f5036e9120c8d1be1debf6e6429cce262af",
+   "ocr_tokens": 196,
+   "readability": {
+    "mean_conf_x100": 9604,
+    "px": [
+     2000,
+     1784
+    ],
+    "share60_bp": 10000,
+    "words": 196,
+    "words_per_mpx": 55
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9246,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b8-forgery-full-s50-png.png",
+   "image_sha256": "2f7396cffc4c0381b464668ae594d5fda3236157e3dcf865f6a1428c94773ecf",
+   "kind": "forgery",
+   "name": "b8-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b551375f6412b483efbfce3f8fd89f5036e9120c8d1be1debf6e6429cce262af",
+   "ocr_tokens": 196,
+   "readability": {
+    "mean_conf_x100": 9593,
+    "px": [
+     1000,
+     892
+    ],
+    "share60_bp": 9949,
+    "words": 196,
+    "words_per_mpx": 220
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9246,
+   "view": "full-s50",
+   "width": 1000
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b8-forgery-full-s75-png.png",
+   "image_sha256": "e9d372f7652729d998f501644a200714bc12ff3715b52f04f5bc470460f10ea4",
+   "kind": "forgery",
+   "name": "b8-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b551375f6412b483efbfce3f8fd89f5036e9120c8d1be1debf6e6429cce262af",
+   "ocr_tokens": 196,
+   "readability": {
+    "mean_conf_x100": 9612,
+    "px": [
+     1500,
+     1338
+    ],
+    "share60_bp": 10000,
+    "words": 196,
+    "words_per_mpx": 98
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9246,
+   "view": "full-s75",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b9-honest-crop-jpg.jpg",
+   "image_sha256": "77559ce88db503f3ec7e0590271f35a8c09424944c5a9a1f73895386064bf4dc",
+   "kind": "honest",
+   "name": "b9-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "74fd301a8afa0cab512533797bc8e799173875dbbd26dcfa5e7c597e7b9fd51f",
+   "ocr_tokens": 38,
+   "readability": {
+    "mean_conf_x100": 9658,
+    "px": [
+     1280,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 38,
+    "words_per_mpx": 267
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b9-honest-crop-png.png",
+   "image_sha256": "66262d9e86168ee691bfad2fa4ace77bbf08ee7e26bc82cc2d0c54573ae60ba5",
+   "kind": "honest",
+   "name": "b9-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "74fd301a8afa0cab512533797bc8e799173875dbbd26dcfa5e7c597e7b9fd51f",
+   "ocr_tokens": 38,
+   "readability": {
+    "mean_conf_x100": 9659,
+    "px": [
+     1280,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 38,
+    "words_per_mpx": 267
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "jpg",
+   "image": "images/b9-honest-full-jpg.jpg",
+   "image_sha256": "392c0b29d782c30048174152bb2f93b04c185750ccb9105842eb02e152786d53",
+   "kind": "honest",
+   "name": "b9-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "36b9869e72112c7d304086eb613dbb2694bcee540d443fab3d48637cdca40814",
+   "ocr_tokens": 97,
+   "readability": {
+    "mean_conf_x100": 9614,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 97,
+    "words_per_mpx": 95
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9361,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "png",
+   "image": "images/b9-honest-full-png.png",
+   "image_sha256": "2a77b964d6c4023aeff168b00c15897037f744ac65bf92f9b748814f71830f73",
+   "kind": "honest",
+   "name": "b9-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "36b9869e72112c7d304086eb613dbb2694bcee540d443fab3d48637cdca40814",
+   "ocr_tokens": 97,
+   "readability": {
+    "mean_conf_x100": 9611,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 97,
+    "words_per_mpx": 95
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9361,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b9-honest-full-s50-png.png",
+   "image_sha256": "1d1b6d9999238f66ca02f2c9270d29bd1438d8b77bf8869bf5ec9b50011c065a",
+   "kind": "honest",
+   "name": "b9-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "ec5fcfd60d2bc8e9471b67a4ca7c836725f21a16847285a367fb075e8b81159d",
+   "ocr_tokens": 95,
+   "readability": {
+    "mean_conf_x100": 7620,
+    "px": [
+     640,
+     400
+    ],
+    "share60_bp": 7368,
+    "words": 95,
+    "words_per_mpx": 371
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7741,
+   "view": "full-s50",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b9-honest-full-s75-png.png",
+   "image_sha256": "a29fe71354a546377b5ccc3ffb2a220aca14109c77cf30382cf5bdc4fcdfedff",
+   "kind": "honest",
+   "name": "b9-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "ce12644ac75f039739bd9598059abd00a265205b3a318e0bf8643ced363e7b93",
+   "ocr_tokens": 98,
+   "readability": {
+    "mean_conf_x100": 9434,
+    "px": [
+     960,
+     600
+    ],
+    "share60_bp": 9898,
+    "words": 98,
+    "words_per_mpx": 170
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9206,
+   "view": "full-s75",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b9-forgery-crop-jpg.jpg",
+   "image_sha256": "8e9cf82be5951d6f73f7ba84b9b19122958402a48535bbbaff3a3d39a2da1371",
+   "kind": "forgery",
+   "name": "b9-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "eb1cf9cd7d83eba9bacaaea99f03589e5b53d0149a69e7ba9a1771de9018c539",
+   "ocr_tokens": 38,
+   "readability": {
+    "mean_conf_x100": 9664,
+    "px": [
+     1280,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 38,
+    "words_per_mpx": 267
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7368,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b9-forgery-crop-png.png",
+   "image_sha256": "2e7796222c856676a2385faf963f6f4a704ad22ad28631b3f2006c3b5b868b11",
+   "kind": "forgery",
+   "name": "b9-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "eb1cf9cd7d83eba9bacaaea99f03589e5b53d0149a69e7ba9a1771de9018c539",
+   "ocr_tokens": 38,
+   "readability": {
+    "mean_conf_x100": 9664,
+    "px": [
+     1280,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 38,
+    "words_per_mpx": 267
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 7368,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b9-forgery-full-jpg.jpg",
+   "image_sha256": "49a3065db80a9fb03b5b02ed8794959f419486032b3e6104853ccc2607f75bec",
+   "kind": "forgery",
+   "name": "b9-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "2860806f0bc6074820234ddea8f8971837af4b660d5639fe8ef648d3bdbbd005",
+   "ocr_tokens": 97,
+   "readability": {
+    "mean_conf_x100": 9616,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 97,
+    "words_per_mpx": 95
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8297,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b9-forgery-full-png.png",
+   "image_sha256": "28a15d8a8fa3e64a3bff2d9441beefc5792dfd90b102df9dc30d7f884b30292a",
+   "kind": "forgery",
+   "name": "b9-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "2860806f0bc6074820234ddea8f8971837af4b660d5639fe8ef648d3bdbbd005",
+   "ocr_tokens": 97,
+   "readability": {
+    "mean_conf_x100": 9613,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 97,
+    "words_per_mpx": 95
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8297,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b9-forgery-full-s50-png.png",
+   "image_sha256": "8d4af7448147f320e6e245b169a4b11c64b52d5743944e3f064a13c919f195df",
+   "kind": "forgery",
+   "name": "b9-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "ec7dac9fd3d610c4db1c3040652122acc4c770fe085d886782f6d4cfc168b1c6",
+   "ocr_tokens": 94,
+   "readability": {
+    "mean_conf_x100": 7535,
+    "px": [
+     640,
+     400
+    ],
+    "share60_bp": 7660,
+    "words": 94,
+    "words_per_mpx": 367
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6486,
+   "view": "full-s50",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b9-forgery-full-s75-png.png",
+   "image_sha256": "14b8fdc0b19665306db9f78e01b8a8e95aabb73904ae573c7a3a9c95d70e6d6e",
+   "kind": "forgery",
+   "name": "b9-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "23a046f8b2c27573f22b630d927d2731a32cb06ed09e3d879a4c3556cec7e0c5",
+   "ocr_tokens": 98,
+   "readability": {
+    "mean_conf_x100": 9475,
+    "px": [
+     960,
+     600
+    ],
+    "share60_bp": 9898,
+    "words": 98,
+    "words_per_mpx": 170
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8148,
+   "view": "full-s75",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b10-honest-crop-jpg.jpg",
+   "image_sha256": "d3b041cea16d8fb2ef49ec9af6af99faa806c91d76355ad16873ad7786ed91a0",
+   "kind": "honest",
+   "name": "b10-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "ffe1b184efff1a2853c56f5d3a4054676fd6f54e8d24cbb918af649354b6d290",
+   "ocr_tokens": 52,
+   "readability": {
+    "mean_conf_x100": 9642,
+    "px": [
+     780,
+     366
+    ],
+    "share60_bp": 10000,
+    "words": 52,
+    "words_per_mpx": 182
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b10-honest-crop-png.png",
+   "image_sha256": "40bafe2daacda917b217eac76d4d9fe6a9bdda981a390519256c5472b6f49dd1",
+   "kind": "honest",
+   "name": "b10-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "ffe1b184efff1a2853c56f5d3a4054676fd6f54e8d24cbb918af649354b6d290",
+   "ocr_tokens": 52,
+   "readability": {
+    "mean_conf_x100": 9644,
+    "px": [
+     780,
+     366
+    ],
+    "share60_bp": 10000,
+    "words": 52,
+    "words_per_mpx": 182
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b10-honest-full-jpg.jpg",
+   "image_sha256": "83374c6318ce8271d1057f344979ba09a3519949bbed44ccf4dccef2b056ad9e",
+   "kind": "honest",
+   "name": "b10-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a5e8281a4d8194c95e6de70d6e8cafb0d80cb4b2e5d2cbda3aa58d5224f5b8b8",
+   "ocr_tokens": 229,
+   "readability": {
+    "mean_conf_x100": 9573,
+    "px": [
+     906,
+     1888
+    ],
+    "share60_bp": 9956,
+    "words": 229,
+    "words_per_mpx": 134
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9711,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b10-honest-full-png.png",
+   "image_sha256": "a6c240560f1aabec0125939919e47b6bf6c052c8f157d193fced306c0401ce7b",
+   "kind": "honest",
+   "name": "b10-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f0c28475c6f044a3da47cdf6e7f3f97d150e646ae580a967c8733b042f03f247",
+   "ocr_tokens": 229,
+   "readability": {
+    "mean_conf_x100": 9574,
+    "px": [
+     906,
+     1888
+    ],
+    "share60_bp": 9913,
+    "words": 229,
+    "words_per_mpx": 134
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9711,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b10-honest-full-s50-png.png",
+   "image_sha256": "f39c32d81fbbcad564edf240f002faa89df292d0eaa00e681847ee828c8d440d",
+   "kind": "honest",
+   "name": "b10-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "d01388e8344908d810e55f92e35eecca6f19094dea316185a69d8dde74dd8d4b",
+   "ocr_tokens": 228,
+   "readability": {
+    "mean_conf_x100": 9467,
+    "px": [
+     453,
+     944
+    ],
+    "share60_bp": 9912,
+    "words": 228,
+    "words_per_mpx": 533
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9688,
+   "view": "full-s50",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b10-honest-full-s75-png.png",
+   "image_sha256": "5a73871d0d5ff8d6c76a8c9d37051e7338a61065eeddfdc4cf78e7c44d9affd9",
+   "kind": "honest",
+   "name": "b10-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a5e8281a4d8194c95e6de70d6e8cafb0d80cb4b2e5d2cbda3aa58d5224f5b8b8",
+   "ocr_tokens": 229,
+   "readability": {
+    "mean_conf_x100": 9576,
+    "px": [
+     680,
+     1416
+    ],
+    "share60_bp": 9956,
+    "words": 229,
+    "words_per_mpx": 238
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9711,
+   "view": "full-s75",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b10-forgery-crop-jpg.jpg",
+   "image_sha256": "97a6b1ff8e43fc648df6df40e11f99ba7327f84e06eb84c795b786bc77def4f9",
+   "kind": "forgery",
+   "name": "b10-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "0e2cc3afb725f8b6d7e5ace49b91086950e5fc72bfe7ef5f70c76e03c4eb5ef2",
+   "ocr_tokens": 53,
+   "readability": {
+    "mean_conf_x100": 9633,
+    "px": [
+     780,
+     328
+    ],
+    "share60_bp": 10000,
+    "words": 53,
+    "words_per_mpx": 207
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8000,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b10-forgery-crop-png.png",
+   "image_sha256": "f215891617e141334e75bbb117290064a7d704c6858cd3536964bfbdd5af4b08",
+   "kind": "forgery",
+   "name": "b10-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "0e2cc3afb725f8b6d7e5ace49b91086950e5fc72bfe7ef5f70c76e03c4eb5ef2",
+   "ocr_tokens": 53,
+   "readability": {
+    "mean_conf_x100": 9639,
+    "px": [
+     780,
+     328
+    ],
+    "share60_bp": 10000,
+    "words": 53,
+    "words_per_mpx": 207
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8000,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b10-forgery-full-jpg.jpg",
+   "image_sha256": "162e3df3379de2ffe4404755d3a621aa3ea62e82d8b92f6faf135694ba53a47a",
+   "kind": "forgery",
+   "name": "b10-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "79692ee6a37c700b869c644e135177f244550bd34edee1b7ebd0ce09e8f77499",
+   "ocr_tokens": 230,
+   "readability": {
+    "mean_conf_x100": 9575,
+    "px": [
+     906,
+     1848
+    ],
+    "share60_bp": 9957,
+    "words": 230,
+    "words_per_mpx": 137
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9247,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b10-forgery-full-png.png",
+   "image_sha256": "ea33fbcbedc703a388cd7e81372a623f91b85a5c96895781de273a99530e7172",
+   "kind": "forgery",
+   "name": "b10-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "17798645923a55cae5e965ead0d1d3ca43fbed8ce79f5d8a0a6338ffe81ae168",
+   "ocr_tokens": 230,
+   "readability": {
+    "mean_conf_x100": 9573,
+    "px": [
+     906,
+     1848
+    ],
+    "share60_bp": 9913,
+    "words": 230,
+    "words_per_mpx": 137
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9247,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b10-forgery-full-s50-png.png",
+   "image_sha256": "a5a9fa78148599199bc0ca72df03ff6a33e825994c4ad5597ebd11f467d596c8",
+   "kind": "forgery",
+   "name": "b10-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f238a14fae82c5bc6a496f7f2417eb30aa870afc66271329ebb1108480de5c7b",
+   "ocr_tokens": 229,
+   "readability": {
+    "mean_conf_x100": 9474,
+    "px": [
+     453,
+     924
+    ],
+    "share60_bp": 9913,
+    "words": 229,
+    "words_per_mpx": 547
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9223,
+   "view": "full-s50",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b10-forgery-full-s75-png.png",
+   "image_sha256": "4a3f38ef98e78dbcb679afd81718440476d944ce6bd6a2edb8bb1c391aab0d0e",
+   "kind": "forgery",
+   "name": "b10-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "79692ee6a37c700b869c644e135177f244550bd34edee1b7ebd0ce09e8f77499",
+   "ocr_tokens": 230,
+   "readability": {
+    "mean_conf_x100": 9576,
+    "px": [
+     680,
+     1386
+    ],
+    "share60_bp": 9957,
+    "words": 230,
+    "words_per_mpx": 244
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9247,
+   "view": "full-s75",
+   "width": 390
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b11-honest-crop-jpg.jpg",
+   "image_sha256": "fd65d67fe7f8cd1860535a7b44771ee1f8348e7bbddbcdf0c42357d7c1025801",
+   "kind": "honest",
+   "name": "b11-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "1ce1ca9e15f3f64983a39abd895ffc13fbb9519ac1ddc3a7ec1d20f5d3487e96",
+   "ocr_tokens": 44,
+   "readability": {
+    "mean_conf_x100": 9566,
+    "px": [
+     1280,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 44,
+    "words_per_mpx": 327
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b11-honest-crop-png.png",
+   "image_sha256": "f9e0d6672c6fc60f24eda68474d46fbab77a83150097119490a88c86ede83dbc",
+   "kind": "honest",
+   "name": "b11-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "1ce1ca9e15f3f64983a39abd895ffc13fbb9519ac1ddc3a7ec1d20f5d3487e96",
+   "ocr_tokens": 44,
+   "readability": {
+    "mean_conf_x100": 9539,
+    "px": [
+     1280,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 44,
+    "words_per_mpx": 327
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "jpg",
+   "image": "images/b11-honest-full-jpg.jpg",
+   "image_sha256": "9a914c946ed45fe4795aef38333ba9e5a689dd07a37082cbc6156d0bb7c3d945",
+   "kind": "honest",
+   "name": "b11-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "96d233fb087c742a3056af495d8704e05b8fca8a2a13d8ccd743d7146d7e244d",
+   "ocr_tokens": 108,
+   "readability": {
+    "mean_conf_x100": 9468,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 9815,
+    "words": 108,
+    "words_per_mpx": 105
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9428,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "png",
+   "image": "images/b11-honest-full-png.png",
+   "image_sha256": "47583fa408e2936d375bae6abc9d71f5317046cf74cd390e80585dc288b3bec8",
+   "kind": "honest",
+   "name": "b11-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "63ac58fcf30a519931e2ab1c2a461c2af95d29b681bbde25c2624df1eda197d3",
+   "ocr_tokens": 108,
+   "readability": {
+    "mean_conf_x100": 9456,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 9907,
+    "words": 108,
+    "words_per_mpx": 105
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9428,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b11-honest-full-s50-png.png",
+   "image_sha256": "3a40248e89d78c17e0169a81c0a940e7bcac559b9debdd10f12fb26a2e81f49b",
+   "kind": "honest",
+   "name": "b11-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "b89cdf3f85650e7badf2c88cf697f539def7a681b21ae47bef57148c487439b3",
+   "ocr_tokens": 80,
+   "readability": {
+    "mean_conf_x100": 5499,
+    "px": [
+     640,
+     400
+    ],
+    "share60_bp": 3625,
+    "words": 80,
+    "words_per_mpx": 312
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 2727,
+   "view": "full-s50",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": null,
+   "format": "png",
+   "image": "images/b11-honest-full-s75-png.png",
+   "image_sha256": "258d96a305cd86d8eaae70e80250784f31c9daaa96bb5c9a4774d1914e64c5c8",
+   "kind": "honest",
+   "name": "b11-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "884c490b197919096b3300c6dcf2fec37447725a7ec4a5d3ea70985b0ae0dc2f",
+   "ocr_tokens": 108,
+   "readability": {
+    "mean_conf_x100": 9102,
+    "px": [
+     960,
+     600
+    ],
+    "share60_bp": 9630,
+    "words": 108,
+    "words_per_mpx": 188
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "undecided",
+   "similarity_bp": 9428,
+   "view": "full-s75",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b11-forgery-crop-jpg.jpg",
+   "image_sha256": "0b8d2589469223b67837917bddc549d618848258a126c3d9961f973d00702bd9",
+   "kind": "forgery",
+   "name": "b11-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "94a26afacce920ce07014d747fed36afb59dbdcc1cc0789861a66cf56098f62f",
+   "ocr_tokens": 46,
+   "readability": {
+    "mean_conf_x100": 9542,
+    "px": [
+     1280,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 46,
+    "words_per_mpx": 342
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6730,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b11-forgery-crop-png.png",
+   "image_sha256": "9d11e758d4f88d43c7e72bce76fe4cd8ba8088f78ab1ed493a3d365ab864d0b7",
+   "kind": "forgery",
+   "name": "b11-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "94a26afacce920ce07014d747fed36afb59dbdcc1cc0789861a66cf56098f62f",
+   "ocr_tokens": 46,
+   "readability": {
+    "mean_conf_x100": 9540,
+    "px": [
+     1280,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 46,
+    "words_per_mpx": 342
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6730,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b11-forgery-full-jpg.jpg",
+   "image_sha256": "4e930dbd2c5f5f950ada7aeb8ab380a92910689b4428f06be32d5972f302f720",
+   "kind": "forgery",
+   "name": "b11-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "689cb87597293bba3ee923c8c054507c7b1f5d38b8faec09233a9e29723f9bc8",
+   "ocr_tokens": 110,
+   "readability": {
+    "mean_conf_x100": 9458,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 9818,
+    "words": 110,
+    "words_per_mpx": 107
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8396,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b11-forgery-full-png.png",
+   "image_sha256": "e0c3d6338725da2f1153a9b5570c391be58483103248aaaabaa68ee9b0acd771",
+   "kind": "forgery",
+   "name": "b11-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6dac1621f3c2b418260a1226f9c79d6e26985db43b0a7daaaf1e8ca33ddb6d75",
+   "ocr_tokens": 110,
+   "readability": {
+    "mean_conf_x100": 9458,
+    "px": [
+     1280,
+     800
+    ],
+    "share60_bp": 9909,
+    "words": 110,
+    "words_per_mpx": 107
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8396,
+   "view": "full",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b11-forgery-full-s50-png.png",
+   "image_sha256": "c3a13afe6eff7b3e2bec340261b6c614c6465979dd057d7f53b3819b337c0a1f",
+   "kind": "forgery",
+   "name": "b11-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "5aea517b315d2b908413722448bed6a0c30954425d82e17ec352c0068c18d452",
+   "ocr_tokens": 83,
+   "readability": {
+    "mean_conf_x100": 5598,
+    "px": [
+     640,
+     400
+    ],
+    "share60_bp": 3855,
+    "words": 83,
+    "words_per_mpx": 324
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 2346,
+   "view": "full-s50",
+   "width": 1280
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b11-forgery-full-s75-png.png",
+   "image_sha256": "f4422b2872038d0872f0182f99a320e714eb9791a712e2a25432e8483690e901",
+   "kind": "forgery",
+   "name": "b11-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "a03ed94d2e9edadf043c9b1d2e0d3b27ba54dda00f8a61d38542e8c28c97f498",
+   "ocr_tokens": 110,
+   "readability": {
+    "mean_conf_x100": 9164,
+    "px": [
+     960,
+     600
+    ],
+    "share60_bp": 9727,
+    "words": 110,
+    "words_per_mpx": 191
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8396,
+   "view": "full-s75",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b12-honest-crop-jpg.jpg",
+   "image_sha256": "c9a277692b0455fcdad0540ab21f531908f3968e2a5b200448c71090af91882f",
+   "kind": "honest",
+   "name": "b12-honest-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "958cacaba03b854d61532c0eff4ed059c8f5f887df3660190c257b717e735b0f",
+   "ocr_tokens": 47,
+   "readability": {
+    "mean_conf_x100": 9626,
+    "px": [
+     780,
+     492
+    ],
+    "share60_bp": 10000,
+    "words": 47,
+    "words_per_mpx": 122
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b12-honest-crop-png.png",
+   "image_sha256": "df86266ae74b0bd75d8f8efe091211f8405585f4053050d3b1da5e16c03fe0b5",
+   "kind": "honest",
+   "name": "b12-honest-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "958cacaba03b854d61532c0eff4ed059c8f5f887df3660190c257b717e735b0f",
+   "ocr_tokens": 47,
+   "readability": {
+    "mean_conf_x100": 9598,
+    "px": [
+     780,
+     492
+    ],
+    "share60_bp": 10000,
+    "words": 47,
+    "words_per_mpx": 122
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 10000,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "jpg",
+   "image": "images/b12-honest-full-jpg.jpg",
+   "image_sha256": "e4f2f4d6ee037396f87d09f48fa7154738831676e4cce1e6f5add5e88f22693b",
+   "kind": "honest",
+   "name": "b12-honest-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "36c5bdfc94f293c1bd870047b47409e5caa57f70ef50b6858bc12d174f50ff06",
+   "ocr_tokens": 177,
+   "readability": {
+    "mean_conf_x100": 9521,
+    "px": [
+     1132,
+     2468
+    ],
+    "share60_bp": 9887,
+    "words": 177,
+    "words_per_mpx": 63
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9567,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b12-honest-full-png.png",
+   "image_sha256": "ea7059f3c41ea5917c13c5e38b3d858cca8a25f40d4a62ebd6bbd601941730e9",
+   "kind": "honest",
+   "name": "b12-honest-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "c7f8f788ad0c0c6eccf6bd8c34a2ad78f9eabdd0258ccf26a56b7e56ea623027",
+   "ocr_tokens": 176,
+   "readability": {
+    "mean_conf_x100": 9573,
+    "px": [
+     1132,
+     2468
+    ],
+    "share60_bp": 10000,
+    "words": 176,
+    "words_per_mpx": 63
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9653,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b12-honest-full-s50-png.png",
+   "image_sha256": "94273f192417059dcafc4a0e807f4a541e3d940c29770a6f280e616a1b04d2a2",
+   "kind": "honest",
+   "name": "b12-honest-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "7a7ea48ed60f43a919d6817a2d6dddf90d36b2998a756c656e193585f5b893ee",
+   "ocr_tokens": 176,
+   "readability": {
+    "mean_conf_x100": 9534,
+    "px": [
+     566,
+     1234
+    ],
+    "share60_bp": 9886,
+    "words": 176,
+    "words_per_mpx": 252
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9710,
+   "view": "full-s50",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "consistent",
+   "format": "png",
+   "image": "images/b12-honest-full-s75-png.png",
+   "image_sha256": "f31f9ecd2fbee6578a043bc182ac5e53db299d8bee5a770978e184ca00d7a844",
+   "kind": "honest",
+   "name": "b12-honest-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "75f89f57f679c5b258029e831bb815e2d3c25c51c841fbf8c4cf4c898e540c4d",
+   "ocr_tokens": 176,
+   "readability": {
+    "mean_conf_x100": 9547,
+    "px": [
+     849,
+     1851
+    ],
+    "share60_bp": 9943,
+    "words": 176,
+    "words_per_mpx": 112
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "consistent",
+   "similarity_bp": 9595,
+   "view": "full-s75",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b12-forgery-crop-jpg.jpg",
+   "image_sha256": "bdc8e1c574c982387f9502d3fb163ec6a9fe4fa3ace9f5991607f443d2b7b5b4",
+   "kind": "forgery",
+   "name": "b12-forgery-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "0c223cccc71094063e6bd16874cd9ac01d000fdc05d970e681b2a364f938eb91",
+   "ocr_tokens": 49,
+   "readability": {
+    "mean_conf_x100": 9632,
+    "px": [
+     780,
+     492
+    ],
+    "share60_bp": 10000,
+    "words": 49,
+    "words_per_mpx": 128
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 4903,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b12-forgery-crop-png.png",
+   "image_sha256": "1fba2b1676200635c9a8c6b73d883307703681c49e523eee947760322205ef8a",
+   "kind": "forgery",
+   "name": "b12-forgery-crop-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "0c223cccc71094063e6bd16874cd9ac01d000fdc05d970e681b2a364f938eb91",
+   "ocr_tokens": 49,
+   "readability": {
+    "mean_conf_x100": 9602,
+    "px": [
+     780,
+     492
+    ],
+    "share60_bp": 10000,
+    "words": 49,
+    "words_per_mpx": 128
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 4903,
+   "view": "crop",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b12-forgery-full-jpg.jpg",
+   "image_sha256": "70979746b7565e14ce3b298f51e1546ae4e8f498ed9d8bb083f84cb2736380d7",
+   "kind": "forgery",
+   "name": "b12-forgery-full-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "df1bbe3888be6512708dc6f74c67a89ab558fbf2b05aea235aca5372fa38805d",
+   "ocr_tokens": 179,
+   "readability": {
+    "mean_conf_x100": 9525,
+    "px": [
+     1132,
+     2468
+    ],
+    "share60_bp": 9888,
+    "words": 179,
+    "words_per_mpx": 64
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8939,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b12-forgery-full-png.png",
+   "image_sha256": "240afbbe3bcffd5f33106db7b2449b5e006ea0cb55df279b3a7c6da790e70a04",
+   "kind": "forgery",
+   "name": "b12-forgery-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "1ab2b3534d01d47bd47da7212fb241895bb02da112629580f3eeb61f4079ff3f",
+   "ocr_tokens": 178,
+   "readability": {
+    "mean_conf_x100": 9573,
+    "px": [
+     1132,
+     2468
+    ],
+    "share60_bp": 10000,
+    "words": 178,
+    "words_per_mpx": 64
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9022,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b12-forgery-full-s50-png.png",
+   "image_sha256": "305c110b9b9b7ce010596b441d45fe60466d594389e82b30ed24cbff03960ffb",
+   "kind": "forgery",
+   "name": "b12-forgery-full-s50-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f92df35de1db797888fdf3593833d06e6b29e5c24a451da78eb981976d178ce8",
+   "ocr_tokens": 178,
+   "readability": {
+    "mean_conf_x100": 9530,
+    "px": [
+     566,
+     1234
+    ],
+    "share60_bp": 9888,
+    "words": 178,
+    "words_per_mpx": 255
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9080,
+   "view": "full-s50",
+   "width": 390
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b12-forgery-full-s75-png.png",
+   "image_sha256": "df91cf5d46d615939655da01a188fc15d5128de300f5d901a2870e91aef3086d",
+   "kind": "forgery",
+   "name": "b12-forgery-full-s75-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6e9727947ff493cf0575f3f59cf2c2b8f0b0d15c233194485505804172fd248e",
+   "ocr_tokens": 178,
+   "readability": {
+    "mean_conf_x100": 9548,
+    "px": [
+     849,
+     1851
+    ],
+    "share60_bp": 9944,
+    "words": 178,
+    "words_per_mpx": 113
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 8965,
+   "view": "full-s75",
+   "width": 390
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b6-honest-full-png.png",
+   "image_sha256": "3c825b00313a7f0737899f3cb0d08662988a6d6baf83f1df8c5efcb195740fd7",
+   "kind": "unrelated",
+   "name": "b1-unrelated-b6-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "163d9dec31dce9f06582f94172bbd1d9aaca531b1005336545a491bf2d3877ac",
+   "ocr_tokens": 219,
+   "readability": {
+    "mean_conf_x100": 9499,
+    "px": [
+     1440,
+     800
+    ],
+    "share60_bp": 10000,
+    "words": 219,
+    "words_per_mpx": 190
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1466,
+   "view": "full",
+   "width": 1440
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b7-honest-crop-jpg.jpg",
+   "image_sha256": "a32199305bedfd1f7ce0a5b32c3b762452bb13bf82444a417319402bce33d113",
+   "kind": "unrelated",
+   "name": "b2-unrelated-b7-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "6c776116e3ee338ba7ddd1d4626c9472fbee720f54aa325f49c525812710a865",
+   "ocr_tokens": 32,
+   "readability": {
+    "mean_conf_x100": 9639,
+    "px": [
+     2560,
+     170
+    ],
+    "share60_bp": 10000,
+    "words": 32,
+    "words_per_mpx": 74
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1162,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b8-honest-full-png.png",
+   "image_sha256": "285b2e46146f112e979d8114536913385e4c395a70f6a6873072d2ea592b4755",
+   "kind": "unrelated",
+   "name": "b3-unrelated-b8-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "243c5af8bfa506b081331963475d93f8666c01127b0cbf37031d00af82ef39d2",
+   "ocr_tokens": 195,
+   "readability": {
+    "mean_conf_x100": 9606,
+    "px": [
+     2000,
+     1784
+    ],
+    "share60_bp": 10000,
+    "words": 195,
+    "words_per_mpx": 55
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1698,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b9-honest-crop-jpg.jpg",
+   "image_sha256": "77559ce88db503f3ec7e0590271f35a8c09424944c5a9a1f73895386064bf4dc",
+   "kind": "unrelated",
+   "name": "b4-unrelated-b9-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "74fd301a8afa0cab512533797bc8e799173875dbbd26dcfa5e7c597e7b9fd51f",
+   "ocr_tokens": 38,
+   "readability": {
+    "mean_conf_x100": 9658,
+    "px": [
+     1280,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 38,
+    "words_per_mpx": 267
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 2714,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b10-honest-full-png.png",
+   "image_sha256": "a6c240560f1aabec0125939919e47b6bf6c052c8f157d193fced306c0401ce7b",
+   "kind": "unrelated",
+   "name": "b5-unrelated-b10-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "f0c28475c6f044a3da47cdf6e7f3f97d150e646ae580a967c8733b042f03f247",
+   "ocr_tokens": 229,
+   "readability": {
+    "mean_conf_x100": 9574,
+    "px": [
+     906,
+     1888
+    ],
+    "share60_bp": 9913,
+    "words": 229,
+    "words_per_mpx": 134
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 2397,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b11-honest-crop-jpg.jpg",
+   "image_sha256": "fd65d67fe7f8cd1860535a7b44771ee1f8348e7bbddbcdf0c42357d7c1025801",
+   "kind": "unrelated",
+   "name": "b6-unrelated-b11-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "1ce1ca9e15f3f64983a39abd895ffc13fbb9519ac1ddc3a7ec1d20f5d3487e96",
+   "ocr_tokens": 44,
+   "readability": {
+    "mean_conf_x100": 9566,
+    "px": [
+     1280,
+     105
+    ],
+    "share60_bp": 10000,
+    "words": 44,
+    "words_per_mpx": 327
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 2758,
+   "view": "crop",
+   "width": 1280
+  },
+  {
+   "dpr": 2,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b12-honest-full-png.png",
+   "image_sha256": "ea7059f3c41ea5917c13c5e38b3d858cca8a25f40d4a62ebd6bbd601941730e9",
+   "kind": "unrelated",
+   "name": "b7-unrelated-b12-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "c7f8f788ad0c0c6eccf6bd8c34a2ad78f9eabdd0258ccf26a56b7e56ea623027",
+   "ocr_tokens": 176,
+   "readability": {
+    "mean_conf_x100": 9573,
+    "px": [
+     1132,
+     2468
+    ],
+    "share60_bp": 10000,
+    "words": 176,
+    "words_per_mpx": 63
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1621,
+   "view": "full",
+   "width": 390
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b1-honest-crop-jpg.jpg",
+   "image_sha256": "b5396235ce5a962bdcf1144350d258b037e207c286d63a860ccdde9dd711ef8a",
+   "kind": "unrelated",
+   "name": "b8-unrelated-b1-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "5af44ba37ef0d9e0bfa8ec01c6e92481917b694995dae4922e65ed6f7850a1ff",
+   "ocr_tokens": 35,
+   "readability": {
+    "mean_conf_x100": 9661,
+    "px": [
+     1000,
+     111
+    ],
+    "share60_bp": 10000,
+    "words": 35,
+    "words_per_mpx": 315
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1194,
+   "view": "crop",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b2-honest-full-png.png",
+   "image_sha256": "0551368130f0dcc1b5598f755a8d7fd4553b59f3655df7ad5c4105bbb3329519",
+   "kind": "unrelated",
+   "name": "b9-unrelated-b2-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "0cecb2fc1aa0b9b08a267c05ff1ec6e4021bfe81d63db0ae7d6fb6d92f8f81cf",
+   "ocr_tokens": 221,
+   "readability": {
+    "mean_conf_x100": 9435,
+    "px": [
+     1000,
+     800
+    ],
+    "share60_bp": 9864,
+    "words": 221,
+    "words_per_mpx": 276
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 1987,
+   "view": "full",
+   "width": 1000
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b3-honest-crop-jpg.jpg",
+   "image_sha256": "51dab58ba077e661f8e2f899ef134b063d1ab99112da4ef9992e1d034509c1bc",
+   "kind": "unrelated",
+   "name": "b10-unrelated-b3-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "3ab1edb0915b5d3ea1e07f4d87bb82b28ceac59c1bffd709e22977d8a92f3a6f",
+   "ocr_tokens": 22,
+   "readability": {
+    "mean_conf_x100": 9533,
+    "px": [
+     1024,
+     66
+    ],
+    "share60_bp": 10000,
+    "words": 22,
+    "words_per_mpx": 326
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 468,
+   "view": "crop",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "images/b4-honest-full-png.png",
+   "image_sha256": "56f80d690ac67175efcd0900471f0e005b9985223a589a33da83adef82d9c558",
+   "kind": "unrelated",
+   "name": "b11-unrelated-b4-full-png",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "322a2940a9d1718824f07ffc679492c60890923e1b92d7e53c18f80801705d85",
+   "ocr_tokens": 174,
+   "readability": {
+    "mean_conf_x100": 9627,
+    "px": [
+     1024,
+     802
+    ],
+    "share60_bp": 10000,
+    "words": 174,
+    "words_per_mpx": 212
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 5144,
+   "view": "full",
+   "width": 1024
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "jpg",
+   "image": "images/b5-honest-crop-jpg.jpg",
+   "image_sha256": "5a39d60d24140a14dc83abce05909260418d5866c5b2f15a5784441e2534bdd8",
+   "kind": "unrelated",
+   "name": "b12-unrelated-b5-crop-jpg",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "92365eac4fedb22a09302a8339c4b7fa0d9724e1c94d71ad989aa8ac028446ed",
+   "ocr_tokens": 44,
+   "readability": {
+    "mean_conf_x100": 9641,
+    "px": [
+     1440,
+     138
+    ],
+    "share60_bp": 10000,
+    "words": 44,
+    "words_per_mpx": 221
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 6250,
+   "view": "crop",
+   "width": 1440
+  },
+  {
+   "dpr": 1,
+   "finding_in_image": "differs",
+   "format": "png",
+   "image": "regression/honest-1000x420.png",
+   "image_sha256": "4f7c2246a39c4de9c3eeae672fea74768f653f38e5831f4f515b553d8cec6bf7",
+   "kind": "honest",
+   "name": "regression-honest-1000x420",
+   "ocr_text_same_as_measured_json": true,
+   "ocr_text_sha256": "83752b7be7d6fcdd4e10477d2acaadc8764a29be7f352708fd53ccfdd4637c30",
+   "ocr_tokens": 45,
+   "readability": {
+    "mean_conf_x100": 9177,
+    "px": [
+     1000,
+     420
+    ],
+    "share60_bp": 9778,
+    "words": 45,
+    "words_per_mpx": 107
+   },
+   "readability_x100_production": null,
+   "reason_in_image": "differs",
+   "similarity_bp": 9111,
+   "view": "regression",
+   "width": 1000
+  }
+ ],
+ "head": {
+  "cases_json_sha256": "35857a6b43f83f8fe44af2e783f2930e8f828a7b6770323c93caca45e549531c",
+  "finished_at": "2026-11-25T13:38:58Z",
+  "image": "acrpwwpoland.azurecr.io/claim-witness:dev-0ce2a6f@sha256:4a091d1be242e2e9aeead0578082e898349ce348ece05d30d56b58d8fee492d8",
+  "library_version_of_package": "1.6.0",
+  "methods_code_sha256_of_package": "a36007123a4935d077cd702b3ee5620174f53a3d6a27499e0edd1f38e1a08aaf",
+  "ocr_module": "/app/claim_witness/ocr.py",
+  "pod": "claim-screenshot-cal3",
+  "started_at": "2026-11-25T13:36:03Z",
+  "tesseract_command_text": [
+   "/usr/bin/tesseract",
+   "stdin",
+   "stdout",
+   "-l",
+   "eng",
+   "--psm",
+   "3"
+  ],
+  "tesseract_command_tsv": [
+   "/usr/bin/tesseract",
+   "stdin",
+   "stdout",
+   "-l",
+   "eng",
+   "--psm",
+   "3",
+   "tsv"
+  ],
+  "tesseract_version": "5.5.0",
+  "thresholds_in_image": {
+   "F_bp": 9300,
+   "T_bp": 9500
+  }
+ },
+ "measured_by": "tests_claim/fixtures/calibration/screenshots2/measure_gate.py"
+}
