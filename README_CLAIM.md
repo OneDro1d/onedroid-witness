@@ -1489,3 +1489,9 @@ Where the design left a choice open, the reading that keeps the key private and 
      pending leaves per tier). 006 stays free (left for B5b, which needed none).
 180. **Not changed**: `claim_witness/methods/` (methods tarball `1d8b3e75...` and every `code_sha256` as before), the existing
      vectors (own-seal vectors are added in their own commit), `/.well-known/witness.json`, keep, the graph, search and n-dim.
+181. **Own-seal vectors** (`own_seal` in `vectors.json`, its own commit): a batch of the stored public vector record and two
+     fillers under a signed header with `anchoring: "own"`, a fixed hash/1-own notary result on lab-qbft only, the seal that
+     witness-verify must pass with the INFO line and no FAIL, and the same seal with a base-sepolia anchor added, which it must
+     `FAIL seal` naming base-sepolia. The key was added to the stored file without regenerating the rest (every existing key is
+     byte-identical): `generate()` here reproduces the stored envelopes only up to their `method.runtime` (the file was written
+     on python3.14, this venv is 3.12), so the own seal is built over the stored record, as `--check` pairs them.

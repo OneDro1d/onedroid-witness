@@ -1523,6 +1523,149 @@
    "visibility": "private"
   }
  ],
+ "own_seal": {
+  "batch_header": {
+   "anchoring": "own",
+   "batch_id": "a279ee97b0c7df0cf11e7be439dc324bef1b4a5884d1b843e25226e5fc7ad52e",
+   "closed_at": "2026-11-25T10:48:20Z",
+   "interval_s": 3600,
+   "key_id": "witness:vectors:2026a",
+   "opened_at": "2026-11-25T09:47:40Z",
+   "root": "22f59af8cffa39c19c7e3293b577b78bebe31a493b75f0e387af8e11f8d96c75",
+   "sig": "lgLVRm+uk50FZhc/6VJCzNFd0DwZViVtbi7HuuUba9sRg10mTWk3hpGpdF6RvMzwZKIoUL9HbYcSTDJu+c5RCQ==",
+   "size": 3,
+   "witness": "witness:vectors"
+  },
+  "info": "INFO anchoring: own chain only (a check paid with the user's own model key is not anchored on a public chain)",
+  "leaves": [
+   "be1c48933925978632e6a9540667f8240ed624859c42c2945e39add0276fe9d4",
+   "0c2b4a184cbb536fcdb07e39f078084eca7c798ad986ed47fc86839834844cfe",
+   "0fd73d3ee0c2e9dfe508dd9c4e80075db605a78c3a7f482633950c45e2c48fe1"
+  ],
+  "notary": {
+   "anchors": [
+    {
+     "block": 777,
+     "block_time": "2026-11-25T10:48:30Z",
+     "chain": "lab-qbft",
+     "explorer_url": null,
+     "final": true,
+     "state": "landed",
+     "tx_hash": "0x6a6d95ea443356ef703fd2666ab4a7b400a41623773dbea1e59fab87b98e832a"
+    }
+   ],
+   "key": "aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+   "over": "sha256:aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+   "profile": "hash/1-own",
+   "reason": null,
+   "status": "landed"
+  },
+  "over": "sha256:aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+  "paths": [
+   [
+    "0c2b4a184cbb536fcdb07e39f078084eca7c798ad986ed47fc86839834844cfe",
+    "0fd73d3ee0c2e9dfe508dd9c4e80075db605a78c3a7f482633950c45e2c48fe1"
+   ],
+   [
+    "be1c48933925978632e6a9540667f8240ed624859c42c2945e39add0276fe9d4",
+    "0fd73d3ee0c2e9dfe508dd9c4e80075db605a78c3a7f482633950c45e2c48fe1"
+   ],
+   [
+    "02bdb92cfa63943373026c422d1becd614fb7c263f33860c8b4093f2fd7b1a4f"
+   ]
+  ],
+  "payloads_b64": [
+   "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXR0ZW1wdCI6eyJuIjoxLCJwcmlvciI6eyJDQU5OT1RfV0lUTkVTUyI6MCwiTk9UX1NVUFBPUlRFRCI6MCwiU1VQUE9SVEVEIjowfSwic2NvcGUiOiJhY2NvdW50Iiwid2luZG93X2RheXMiOjMwfSwiY2xhaW0iOnsiYXNzZXJ0aW9uIjp0cnVlLCJtZXRob2QiOiJxdW90ZS5pbi1zb3VyY2UiLCJtZXRob2RfbWFqb3IiOjEsInBhcmFtcyI6eyJxdW90ZSI6Im5vdCBhIGp1ZGdlIG9mIHRydXRoIn0sInN0YXRlbWVudCI6bnVsbH0sImRldGFpbCI6eyJlbmQiOjU3LCJzb3VyY2VfY2hhcnMiOjY3LCJzdGFydCI6Mzd9LCJldmlkZW5jZSI6W3sia2luZCI6Im9iamVjdCIsIm1lZGlhX3R5cGUiOiJ0ZXh0L3BsYWluIiwibmFtZSI6InNvdXJjZS50eHQiLCJzaGEyNTYiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIiwic2xvdCI6InNvdXJjZSJ9XSwiZmluZGluZyI6InF1b3RlLWZvdW5kIiwianVkZ21lbnQiOm51bGwsImxpbWl0cyI6IkV4YWN0IHBhc3NhZ2UgYWZ0ZXIgY2Fub24vMSAod2hpdGVzcGFjZSwgcXVvdGVzIGFuZCBkYXNoZXMgdW5pZmllZDsgY2FzZSBrZXB0KS4iLCJtZXRob2QiOnsiY29kZV9zaGEyNTYiOiIxZDhiM2U3NWY5ODE1MTIyZDIyMDIyNzA5MWQyOGY3ODdhMTNiMjk2OTE4YzE1ZWI4ZGJlOTMwZjRkMmI0MjM3IiwiaWQiOiJxdW90ZS5pbi1zb3VyY2UiLCJydW50aW1lIjoicHl0aG9uMy4xNCIsInZlcnNpb24iOiIxLjAuMCJ9LCJvcHRpb25zX3VzZWQiOnsiYWNjZXB0X3VudHJ1c3RlZCI6ZmFsc2UsImFsbG93X3Byb3ZpZGVyIjpmYWxzZSwicGFuZWwiOjF9LCJvdXRjb21lIjoiU1VQUE9SVEVEIiwicmVhc29uIjoicXVvdGUtZm91bmQiLCJyZWxpZWRfb24iOltdLCJzdGF0ZW1lbnQiOiI1MzY3NjE0YjkwMTY3ZmZlY2Y4ZWJlOWFmMGEwZjBmMjcyZDY3YjUxYjQyMDAxMmI1ZmJkNDhmYTRjZjI0YWFlIGNvbnRhaW5zIHRoZSBwYXNzYWdlOiDigJxub3QgYSBqdWRnZSBvZiB0cnV0aOKAnS4iLCJzdWJtaXR0ZXIiOnsiYWNjb3VudCI6ImFjY3RfdmVjdG9yIiwiYWdlbnQiOiJhZ3RfdmVjdG9yIiwiYWdlbnRfa2V5X2lkIjoiYWtfdmVjdG9yIiwiYWdlbnRfc2lnIjoiSUJlNmIwcHR0RTlQSEVjK01HRndDQTFvMERYaUdOSjErQkFVRzhBYnpScm5SbEpFcjR6RThScDl0YTdvdW92dmFqa1lUcU54dVI4Ukg5N0ZhTitVQUE9PSIsImFnZW50X3RpbWUiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiIsIm5vbmNlIjoibm9uY2UtdmVjdG9yLTAwMDEifSwidmlzaWJpbGl0eSI6InB1YmxpYyIsIndpdG5lc3MiOnsiaWQiOiJ3aXRuZXNzOnZlY3RvcnMiLCJrZXlfaWQiOiJ3aXRuZXNzOnZlY3RvcnM6MjAyNmEiLCJrZXlfbGlzdF9zZXEiOjF9LCJ3aXRuZXNzZWRfYXQiOiIyMDI2LTExLTI1VDA5OjQ3OjQwWiJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9vbmVkcm9pZC5haS93aXRuZXNzL2NsYWltL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImE4MzQ2YzE4N2E2YTI4MTYyYjFmODhiZTcyOTk2NjJhYWZhMGU2NWYwMjI5MTg5YjhlZGMwZDlhMDM0NGYzZWUifSwibmFtZSI6ImNsYWltIn1dfQ==",
+   "eyJvd24tZmlsbGVyIjowfQ==",
+   "eyJvd24tZmlsbGVyIjoxfQ=="
+  ],
+  "root": "22f59af8cffa39c19c7e3293b577b78bebe31a493b75f0e387af8e11f8d96c75",
+  "seal": {
+   "batch_header": {
+    "anchoring": "own",
+    "batch_id": "a279ee97b0c7df0cf11e7be439dc324bef1b4a5884d1b843e25226e5fc7ad52e",
+    "closed_at": "2026-11-25T10:48:20Z",
+    "interval_s": 3600,
+    "key_id": "witness:vectors:2026a",
+    "opened_at": "2026-11-25T09:47:40Z",
+    "root": "22f59af8cffa39c19c7e3293b577b78bebe31a493b75f0e387af8e11f8d96c75",
+    "sig": "lgLVRm+uk50FZhc/6VJCzNFd0DwZViVtbi7HuuUba9sRg10mTWk3hpGpdF6RvMzwZKIoUL9HbYcSTDJu+c5RCQ==",
+    "size": 3,
+    "witness": "witness:vectors"
+   },
+   "leaf_index": 0,
+   "notary": {
+    "anchors": [
+     {
+      "block": 777,
+      "block_time": "2026-11-25T10:48:30Z",
+      "chain": "lab-qbft",
+      "explorer_url": null,
+      "final": true,
+      "state": "landed",
+      "tx_hash": "0x6a6d95ea443356ef703fd2666ab4a7b400a41623773dbea1e59fab87b98e832a"
+     }
+    ],
+    "key": "aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+    "over": "sha256:aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+    "profile": "hash/1-own",
+    "reason": null,
+    "status": "landed"
+   },
+   "path": [
+    "0c2b4a184cbb536fcdb07e39f078084eca7c798ad986ed47fc86839834844cfe",
+    "0fd73d3ee0c2e9dfe508dd9c4e80075db605a78c3a7f482633950c45e2c48fe1"
+   ],
+   "state": "anchored"
+  },
+  "seal_with_base_sepolia": {
+   "batch_header": {
+    "anchoring": "own",
+    "batch_id": "a279ee97b0c7df0cf11e7be439dc324bef1b4a5884d1b843e25226e5fc7ad52e",
+    "closed_at": "2026-11-25T10:48:20Z",
+    "interval_s": 3600,
+    "key_id": "witness:vectors:2026a",
+    "opened_at": "2026-11-25T09:47:40Z",
+    "root": "22f59af8cffa39c19c7e3293b577b78bebe31a493b75f0e387af8e11f8d96c75",
+    "sig": "lgLVRm+uk50FZhc/6VJCzNFd0DwZViVtbi7HuuUba9sRg10mTWk3hpGpdF6RvMzwZKIoUL9HbYcSTDJu+c5RCQ==",
+    "size": 3,
+    "witness": "witness:vectors"
+   },
+   "leaf_index": 0,
+   "notary": {
+    "anchors": [
+     {
+      "block": 777,
+      "block_time": "2026-11-25T10:48:30Z",
+      "chain": "lab-qbft",
+      "explorer_url": null,
+      "final": true,
+      "state": "landed",
+      "tx_hash": "0x6a6d95ea443356ef703fd2666ab4a7b400a41623773dbea1e59fab87b98e832a"
+     },
+     {
+      "block": 777,
+      "block_time": "2026-11-25T10:48:30Z",
+      "chain": "base-sepolia",
+      "explorer_url": null,
+      "final": true,
+      "state": "landed",
+      "tx_hash": "0xe173ace8d867dec80d5f907ae2b78b8240e126e57ec47862ccda961c04835e76"
+     }
+    ],
+    "key": "aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+    "over": "sha256:aa22d3b3952bb077e55889440a5572de4f61751fae4a12705d0e5a9560dbbf28",
+    "profile": "hash/1-own",
+    "reason": null,
+    "status": "landed"
+   },
+   "path": [
+    "0c2b4a184cbb536fcdb07e39f078084eca7c798ad986ed47fc86839834844cfe",
+    "0fd73d3ee0c2e9dfe508dd9c4e80075db605a78c3a7f482633950c45e2c48fe1"
+   ],
+   "state": "anchored"
+  }
+ },
  "record_id": [
   {
    "leaf_hash": "e36b39587a7a6bc29ae00bf9f773b694a54208c153f34022787ec9691ed28baa",
