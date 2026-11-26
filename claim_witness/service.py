@@ -57,11 +57,18 @@ REQUEST_KEYS = {"claim", "label", "evidence", "agent", "options"}
 CLAIM_KEYS = {"method", "method_major", "params", "assertion", "statement"}
 OBJECT_KEYS = {"slot", "kind", "sha256", "media_type", "name", "content_b64"}
 AGENT_KEYS = {"agent_key_id", "agent_sig", "nonce", "agent_time"}
-OPTION_KEYS = {"keep", "visibility", "keep_evidence_days", "allow_provider", "accept_untrusted", "panel", "wait", "models"}
+OPTION_KEYS = {"keep", "visibility", "keep_evidence_days", "allow_provider", "accept_untrusted", "panel", "wait", "models",
+               "billing"}
+# Own model key (DESIGN M-20261126-CLAIMS-DOCS-BYOK, C1): the BFF adds options.billing "own-key" to the body it signs and sends
+# the account's OpenRouter key in this header. The header is read only together with billing own-key.
+BILLING = ("own-key",)
+MODEL_KEY_HEADER = "X-Witness-Model-Key"
+MODEL_KEY = re.compile(r"^[\x21-\x7e]{1,4096}$")
+OBSERVE_OPTION_KEYS = {"billing"}
 URL_ITEM_KEYS = {"slot", "kind", "url", "capture", "max_age"}
 RECORD_ITEM_KEYS = {"slot", "kind", "id"}
 OBS_ITEM_KEYS = {"slot", "kind", "id", "envelope", "key_list", "files"}
-OBSERVE_KEYS = {"url", "capture", "handle", "visibility", "max_age", "wait"}
+OBSERVE_KEYS = {"url", "capture", "handle", "visibility", "max_age", "wait", "options"}
 FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 MAX_AGE = 30 * DAY
 KINDS = ("object", "url", "observation", "record")
@@ -87,7 +94,7 @@ class Config:
                  observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY,
                  notary=None, armarium=None, ndim_case=None, ndim_store_evidence=False, batch_interval_s=3600,
                  batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None,
-                 embedder=None):
+                 embedder=None, notary_own=None):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
         if not master_key or len(master_key) < 32:
@@ -115,6 +122,9 @@ class Config:
         if int(batch_interval_s) < 1 or int(batch_max_leaves) < 1:
             raise ValueError("batch_interval_s and batch_max_leaves: integers >= 1")
         self.notary, self.armarium, self.ndim_case = notary, armarium, ndim_case
+        # own model key (C2): the notary client for own batches (profile WITNESS_NOTARY_OWN_PROFILE, lab-qbft only), or None:
+        # own batches then close unanchored. The sealer never sends an own batch to `notary` (hash/1).
+        self.notary_own = notary_own
         if armarium is not None and not ndim_case:
             raise ValueError("ndim_case: the case the owners' chains are created under is required with an armarium client")
         self.ndim_store_evidence = bool(ndim_store_evidence)
@@ -142,7 +152,11 @@ def _text_ok(s, max_len):
 class Prepared:
     """A validated request: everything the job needs."""
     __slots__ = ("account", "claim", "method", "label", "evidence", "objects", "options", "agent", "agent_row", "request_sha256",
-                 "auto_fp", "idem_key", "models", "given_files", "given_rows", "record_rows", "disclosure", "disclosed_texts")
+                 "auto_fp", "idem_key", "models", "given_files", "given_rows", "record_rows", "disclosure", "disclosed_texts",
+                 "model_key", "tier")
+
+    def __repr__(self):  # never the model key
+        return f"Prepared(account={getattr(self, 'account', None)!r}, tier={getattr(self, 'tier', None)!r})"
 
 
 class HostLimit:
@@ -344,7 +358,10 @@ class Witness:
             self.purge()
 
     def _answer_of(self, job):
-        return json.loads(crypto.open_box(self.cfg.master_key, job["id"], job["answer"]))
+        out = json.loads(crypto.open_box(self.cfg.master_key, job["id"], job["answer"]))
+        if isinstance(out, dict):
+            out.setdefault("anchoring", "public")  # an answer stored before own model key (C1) is a public one
+        return out
 
     def job_view(self, account, job_id):
         job = self.storage.get_job(job_id) if isinstance(job_id, str) and len(job_id) <= 64 else None
@@ -366,8 +383,9 @@ class Witness:
 
     # ------------------------------------------------------------------------------------------------------- POST /v1/witness
 
-    def submit(self, account, body, parts=None, idem_key=None):
-        """(status, body, headers) for one POST /v1/witness."""
+    def submit(self, account, body, parts=None, idem_key=None, model_key=None):
+        """(status, body, headers) for one POST /v1/witness. `model_key` is the X-Witness-Model-Key header as sent (own model
+        key, C1): used only with options.billing own-key, never stored, logged or echoed."""
         if not isinstance(body, dict):
             raise WitnessError(400, "malformed", "the request is a JSON object")
         self._maybe_purge()
@@ -384,11 +402,16 @@ class Witness:
                 return self._respond(job["id"], self._wait_of(body))
         p = self.prepare(account, body, parts or {})
         p.request_sha256, p.idem_key = req_sha, idem_key
+        p.model_key = self._model_key(p.options["billing"], model_key)
+        p.tier = "own" if p.options["billing"] == "own-key" else "public"
         self._resolve_ids(p)
         self._resolve_records(p)
         if p.options["visibility"] == "public":
             self._screen(p, statement=None)
         self._require_services(p)
+        if p.tier == "own":  # before anything is fetched or signed: every fetch this check may need must be free
+            needs = sum(2 if p.method.id == "page.live" else 1 for e in p.evidence if e["kind"] == "url")
+            self._own_observations_left(account, needs)
         if p.agent is not None:
             self._check_agent(p, now)
         if p.auto_fp is not None:
@@ -499,7 +522,7 @@ class Witness:
                 {"id": self.cfg.witness_id, "key_id": info["key_id"], "key_list_seq": info["key_list_seq"]}, judgment=judgment,
                 relied_on=ctx.relied_on)
             stmt, disclosure = record.build(pred, p.options["visibility"], label=p.label)
-            out = self.signer.sign(CLAIM_TYPE, stmt)
+            out = self._sign(CLAIM_TYPE, stmt, p.tier)
             self.storage.add_attempt(tag, pred["outcome"], now)
         env = out["envelope"]
         rid = ids.record_id(base64.b64decode(env["payload"]))
@@ -515,14 +538,21 @@ class Witness:
         observed = any(e["kind"] in ("url", "observation") for e in p.evidence)
         answer = {"record_id": rid, "envelope": env, "seal": {"state": "pending"},
                   "price": self._price(p.account, ctx, check=not m.mechanical or not observed, model_runs=model_runs,
-                                       observations=observed)}
+                                       observations=observed, own_key=p.tier == "own"),
+                  "anchoring": p.tier}
         if disclosure is not None:
             answer["disclosure"] = disclosure
         if res.failing_tests:
             answer["failing_tests"] = res.failing_tests
         return answer
 
-    def _price(self, account, ctx, check=False, model_runs=(), observations=True):
+    def _sign(self, predicate_type, payload, tier="public"):
+        """The signer, under the request's tier (own model key, C2). A public request signs exactly as before."""
+        if tier == "public":
+            return self.signer.sign(predicate_type, payload)
+        return self.signer.sign(predicate_type, payload, tier=tier)
+
+    def _price(self, account, ctx, check=False, model_runs=(), observations=True, own_key=False):
         """The one `price` object of an answer (BD3, never signed): {credits, lines} with a `check` line (1) for a mechanical
         check over objects and for every judge.supports claim, a `model-run` line per model run made (B6), and an
         `observation` line per paid fresh observation (B2b: the first 50 fresh a day are free, reuse is free). When the
@@ -534,6 +564,9 @@ class Witness:
             lines = lines[1:]
         lines += [{"item": "observation", "credits": self.cfg.observation_price} for _ in range(ctx.paid)]
         out = {"credits": sum(x["credits"] for x in lines), "lines": lines}
+        if own_key:  # own model key (C1): nothing is charged; the user's own OpenRouter account pays for the model runs
+            lines = [dict(x, credits=0, **({"paid_by": "own-key"} if x["item"] == "model-run" else {})) for x in lines]
+            out = {"credits": 0, "billing": "own-key", "lines": lines}
         if observations:
             used = self.storage.fresh_count(account, self.now() // DAY)
             out.update(fresh_observations=ctx.fresh, reused_observations=ctx.reused,
@@ -564,7 +597,12 @@ class Witness:
         except Untrusted as u:
             j = self.cfg.judge.no_run(statement, u.reason, len(p.evidence), count, require)
         else:
-            j = self.cfg.judge.run(statement, assertion, entries, count, require)
+            if p.model_key is not None:  # own model key (C1): the user's key for every model call, never the witness's
+                j = self.cfg.judge.run(statement, assertion, entries, count, require, api_key=p.model_key)
+                if j.get("key_rejected") is not None:  # the router refused the key on every run: no record, nothing signed
+                    raise WitnessError(422, "model-key-rejected", judge_mod.key_rejected_detail(j["key_rejected"]))
+            else:
+                j = self.cfg.judge.run(statement, assertion, entries, count, require)
         res = methods.Result(j["finding"], j["detail"], j["vars"], reason=j["reason"])
         return res, rec, j["judgment"], j["model_runs"], j["raw"]
 
@@ -647,9 +685,12 @@ class Witness:
             files = files_stored
         return {"slot": "page", "kind": "observation", "id": row["id"], "manifest": body, "files": files}
 
-    def _fresh(self, account, visibility, url, capture, ctx, handle=None):
+    def _fresh(self, account, visibility, url, capture, ctx, handle=None, tier="public"):
         """Fetch, build, sign and store one observation: (method evidence, envelope, disclosure). FetchFailed passes through.
-        A post capture (B5a) carries the claimed handle, which the fetcher resolves both ways."""
+        A post capture (B5a) carries the claimed handle, which the fetcher resolves both ways. tier "own" (own model key): the
+        observation is signed in the own tier, and only within the free allowance (checked again here, before the fetch)."""
+        if tier == "own":
+            self._own_observations_left(account, 1)
         try:
             host = urllib.parse.urlsplit(url).hostname or ""
         except ValueError:
@@ -658,7 +699,7 @@ class Witness:
         cap = self.cfg.fetcher.capture(url, capture, handle=handle) if capture == "post" else self.cfg.fetcher.capture(url, capture)
         pred, files = observation.from_capture(cap.manifest, cap.files, visibility)
         stmt, disclosure = observation.statement(pred)
-        out = self.signer.sign(OBSERVATION_TYPE, stmt)
+        out = self._sign(OBSERVATION_TYPE, stmt, tier)
         env, oid = out["envelope"], out["payload_id"]
         now = self.now()
         row = {"id": oid, "account": account, "visibility": visibility,
@@ -686,9 +727,11 @@ class Witness:
         return {"slot": "page", "kind": "observation", "id": oid, "manifest": disclosure["body"] if disclosure else pred,
                 "files": files}, env, disclosure
 
-    def _reuse(self, account, visibility, url, capture, max_age, ctx, handle=None):
+    def _reuse(self, account, visibility, url, capture, max_age, ctx, handle=None, tier="public"):
         """A visible observation of url no older than max_age (public ones; for a private request also the account's own
-        private ones), or None. A post capture is reused only for the same claimed handle."""
+        private ones), or None. A post capture is reused only for the same claimed handle. A public-tier request never
+        reuses an own-tier observation (own model key: its seal is on OneDroid's own chain only); an own-key request may
+        reuse either."""
         if max_age <= 0:
             return None
         tags = [self._lookup_tag("public", None, url, capture, handle)]
@@ -696,6 +739,8 @@ class Witness:
             tags.append(self._lookup_tag("private", account, url, capture, handle))
         row = self.storage.find_observation(tags, since=self.now() - max_age)
         if row is None or (row["visibility"] == "private" and row["account"] != account):
+            return None
+        if tier != "own" and self.storage.log_tier(row["id"]) == "own":
             return None
         files = self.storage.get_observation_files(row["id"])
         if not files or not self._own_signature_ok(row["envelope"]):
@@ -708,11 +753,11 @@ class Witness:
         """One look at a url evidence item: {"observation": evidence} or {"failure": {...}} (page_live.py's attempt shape)."""
         vis = p.options["visibility"]
         if allow_reuse:
-            got = self._reuse(p.account, vis, e["url"], e["capture"], e["max_age"], ctx, e.get("handle"))
+            got = self._reuse(p.account, vis, e["url"], e["capture"], e["max_age"], ctx, e.get("handle"), p.tier)
             if got is not None:
                 return {"observation": got[1]}
         try:
-            obs, _, _ = self._fresh(p.account, vis, e["url"], e["capture"], ctx, e.get("handle"))
+            obs, _, _ = self._fresh(p.account, vis, e["url"], e["capture"], ctx, e.get("handle"), p.tier)
             return {"observation": obs}
         except FetchFailed as f:
             part = f.partial or {}
@@ -924,7 +969,7 @@ class Witness:
 
     # ------------------------------------------------------------------------------------------------------- POST /v1/observe
 
-    def observe(self, account, body, idem_key=None):
+    def observe(self, account, body, idem_key=None, model_key=None):
         """(status, body, headers) for POST /v1/observe {url, capture?, visibility?, max_age?, wait?}: a signed observation
         with no claim. A failed fetch is 422 with the reason as the error; nothing is signed then."""
         if not isinstance(body, dict):
@@ -971,8 +1016,19 @@ class Witness:
                 raise WitnessError(422, e.code, e.detail) from None
             except screen.ScreenUnavailable as e:
                 raise WitnessError(503, "screening-unavailable", f"a public observation cannot be screened now ({e})") from None
+        # own model key (C1): options carries billing only, set by the BFF; the header is read only with billing own-key
+        o = body.get("options", {})
+        if not isinstance(o, dict) or set(o) - OBSERVE_OPTION_KEYS:
+            raise WitnessError(422, "invalid-options", "options on POST /v1/observe: {billing: \"own-key\"} only (set by OneDroid)")
+        if "billing" in o and o["billing"] not in BILLING:
+            raise WitnessError(422, "invalid-options", "options.billing: \"own-key\" (set by OneDroid) or absent")
+        billing = o.get("billing")
+        self._model_key(billing, model_key)  # 422 model-key-missing; an observation calls no model, the key is not kept
+        tier = "own" if billing == "own-key" else "public"
         if self.cfg.fetcher is None:
             raise WitnessError(503, "fetcher-not-configured", "POST /v1/observe needs the fetcher (FETCHER_URL)")
+        if tier == "own":  # worst case one fresh fetch: refused before anything when the free allowance is used up
+            self._own_observations_left(account, 1)
         p = Prepared()
         p.account, p.idem_key, p.auto_fp = account, None, None
         p.request_sha256 = self._request_sha256(dict(body, _route="observe"))
@@ -980,26 +1036,28 @@ class Witness:
         ev = threading.Event()
         with self.events_lock:
             self.events[jid] = ev
-        work = lambda: self._observe_job(account, url, capture, vis, max_age, handle)  # noqa: E731
+        work = lambda: self._observe_job(account, url, capture, vis, max_age, handle, tier)  # noqa: E731
         threading.Thread(target=self._run_job, args=(jid, work), daemon=True, name=f"obs-{jid[:8]}").start()
         return self._respond(jid, min(wait, self.cfg.max_wait))
 
-    def _observe_job(self, account, url, capture, vis, max_age, handle=None):
+    def _observe_job(self, account, url, capture, vis, max_age, handle=None, tier="public"):
         ctx = Ctx()
-        got = self._reuse(account, vis, url, capture, max_age, ctx, handle)
+        got = self._reuse(account, vis, url, capture, max_age, ctx, handle, tier)
         if got is not None:
             row = got[0]
             out = {"observation_id": row["id"], "envelope": row["envelope"], "reused": True}
         else:
             try:
-                obs, env, disclosure = self._fresh(account, vis, url, capture, ctx, handle)
+                obs, env, disclosure = self._fresh(account, vis, url, capture, ctx, handle, tier)
             except FetchFailed as f:
                 raise WitnessError(422, f.reason, f"the fetch failed ({f.code}); nothing was signed") from None
             out = {"observation_id": obs["id"], "envelope": env, "reused": False}
             if disclosure is not None:
                 out["disclosure"] = disclosure
         out["seal"] = {"state": "pending"}
-        out["price"] = self._price(account, ctx)
+        out["price"] = self._price(account, ctx, own_key=tier == "own")
+        # the observation's own tier: a reused public observation stays public even for an own-key request
+        out["anchoring"] = self.storage.log_tier(out["observation_id"]) or tier
         return out
 
     def observation_view(self, account, obs_id):
@@ -1042,6 +1100,7 @@ class Witness:
     def prepare(self, account, body, parts):
         p = Prepared()
         p.account = account
+        p.model_key, p.tier = None, "public"  # submit() sets them from options.billing and the header
         extra = set(body) - REQUEST_KEYS
         if extra:
             raise WitnessError(422, "invalid-request", f"unknown request field(s): {', '.join(sorted(extra))}")
@@ -1074,7 +1133,9 @@ class Witness:
                 "account": account, "claim_id": ids.claim_id(p.claim), "method": p.method.id, "version": p.method.version,
                 "evidence": sorted([e["slot"], e["sha256"], e["media_type"], e["name"]] for e in p.evidence),
                 "visibility": p.options["visibility"], "label": p.label,
-                "agent_key_id": p.agent["agent_key_id"] if p.agent else None})).hexdigest()
+                "agent_key_id": p.agent["agent_key_id"] if p.agent else None,
+                # own model key: an own-key request and a paid one never answer for each other (tier, price, anchoring)
+                **({"billing": p.options["billing"]} if p.options["billing"] is not None else {})})).hexdigest()
         return p
 
     def _options(self, o):
@@ -1088,7 +1149,9 @@ class Witness:
         out = {"keep": o.get("keep", False), "visibility": o.get("visibility", "private"),
                "keep_evidence_days": o.get("keep_evidence_days", 0), "allow_provider": o.get("allow_provider", False),
                "accept_untrusted": o.get("accept_untrusted", False), "panel": o.get("panel", 1),
-               "wait": o.get("wait", self.cfg.default_wait), "models": o.get("models")}
+               "wait": o.get("wait", self.cfg.default_wait), "models": o.get("models"), "billing": o.get("billing")}
+        if "billing" in o and o["billing"] not in BILLING:
+            raise WitnessError(422, "invalid-options", "options.billing: \"own-key\" (set by OneDroid) or absent")
         for k in ("keep", "allow_provider", "accept_untrusted"):
             if not isinstance(out[k], bool):
                 raise WitnessError(422, "invalid-options", f"options.{k}: true or false")
@@ -1173,6 +1236,29 @@ class Witness:
             raise WitnessError(422, "provider-not-allowed", "a private judge.supports claim is read by a model provider: send "
                                                             "options.allow_provider: true to allow it, or make the claim public")
         return models
+
+    @staticmethod
+    def _model_key(billing, header):
+        """Own model key (C1): the key for an own-key request, from X-Witness-Model-Key (422 model-key-missing when it is not
+        there or is not one printable-ASCII token; the value is never echoed). Without billing own-key the header is ignored
+        and None is returned, so it is never used."""
+        if billing != "own-key":
+            return None
+        key = header.strip() if isinstance(header, str) else ""
+        if not MODEL_KEY.match(key):
+            raise WitnessError(422, "model-key-missing", f"options.billing own-key comes with the {MODEL_KEY_HEADER} header "
+                                                         "(one key, printable ASCII, no spaces); nothing was signed")
+        return key
+
+    def _own_observations_left(self, account, needed):
+        """Own model key (C1): an own-key request may make fresh observations only within the free allowance of the day;
+        refused (402) before any fetch when `needed` more would go past it."""
+        if needed <= 0:
+            return
+        used = self.storage.fresh_count(account, self.now() // DAY)
+        if used + needed > self.cfg.free_observations_per_day:
+            raise WitnessError(402, "own-key-observation-limit", f"own-key checks include {self.cfg.free_observations_per_day} "
+                                                                 "fresh page observations a day")
 
     def _slots_text(self, m):
         def n(s):

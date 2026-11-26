@@ -330,7 +330,10 @@ class Records:
                "seal": self.w.sealer.seal_view(rid), "kept_at": iso(row["kept_at"]),
                "deleted_at": iso(row["deleted_at"]) if row["deleted_at"] is not None else None,
                "taken_down_at": iso(row["taken_down_at"]) if row["taken_down_at"] is not None else None,
-               "ndim": self.ndim_view(row), "link": self._link(rid)}
+               "ndim": self.ndim_view(row), "link": self._link(rid),
+               # own model key (C1): "own" when the record was signed while serving an own-key check (its seal is anchored on
+               # OneDroid's own chain only), from the signing log's tier; every other record is "public"
+               "anchoring": self.st.log_tier(rid) or "public"}
         reader = row["visibility"] == "public" or owner or share is not None
         if reader:
             files = self._evidence_files(row)

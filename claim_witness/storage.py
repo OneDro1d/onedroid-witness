@@ -10,6 +10,9 @@ import os
 import threading
 
 OUTCOMES = ("SUPPORTED", "NOT_SUPPORTED", "CANNOT_WITNESS")
+# Own model key (C2): the tier of a signing-log row. 'own' rows (signed while serving an own-key request) are sealed only in
+# own batches, anchored on OneDroid's own chain; every other row, and every row from before migration 008, is 'public'.
+TIERS = ("public", "own")
 JOB_FIELDS = ("id", "account", "state", "created_at", "idem_key", "request_sha256", "auto_fp", "http_status", "answer", "error",
               "record_id")
 OBS_FIELDS = ("id", "account", "visibility", "lookup_tag", "fetched_at", "created_at", "envelope", "body_box", "signer", "kept")
@@ -37,8 +40,9 @@ class Storage:
     def all_jobs(self): raise NotImplementedError
     def find_job_by_idem(self, account, idem_key, since): raise NotImplementedError
     def find_job_by_auto(self, account, auto_fp, since): raise NotImplementedError
-    def append_signing_log(self, payload_id, predicate_type, at): raise NotImplementedError
+    def append_signing_log(self, payload_id, predicate_type, at, leaf=None, tier="public"): raise NotImplementedError
     def signing_log(self): raise NotImplementedError
+    def log_tier(self, payload_id): raise NotImplementedError  # "public" | "own" | None (not in the log)
     def add_agent_key(self, row): raise NotImplementedError
     def get_agent_key(self, agent_key_id): raise NotImplementedError
     def use_nonce(self, agent_key_id, nonce, at, window): raise NotImplementedError
@@ -62,7 +66,7 @@ class Storage:
     def delete_observation(self, obs_id): raise NotImplementedError
     # B3, the sealer: append_signing_log(..., leaf=H(0x00 || payload)); leaves not yet in a batch; a batch and its proofs
     def log_has(self, payload_id): raise NotImplementedError
-    def pending_leaves(self, limit, max_seq=None): raise NotImplementedError
+    def pending_leaves(self, limit, max_seq=None, tier=None): raise NotImplementedError
     def write_batch(self, batch, proofs): raise NotImplementedError
     def update_batch(self, batch_id, **fields): raise NotImplementedError
     def get_batch(self, batch_id): raise NotImplementedError
@@ -161,17 +165,26 @@ class MemoryStorage(Storage):
                     return dict(j)
         return None
 
-    def append_signing_log(self, payload_id, predicate_type, at, leaf=None):
+    def append_signing_log(self, payload_id, predicate_type, at, leaf=None, tier="public"):
+        if tier not in TIERS:
+            raise ValueError(f"tier: one of {TIERS}")
         with self.lock:
             seq = len(self.log) + 1
             self.log.append({"seq": seq, "payload_id": payload_id, "predicate_type": predicate_type, "at": int(at), "leaf": leaf,
-                             "batch_id": None})
+                             "batch_id": None, "tier": tier})
             self._changed()
             return seq
 
     def signing_log(self):
         with self.lock:
-            return [dict(r) for r in self.log]
+            return [dict(r, tier=r.get("tier") or "public") for r in self.log]
+
+    def log_tier(self, payload_id):
+        with self.lock:
+            for r in self.log:
+                if r["payload_id"] == payload_id:
+                    return r.get("tier") or "public"
+        return None
 
     def add_agent_key(self, row):
         with self.lock:
@@ -303,10 +316,10 @@ class MemoryStorage(Storage):
         with self.lock:
             return any(r["payload_id"] == payload_id for r in self.log)
 
-    def pending_leaves(self, limit, max_seq=None):
+    def pending_leaves(self, limit, max_seq=None, tier=None):
         with self.lock:
-            rows = [dict(r) for r in self.log if r.get("leaf") and r.get("batch_id") is None
-                    and (max_seq is None or r["seq"] <= max_seq)]
+            rows = [dict(r, tier=r.get("tier") or "public") for r in self.log if r.get("leaf") and r.get("batch_id") is None
+                    and (max_seq is None or r["seq"] <= max_seq) and (tier is None or (r.get("tier") or "public") == tier)]
             return rows[:limit]
 
     def write_batch(self, batch, proofs):

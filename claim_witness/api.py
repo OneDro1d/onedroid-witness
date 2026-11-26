@@ -46,7 +46,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import __version__, jcs, reqauth
-from .service import WitnessError
+from .service import MODEL_KEY_HEADER, WitnessError
 
 ACCOUNT = re.compile(r"^[A-Za-z0-9_.:@-]{1,128}$")
 JOB_PATH = re.compile(r"^/v1/jobs/([A-Za-z0-9_-]{1,64})$")
@@ -324,11 +324,14 @@ def make_handler(witness, auth):
                 acct = auth.account("POST", path, raw, self.headers)
                 if path == "/v1/agent-keys":
                     return self._send(200, witness.register_agent_key(acct, _json(raw)))
+                # own model key (C1): X-Witness-Model-Key is read on these two routes only and handed to the service, which
+                # uses it only with options.billing own-key; it is never logged (log_message prints method, path, status)
+                model_key = self.headers.get(MODEL_KEY_HEADER)
                 if path == "/v1/observe":
-                    status, out, headers = witness.observe(acct, _json(raw))
+                    status, out, headers = witness.observe(acct, _json(raw), model_key=model_key)
                     return self._send(status, out, headers)
                 body, parts = parse_body(self.headers.get("Content-Type"), raw)
-                status, out, headers = witness.submit(acct, body, parts, self.headers.get("Idempotency-Key"))
+                status, out, headers = witness.submit(acct, body, parts, self.headers.get("Idempotency-Key"), model_key=model_key)
                 self._send(status, out, headers)
             except WitnessError as e:
                 self._error(e)

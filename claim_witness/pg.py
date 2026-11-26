@@ -140,14 +140,19 @@ class PostgresStorage(Storage):
         return self._job(self._q(f"SELECT {', '.join(JOB_FIELDS)} FROM jobs WHERE account = %s AND auto_fp = %s AND created_at >= %s "
                                  "AND state = 'done' ORDER BY created_at LIMIT 1", (account, auto_fp, int(since)), fetch="one"))
 
-    def append_signing_log(self, payload_id, predicate_type, at, leaf=None):
-        return self._q("INSERT INTO signing_log (payload_id, predicate_type, at, leaf) VALUES (%s, %s, %s, %s) RETURNING seq",
-                       (payload_id, predicate_type, int(at), leaf), fetch="one")[0]
+    def append_signing_log(self, payload_id, predicate_type, at, leaf=None, tier="public"):
+        # tier (008_signing_log_tier): the column's CHECK refuses anything but public and own
+        return self._q("INSERT INTO signing_log (payload_id, predicate_type, at, leaf, tier) VALUES (%s, %s, %s, %s, %s) "
+                       "RETURNING seq", (payload_id, predicate_type, int(at), leaf, tier), fetch="one")[0]
 
     def signing_log(self):
-        return [{"seq": r[0], "payload_id": r[1], "predicate_type": r[2], "at": r[3], "leaf": r[4], "batch_id": r[5]}
-                for r in self._q("SELECT seq, payload_id, predicate_type, at, leaf, batch_id FROM signing_log ORDER BY seq",
+        return [{"seq": r[0], "payload_id": r[1], "predicate_type": r[2], "at": r[3], "leaf": r[4], "batch_id": r[5], "tier": r[6]}
+                for r in self._q("SELECT seq, payload_id, predicate_type, at, leaf, batch_id, tier FROM signing_log ORDER BY seq",
                                  fetch="all")]
+
+    def log_tier(self, payload_id):
+        r = self._q("SELECT tier FROM signing_log WHERE payload_id = %s ORDER BY seq LIMIT 1", (payload_id,), fetch="one")
+        return r[0] if r else None
 
     def add_agent_key(self, row):
         self._q("INSERT INTO agent_keys (agent_key_id, account, agent, public_key, created_at) VALUES (%s, %s, %s, %s, %s) "
@@ -274,14 +279,18 @@ class PostgresStorage(Storage):
     def log_has(self, payload_id):
         return self._q("SELECT 1 FROM signing_log WHERE payload_id = %s LIMIT 1", (payload_id,), fetch="one") is not None
 
-    def pending_leaves(self, limit, max_seq=None):
-        sql = "SELECT seq, payload_id, predicate_type, at, leaf, batch_id FROM signing_log WHERE batch_id IS NULL AND leaf IS NOT NULL"
+    def pending_leaves(self, limit, max_seq=None, tier=None):
+        sql = ("SELECT seq, payload_id, predicate_type, at, leaf, batch_id, tier FROM signing_log "
+               "WHERE batch_id IS NULL AND leaf IS NOT NULL")
         args = []
         if max_seq is not None:
             sql += " AND seq <= %s"
             args.append(int(max_seq))
+        if tier is not None:
+            sql += " AND tier = %s"
+            args.append(tier)
         rows = self._q(sql + " ORDER BY seq LIMIT %s", (*args, int(limit)), fetch="all")
-        return [dict(zip(("seq", "payload_id", "predicate_type", "at", "leaf", "batch_id"), r)) for r in rows]
+        return [dict(zip(("seq", "payload_id", "predicate_type", "at", "leaf", "batch_id", "tier"), r)) for r in rows]
 
     def write_batch(self, batch, proofs):
         with self.lock:

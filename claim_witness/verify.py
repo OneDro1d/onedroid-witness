@@ -15,6 +15,9 @@ SKIP naming it as the operator's own chain. Without --rpc, `SKIP seal-chain` (no
 at the anchor time (the earliest landed block_time; with --rpc the chain's own timestamp of the earliest base-sepolia anchor
 that passed): a key revoked at or before it fails; FLAG seal-delay when the anchor
 came more than interval_s + 15 minutes after the payload's time. A pending seal is SKIP ("time not proven").
+Own model key: a batch header with `anchoring: own` prints `INFO anchoring: own chain only (...)`; its missing base-sepolia
+anchor is never a FAIL, but a base-sepolia anchor on it is `FAIL seal`, as is an `anchoring` other than public or own. A header
+without the field is public.
 
 B2b: an observation envelope (predicateType observation/v1) is verified too: signature, payload canonical, observation id,
 manifest digest (a public observation's subject is H(canonical manifest)), key validity at fetched_at, every file given with
@@ -348,6 +351,8 @@ def _secs(t):
 
 CHAIN = "base-sepolia"
 CHAIN_TIMEOUT_S = 20
+# own model key (C2): a batch header with anchoring "own" was sealed on OneDroid's own chain (lab-qbft) only
+OWN_INFO = ("INFO anchoring: own chain only (a check paid with the user's own model key is not anchored on a public chain)")
 ZERO_ADDRESS = "0x" + "0" * 40
 _ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
@@ -480,6 +485,17 @@ def check_seal(r, seal, raw, keys, kl, skip_text):
     errs, key_errs, anchor = [], [], None
     try:
         hdr = seal["batch_header"]
+        # own model key (C2): the signed header says how the batch is anchored; a header without the field is public
+        anchoring = hdr.get("anchoring", "public") if isinstance(hdr, dict) else "public"
+        if anchoring == "own":
+            r.line(OWN_INFO)
+            public = sorted({f"{a.get('chain')} (tx {a.get('tx_hash')})" for a in (seal.get("notary") or {}).get("anchors") or []
+                             if isinstance(a, dict) and a.get("chain") == CHAIN})
+            if public:
+                errs.append(f"the batch header says anchoring: own (OneDroid's own chain only) but the seal carries a {CHAIN} "
+                            f"anchor: {', '.join(public)}")
+        elif anchoring != "public":
+            errs.append(f"the batch header's anchoring is {anchoring!r}, not public or own")
         leaf = sha256_hex(b"\x00" + raw)
         root = merkle_root_from_path(leaf, seal["leaf_index"], hdr["size"], seal["path"])
         if root is None or root != hdr["root"]:

@@ -138,6 +138,30 @@ def public_models(models, pl):
 
 # ----------------------------------------------------------------------------------------------------------------- backend
 
+# Own model key (C1): the statuses with which a router refuses the user's key itself. When every run of an own-key check
+# answers one of them there is no record (422 model-key-rejected).
+KEY_REJECTED = {401: "the key is not valid", 402: "the key's OpenRouter account is out of credit",
+                403: "the key is disabled or not allowed to use this model"}
+SCRUBBED = "[model-key]"
+
+
+def _scrub(value, key):
+    """value with every occurrence of key replaced (strings, and strings inside lists and dicts, keys included)."""
+    if not key:
+        return value
+    if isinstance(value, str):
+        return value.replace(key, SCRUBBED)
+    if isinstance(value, list):
+        return [_scrub(v, key) for v in value]
+    if isinstance(value, dict):
+        return {_scrub(k, key): _scrub(v, key) for k, v in value.items()}
+    return value
+
+
+def key_rejected_detail(status):
+    return f"OpenRouter answered {status}: {KEY_REJECTED[status]}"
+
+
 class Backend:
     def __init__(self, base_url, api_key, max_tokens=1024, opener=None):
         if not isinstance(base_url, str) or not base_url.startswith(("http://", "https://")):
@@ -150,17 +174,20 @@ class Backend:
     def __repr__(self):
         return f"Backend({self.url!r}, max_tokens={self.max_tokens})"
 
-    def _call(self, spec, system, user):
+    def _call(self, spec, system, user, api_key=None):
+        """One call. `api_key` (own model key, C1) replaces the configured key for this call only; it goes into the
+        Authorization header and nowhere else, and every string taken from the provider's answer is scrubbed of it."""
         body = {"model": spec.id, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "temperature": 0, "max_tokens": self.max_tokens}
         req = urllib.request.Request(self.url, data=json.dumps(body, ensure_ascii=False).encode("utf-8"), method="POST")
         req.add_header("Content-Type", "application/json")
-        req.add_header("Authorization", f"Bearer {self._key}")
-        out = {"text": None, "served_model": None, "provider": None, "note": None}
+        req.add_header("Authorization", f"Bearer {api_key if api_key is not None else self._key}")
+        out = {"text": None, "served_model": None, "provider": None, "note": None, "status": None}
         try:
             with self.opener.open(req, timeout=spec.timeout) as r:
                 data = r.read(MAX_RESPONSE + 1)
         except urllib.error.HTTPError as e:
+            out["status"] = e.code if isinstance(e.code, int) else None  # the status only: the body is never read
             e.close()
             out["note"] = "model-unavailable"
             return out
@@ -182,6 +209,9 @@ class Backend:
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             out["note"] = "wrong-shape"
             return out
+        if api_key is not None:  # own model key: nothing the provider sends back may carry the key on
+            ans = _scrub(ans, api_key)
+            content = msg.get("content") if not isinstance(msg.get("content"), str) else _scrub(msg["content"], api_key)
         if isinstance(ans.get("model"), str):
             out["served_model"] = ans["model"][:200]
         if isinstance(ans.get("provider"), str):
@@ -194,19 +224,20 @@ class Backend:
             out["text"] = content
         return out
 
-    def chat(self, spec, system, user):
-        """{text, served_model, provider, note, ms}: note is None, timeout, model-unavailable, wrong-shape or no-content. The
-        whole call, connect to last byte, is held to spec.timeout."""
+    def chat(self, spec, system, user, api_key=None):
+        """{text, served_model, provider, note, status, ms}: note is None, timeout, model-unavailable, wrong-shape or
+        no-content; status is the HTTP status of an error answer (else None). The whole call, connect to last byte, is held
+        to spec.timeout. `api_key`: the own model key for this call (C1), else the configured key."""
         box = {}
         t0 = time.monotonic()
 
         def work():
-            box["out"] = self._call(spec, system, user)
+            box["out"] = self._call(spec, system, user, api_key)
 
         th = threading.Thread(target=work, daemon=True, name=f"judge-{spec.id[:24]}")
         th.start()
         th.join(spec.timeout + 0.5)
-        out = box.get("out") or {"text": None, "served_model": None, "provider": None, "note": "timeout"}
+        out = box.get("out") or {"text": None, "served_model": None, "provider": None, "note": "timeout", "status": None}
         out["ms"] = int((time.monotonic() - t0) * 1000)
         return out
 
@@ -237,11 +268,13 @@ class Judge:
                 "raw": [], "judgment": self._judgment([], [], {"count": count, "require": require, "agreeing": 0,
                                                                "finding": None}, [], None)}
 
-    def run(self, statement, assertion, objects, count, require):
+    def run(self, statement, assertion, objects, count, require, api_key=None):
         """One judgment over evidence entries, each an object (bytes, media_type) or an observation as method evidence
         ({"kind": "observation", "files": {...}}: its text.canonical.txt and hidden-nodes.json, SPEC §5.2):
-        {finding, reason, detail, vars, judgment, raw, model_runs}. `raw` holds each run's (spec, text, provider,
-        served_model) for the caller to keep or discard; nothing is stored here."""
+        {finding, reason, detail, vars, judgment, raw, model_runs, key_rejected}. `raw` holds each run's (spec, text,
+        provider, served_model) for the caller to keep or discard; nothing is stored here. `api_key` (own model key, C1) is
+        used for every model call instead of the configured key; `key_rejected` is then the HTTP status (401, 402, 403)
+        when every run was refused with one of them (the first run's), else None."""
         vars_ = {"statement": statement}
         try:
             items = [item_of(o) for o in objects]
@@ -255,7 +288,8 @@ class Judge:
             system = js.prompt_text()
 
             def one(i, spec):
-                results[i] = self.backend.chat(spec, system, prep["input"])
+                results[i] = self.backend.chat(spec, system, prep["input"], api_key) if api_key is not None else \
+                    self.backend.chat(spec, system, prep["input"])
 
             threads = [threading.Thread(target=one, args=(i, m), daemon=True) for i, m in enumerate(selected)]
             for t in threads:
@@ -274,9 +308,14 @@ class Judge:
                          "finding": r["finding"], "quotes": r["quotes"], "note": r["note"], "rejected": r["rejected"]})
             models_rec.append({"id": spec.id, "provider": res["provider"] or spec.vendor, "version": res["served_model"]})
             raw.append((spec, text, res["provider"], res["served_model"]))
+        statuses = [r.get("status") for r in results]
+        key_rejected = statuses[0] if api_key is not None and statuses and all(s in KEY_REJECTED for s in statuses) else None
+        if key_rejected is not None:  # nothing is concluded or signed from a refused key
+            return {"key_rejected": key_rejected, "model_runs": selected, "raw": []}
         c = js.conclude(prep, runs, count, require)
         return {"finding": c["finding"], "reason": c["reason"], "detail": c["detail"], "vars": vars_, "model_runs": selected,
-                "raw": raw, "judgment": self._judgment(models_rec, runs, c["agreement"], prep["flags"], prep["input_sha256"])}
+                "raw": raw, "judgment": self._judgment(models_rec, runs, c["agreement"], prep["flags"], prep["input_sha256"]),
+                "key_rejected": None}
 
     def _judgment(self, models_rec, runs, agreement, flags, input_sha256):
         return {"models": models_rec, "prompt_sha256": js.prompt_sha256(), "rubric_version": js.VERSION,

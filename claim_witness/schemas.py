@@ -22,6 +22,7 @@ NULL_REASONS = ("unreachable", "blocked", "robots-disallowed", "unreadable", "to
 OBS_PUBLIC_KEYS = ("requested_url", "final_url", "redirects", "fetched_at", "fetch_ms", "status", "resolved_ips", "tls", "robots",
                    "fetcher", "files", "canonicaliser", "platform", "visibility")
 BATCH_KEYS = ("witness", "batch_id", "root", "size", "opened_at", "closed_at", "interval_s", "key_id")
+ANCHORING = ("public", "own")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 TIME = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
 TOKEN = re.compile(r"^[a-z0-9][a-z0-9.-]{0,63}$")
@@ -182,7 +183,12 @@ def check_observation(stmt, witness=None):
 
 
 def check_batch_header(header, witness=None):
-    _keys(header, BATCH_KEYS, "batch header")
+    # own model key (C2): a header may carry `anchoring` ("public" | "own"); a header without it is public (older seals)
+    if isinstance(header, dict) and "anchoring" in header:
+        _need(header["anchoring"] in ANCHORING, f"anchoring: one of {list(ANCHORING)}")
+        _keys(header, BATCH_KEYS + ("anchoring",), "batch header")
+    else:
+        _keys(header, BATCH_KEYS, "batch header")
     _str(header["witness"], "witness", 256)
     _hex(header["batch_id"], "batch_id")
     _hex(header["root"], "root")

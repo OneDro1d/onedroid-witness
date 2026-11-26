@@ -17,7 +17,8 @@ again, with the same key and the same bytes, on each tick until no anchor says f
 The key is the hash itself, so a repeat (a retry after a 202 or a later sealer tick) is the same request and armarium answers
 the same transactions. A 202, 429, 5xx or no answer is repeated with the same bytes, at most MAX_ATTEMPTS times inside
 WITNESS_NOTARY_TIMEOUT_S (60 s); a 409, any other 4xx, a 200 that is not every chain landed, or a certificate that does not
-verify ends it at once. TLS is always verified (WITNESS_NOTARY_CA_FILE, else the system's trust). The token is read from its
+verify ends it at once. Own model key (C2): own_from_env builds the client for own batches, the same request with profile
+WITNESS_NOTARY_OWN_PROFILE (hash/1-own; never hash/1) and WITNESS_NOTARY_OWN_TOKEN_FILE when set. TLS is always verified (WITNESS_NOTARY_CA_FILE, else the system's trust). The token is read from its
 file for each seal, sent only in the Authorization header, and never logged or returned; no free text from the notary is kept.
 """
 import base64
@@ -32,6 +33,8 @@ import urllib.parse
 import urllib.request
 
 PROFILE = "hash/1"
+OWN_PROFILE = "hash/1-own"  # own model key (C2): armarium's profile anchoring on lab-qbft only; WITNESS_NOTARY_OWN_PROFILE
+OWN_CHAIN = "lab-qbft"  # the one chain an own batch may be anchored on
 LABEL = "claim-witness/batch/1"  # hash/1's optional label: ^[A-Za-z0-9][A-Za-z0-9.:/_-]{0,63}$
 SEALS_PATH = "/notary/v1/seals"
 DEFAULT_TIMEOUT_S = 60.0
@@ -44,12 +47,16 @@ TX_HASH = re.compile(r"0x[0-9a-fA-F]{64}")
 IDENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 BLOCK_TIME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]{8,20}(Z|[+-][0-9]{2}:[0-9]{2})")
 EXPLORER = re.compile(r"https://[A-Za-z0-9.-]{1,253}(:[0-9]{1,5})?/[A-Za-z0-9/._~%?=&#:-]{0,300}")
+IDENT_PROFILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,63}")
 ANSWER_MAX = 1 << 20
 REASON_MAX = 400
 
 
 class NotaryClient:
-    """The interface: seal "sha256:<over_hex>" under hash/1 and return the result object; never raises for an answer."""
+    """The interface: seal "sha256:<over_hex>" under the client's `profile` (hash/1, or for own batches the own profile) and
+    return the result object; never raises for an answer."""
+
+    profile = PROFILE
 
     def seal(self, over_hex):
         raise NotImplementedError
@@ -121,6 +128,33 @@ def from_env(env):
     return HttpNotary(cfg) if cfg else None
 
 
+def own_settings(env):
+    """Own model key (C2): the settings of the notary client for own batches, or None (own batches close unanchored).
+    WITNESS_NOTARY_OWN_PROFILE: unset means hash/1-own; empty or "off" means no own profile; hash/1 (the public profile) is
+    refused, so an own batch can never be sent with it. WITNESS_NOTARY_OWN_TOKEN_FILE: the token for it when set (and
+    mounted), else WITNESS_NOTARY_TOKEN_FILE. The URL, CA and timeout are the notary's."""
+    raw = env.get("WITNESS_NOTARY_OWN_PROFILE")
+    profile = OWN_PROFILE if raw is None else raw.strip()
+    if profile in ("", "off"):
+        return None
+    if profile == PROFILE:
+        raise ValueError("WITNESS_NOTARY_OWN_PROFILE: hash/1 anchors on a public chain; own batches never use it")
+    if not IDENT_PROFILE.fullmatch(profile):
+        raise ValueError("WITNESS_NOTARY_OWN_PROFILE: a profile name like hash/1-own")
+    own_token = (env.get("WITNESS_NOTARY_OWN_TOKEN_FILE") or "").strip()
+    if own_token and os.path.exists(own_token):
+        env = dict(env, WITNESS_NOTARY_TOKEN_FILE=own_token)
+    cfg = settings(env)
+    if cfg is None:
+        return None
+    return dict(cfg, profile=profile)
+
+
+def own_from_env(env):
+    cfg = own_settings(env)
+    return HttpNotary(cfg) if cfg else None
+
+
 def all_final(result):
     """True when `result` landed and no anchor says final:false (an anchor without the field is not held back)."""
     if not isinstance(result, dict) or result.get("status") != "landed":
@@ -156,6 +190,7 @@ def _states(anchors):
 class HttpNotary(NotaryClient):
     def __init__(self, cfg, sleep=time.sleep, clock=time.monotonic):
         self.cfg, self.sleep, self.clock = cfg, sleep, clock
+        self.profile = cfg.get("profile") or PROFILE
 
     def _clean(self, text, token):
         text = " ".join(str(text).split())
@@ -167,7 +202,7 @@ class HttpNotary(NotaryClient):
         if not isinstance(over_hex, str) or not HEX64.fullmatch(over_hex):
             raise ValueError("over is 64 lower-case hex")
         over, key = "sha256:" + over_hex, over_hex
-        out = {"status": "failed", "profile": PROFILE, "over": over, "key": key, "anchors": [], "reason": None}
+        out = {"status": "failed", "profile": self.profile, "over": over, "key": key, "anchors": [], "reason": None}
         token = None
         try:
             token = read_token(self.cfg["token_file"])
@@ -175,7 +210,7 @@ class HttpNotary(NotaryClient):
             out["reason"] = f"token: {e}"
             return out
         payload = json.dumps({"label": LABEL, "over": over}, separators=(",", ":")).encode("ascii")
-        body = json.dumps({"profile": PROFILE, "key": key, "payload": base64.b64encode(payload).decode("ascii")},
+        body = json.dumps({"profile": self.profile, "key": key, "payload": base64.b64encode(payload).decode("ascii")},
                           separators=(",", ":")).encode("ascii")
         headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json", "Accept": "application/json"}
         timeout = float(self.cfg.get("timeout_s") or DEFAULT_TIMEOUT_S)
@@ -246,7 +281,7 @@ class HttpNotary(NotaryClient):
 
     def _landed(self, out, answer, anchors, key, token):
         out["anchors"] = anchors
-        if answer.get("key") != key or answer.get("profile") != PROFILE:
+        if answer.get("key") != key or answer.get("profile") != self.profile:
             out["reason"] = "bad_answer: the 200 is not for this key and profile"
         elif not anchors:
             out["reason"] = "bad_answer: the 200 names no chain"

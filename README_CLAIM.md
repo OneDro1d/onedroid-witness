@@ -546,6 +546,48 @@ the case; it is created in the background and stored in `ndim_chains` (migration
 - armarium's facts (24 Nov): an object DELETE removes the version's key only on a claimant chain created with ARMARIUM_KMS
   (`dek: "deleted"`); on a legacy (service-owned) chain the key stays under the shared KEK (`dek: "on-chain"`).
 
+## Own model key
+
+DESIGN M-20261126-CLAIMS-DOCS-BYOK, C1 (the witness part) and C2: a check a user pays with their own OpenRouter key. The BFF
+decides (credits first; own key only when the credits cannot cover the check and the account has saved a key) and the witness
+does what it is told in the body the BFF signs. Name in code and APIs: **own key** (`own-key`, `own_key`).
+
+- **Request** (`POST /v1/witness`, `POST /v1/observe`): `options.billing: "own-key"` (its only value; anything else is 422
+  `invalid-options`) plus the key in header `X-Witness-Model-Key`. Billing own-key without the header (or with an empty or
+  malformed one) is 422 `model-key-missing`; the header without billing own-key is ignored and never used. `/v1/observe` takes
+  `options` with `billing` only.
+- **Model calls**: an own-key `judge.supports` run calls the same base URL and the same configured models with the header key
+  instead of `WITNESS_JUDGE_API_KEY_FILE`'s. The key lives in the request's memory only: never logged, never stored (not in the
+  job row, not in the answer, not in the signing log or raw outputs), never echoed; every string from a provider answer is
+  scrubbed of it before it is parsed, hashed or kept, and an error body is never read (its status only).
+- **A refused key**: when every model run of the check is answered 401, 402 or 403, there is no record: 422
+  `model-key-rejected`, detail `OpenRouter answered 401: the key is not valid` / `402: the key's OpenRouter account is out of
+  credit` / `403: the key is disabled or not allowed to use this model`. Nothing is signed, nothing is counted.
+- **Price**: `{"credits": 0, "billing": "own-key", "lines": [...]}`, every line `credits: 0`, model-run lines with
+  `"paid_by": "own-key"`. Fresh observations stay free within the daily allowance (`WITNESS_FREE_OBSERVATIONS_PER_DAY`, 50);
+  past it an own-key request is 402 `own-key-observation-limit` ("own-key checks include 50 fresh page observations a day"),
+  refused before anything is fetched or signed.
+- **Anchoring**: answers (`POST /v1/witness`, `GET /v1/jobs/{id}`, `POST /v1/observe`) and the record view (`GET
+  /v1/records/{id}`) carry top-level `"anchoring": "own"` for what was signed while serving an own-key request, `"public"` for
+  everything else. The signed record itself is the same record as a paid check's.
+- **Tier** (migration `008_signing_log_tier.sql`): every signing-log row has `tier` `public` or `own`. Own: the record, every
+  observation fetched for it (and by an own-key `/v1/observe`), and the header of a batch of own rows. Rows from before the
+  migration are public. The tier goes to the signer sidecar in the sign request; the signer logs it and echoes it, and the API
+  refuses an answer that does not echo it.
+- **Sealer**: batches are formed per tier and never mix tiers. Every new header carries `"anchoring": "public" | "own"` (signed;
+  a header without it is public, so every older seal still verifies). Public batches are unchanged (profile hash/1, lab-qbft +
+  base-sepolia). Own batches go only to the own notary client: profile `WITNESS_NOTARY_OWN_PROFILE` (unset: `hash/1-own`;
+  empty or `off`: none; `hash/1` is refused at start), token `WITNESS_NOTARY_OWN_TOKEN_FILE` when set and mounted, else
+  `WITNESS_NOTARY_TOKEN_FILE`; URL, CA and timeout are the notary's. Without an own client own batches close unanchored
+  (`notary.status: off`) and are never sent with hash/1. An answer for an own batch that names any chain other than lab-qbft
+  is a failed seal (state stays pending, reason names the chain, no anchor kept), asked again each tick with the own client.
+- **witness-verify**: a header with `anchoring: own` prints `INFO anchoring: own chain only (a check paid with the user's own
+  model key is not anchored on a public chain)`; with `--rpc` its lab-qbft anchor is `SKIP seal-chain` as before and the
+  missing public anchor is never a FAIL. An own header whose seal carries a base-sepolia anchor is `FAIL seal` naming it; an
+  `anchoring` other than public or own is `FAIL seal`. A public header (or none) behaves exactly as before.
+- **Deploying**: armarium must serve the own profile (lab-qbft only) for the witness's token; until it does, own seals stay
+  pending (the notary refuses the profile), and nothing own is ever sent with hash/1.
+
 ## Running locally with the real fetcher
 
 ```
@@ -1381,3 +1423,69 @@ at query time, semantic is `503 embedder-unavailable` and hybrid is degraded as 
      - `GET /v1/methods` is unchanged: the current library only. Not changed: `claim_witness/methods/` (so the current tarball and
        every `code_sha256`), `verify.py`, any method's behaviour. The deployed image must be rebuilt for the archive to be served;
        until then the old bundle code runs.
+
+### Builder decisions, own model key (162-; branch v1/claim-own-key; DESIGN M-20261126-CLAIMS-DOCS-BYOK C1 witness part, C2)
+
+Where the design left a choice open, the reading that keeps the key private and the public chain untouched was taken.
+
+162. **Tests.** RED first (`3b54dee`: `tests_claim/test_own_key.py`, `test_own_key_pg.py`; 50 of 51 failing on f4a56a7, the one
+     passing being "the witness's own key refused is not model-key-rejected", today's behaviour). One test fix in its own commit
+     (`6cfc057`, no rule loosened: a clock step between two captures, and the B3 tick that notarizes twice). Test fakes gained
+     what the tests need: `fake_models` accepts or refuses extra keys (`accepted_keys`, `key_answers`) and serves a whole
+     completion object; `FakeNotary` takes a `profile` and `chains`; `HttpsNotary` a `chain`. The migration-list tests and
+     `test_sealer`'s header key set changed in the RED commit.
+163. **The header is one token.** `X-Witness-Model-Key` is stripped and must be 1 to 4,096 printable ASCII characters with no
+     space; empty or malformed is `model-key-missing` (the value is never echoed). It is read on `POST /v1/witness` and
+     `POST /v1/observe` only, and only used with billing own-key. The witness does not check the `sk-or-` shape: the BFF does,
+     and a standalone backend may use another.
+164. **`/v1/observe` takes `options: {billing}` only**, with the same rules (an unknown option is `invalid-options`, the header is
+     required with billing own-key although an observation calls no model; the key is then neither used nor kept).
+165. **`model-key-rejected` needs every run refused** with 401, 402 or 403; the detail names the first run's status. Some runs
+     refused and others failing otherwise (5xx, timeout) or answering: a record as today, with the failed runs noted. No model
+     run at all (unreadable, too large, a hard injection flag, untrusted evidence): a record as today, the key unused. A paid
+     check whose configured key is refused is unchanged (failed runs, a record).
+166. **Scrubbing.** In own-key mode every string in a provider's answer (message content, `model`, `provider`, the whole object)
+     has the key replaced by `[model-key]` before anything parses, hashes, signs or keeps it, so `raw_output_sha256` is the hash
+     of the scrubbed text. Error bodies are never read, only their status. `Prepared` has a `repr` without the key.
+167. **Own-key price lines** are the paid lines with `credits: 0` (the `check` line stays, at 0), plus `paid_by: "own-key"` on
+     model-run lines; the observation fields (`fresh_observations`, `reused_observations`, `free_left_today`) stay.
+168. **The observation allowance is checked up front, worst case**: an own-key check needs one fresh fetch per url item
+     (`page.live` two, for its confirmation); `/v1/observe` one, even when `max_age` might reuse. Past the allowance: 402 before
+     anything is fetched or signed; checked again before each fresh fetch. The counter is the account's existing daily one
+     (paid fresh fetches count too). The detail names the configured number (50 by default, the design's sentence).
+169. **Reuse across tiers.** A public-tier request never reuses an own-tier observation (its seal is on OneDroid's chain only);
+     an own-key request may reuse a public one. An observe answer's `anchoring` is the observation's own tier, so a reused public
+     observation says `public` even to an own-key request. (A paid and an own-key capture of the same page in the same second are
+     the same payload; the log then holds it twice, and `log_tier` and the seal answer for the first row.)
+170. **The object-only idempotency fingerprint includes billing**, so a paid answer is never served for an own-key request and
+     back (different tier, price and anchoring). Idempotency-Key repeats return the first answer as before (the body, billing
+     included, is in `request_sha256`).
+171. **The tier travels in the sign request** (`"tier"`, sent only when not public). The signer refuses an unknown tier and a
+     batch header whose `anchoring` is not its tier, logs the tier and echoes it; the API refuses (503, signer-unavailable) an
+     answer that does not echo the tier it asked for, so a signer without tiers can never log an own row as public unnoticed.
+172. **A batch header's own leaf takes the batch's tier**, so the header of an own batch is sealed in the next own batch, never
+     in a public one: nothing from an own-key check reaches base-sepolia, not even a header hash. Each tick closes public batches
+     first, then own; headers signed in the tick wait for the next one, as before.
+173. **Every new header carries `anchoring`**, public ones too (signed). `sealer.header_of` adds it only when given, so the B3
+     seal vectors are unchanged; witness-verify never checked the header's key set, so older verifiers verify the new headers.
+174. **`WITNESS_NOTARY_OWN_PROFILE`**: unset means `hash/1-own` (the design's default); empty or `off` means no own profile (own
+     batches close unanchored); `hash/1` is refused at start like any other bad notary setting. `WITNESS_NOTARY_OWN_TOKEN_FILE` is
+     used when set and mounted, else the notary token; with no notary settings at all there is no own client. The sealer uses
+     the own client only when its `profile` is not hash/1 (a client without one counts as hash/1) and it is not the public client.
+     The k8s manifest is unchanged: on dev the own profile is `hash/1-own` with the witness's notary token.
+175. **The own-chain guard is in the sealer** (it holds for any notary client): any anchor on a chain other than lab-qbft, or an
+     answer for profile hash/1, makes the result `failed` with no anchors kept and a reason naming the chain(s); the batch stays
+     pending and is asked again each tick with the own client. `HttpNotary` also refuses a 200 for another profile than the one
+     it asked for.
+176. **Unanchored own batches** (no own client) are `unanchored` with `notary.status: off`, as public batches without a notary.
+     An own batch left pending when the own profile is later removed stays pending and is sent nowhere.
+177. **`anchoring` is reported, not signed into the record**: check answers and job answers (stored with the answer; an answer
+     stored before this change reads as public), `POST /v1/observe` answers, and `GET /v1/records/{id}` (from the signing log's
+     tier). The keep answer, the seal route and the bundle are unchanged; the seal's signed header carries it.
+178. **witness-verify** prints the INFO line whenever the header says own (pending or anchored seal), FAILs `seal` for a
+     base-sepolia anchor in any state on an own header (the RPC is then never asked), and FAILs `seal` for an `anchoring` that is
+     neither public nor own.
+179. **Migration `008_signing_log_tier.sql`** (`ADD COLUMN IF NOT EXISTS tier ... DEFAULT 'public' CHECK`, plus an index for
+     pending leaves per tier). 006 stays free (left for B5b, which needed none).
+180. **Not changed**: `claim_witness/methods/` (methods tarball `1d8b3e75...` and every `code_sha256` as before), the existing
+     vectors (own-seal vectors are added in their own commit), `/.well-known/witness.json`, keep, the graph, search and n-dim.

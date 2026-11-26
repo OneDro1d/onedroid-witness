@@ -13,7 +13,12 @@ Each tick:
      thread ("ndim"), because the first create of an owner's claimant chain can take minutes and must not hold up sealing.
 
 batch_id = H(canonical {witness, first_seq, last_seq, root}). opened_at is the time of the batch's first leaf, closed_at the
-tick's time. Without a notary a batch is closed and proved but never anchored (state "unanchored"; its seal stays pending)."""
+tick's time. Without a notary a batch is closed and proved but never anchored (state "unanchored"; its seal stays pending).
+
+Own model key (C2): the signing log's rows have a tier (public | own). Batches are formed per tier and never mix them; the
+header says `anchoring` (signed), and its own leaf takes the batch's tier. Public batches go to `cfg.notary` (hash/1); own
+batches only to `cfg.notary_own` when its profile is not hash/1, else they close unanchored; an own answer naming any chain but
+lab-qbft is a failed seal (own_seal_guard)."""
 import hashlib
 import sys
 import threading
@@ -21,6 +26,7 @@ import time
 
 from . import jcs, merkle, notary as notary_mod
 from .schemas import BATCH_TYPE
+from .storage import TIERS
 
 
 def iso(t):
@@ -37,10 +43,35 @@ def batch_id_of(witness_id, first_seq, last_seq, root):
                                          "root": root})).hexdigest()
 
 
-def header_of(witness_id, key_id, rows, root, closed_at, interval_s):
-    return {"witness": witness_id, "batch_id": batch_id_of(witness_id, rows[0]["seq"], rows[-1]["seq"], root), "root": root,
-            "size": len(rows), "opened_at": iso(rows[0]["at"]), "closed_at": iso(closed_at), "interval_s": int(interval_s),
-            "key_id": key_id}
+def header_of(witness_id, key_id, rows, root, closed_at, interval_s, anchoring=None):
+    """The batch header. `anchoring` ("public" | "own", own model key C2) is added when given; the sealer always gives it, and a
+    header without it (every seal before C2, and the B3 vectors) is public."""
+    out = {"witness": witness_id, "batch_id": batch_id_of(witness_id, rows[0]["seq"], rows[-1]["seq"], root), "root": root,
+           "size": len(rows), "opened_at": iso(rows[0]["at"]), "closed_at": iso(closed_at), "interval_s": int(interval_s),
+           "key_id": key_id}
+    if anchoring is not None:
+        out["anchoring"] = anchoring
+    return out
+
+
+def anchoring_of(header):
+    return (header or {}).get("anchoring", "public")
+
+
+def own_seal_guard(res, signed_header):
+    """Own model key (C2): a notary answer for an own batch that names any chain other than lab-qbft (or answers for the public
+    profile) is a failed seal, never an anchor: status failed, no anchors kept, the reason naming the chain. The batch stays
+    pending and is asked again on the next tick, with the own client only."""
+    if not isinstance(res, dict):
+        return res
+    anchors = res.get("anchors") or []
+    other = sorted({str(a.get("chain")) for a in anchors if isinstance(a, dict) and a.get("chain") != notary_mod.OWN_CHAIN})
+    if not other and res.get("profile") != notary_mod.PROFILE:
+        return res
+    why = (f"own_chain: the notary answered {', '.join(other)} for an own batch; an own batch is anchored on "
+           f"{notary_mod.OWN_CHAIN} only") if other else "own_chain: the notary answered for profile hash/1 for an own batch"
+    return {"status": "failed", "profile": res.get("profile"), "over": res.get("over") or "sha256:" + over_of(signed_header),
+            "key": res.get("key") or over_of(signed_header), "anchors": [], "reason": why}
 
 
 def seal_of(batch, proof):
@@ -88,48 +119,71 @@ class Sealer:
                 print(f"sealer: n-dim sync failed ({type(e).__name__})", file=sys.stderr, flush=True)
 
     def _close_due(self):
+        """Own model key (C2): batches are formed per tier, public first, and never mix tiers. The headers signed in this tick
+        (of either tier) wait for the next one."""
         cfg, st = self.w.cfg, self.w.storage
         now = self.w.now()
         closed, max_seq = [], None
-        while True:
-            rows = st.pending_leaves(cfg.batch_max_leaves, max_seq=max_seq)
-            if not rows or (len(rows) < cfg.batch_max_leaves and now - rows[0]["at"] < cfg.batch_interval_s):
-                return closed
-            bid, header_seq = self._close(rows, now)
-            closed.append(bid)
-            if max_seq is None:
-                max_seq = header_seq - 1  # the header signed now waits for the next tick
+        for tier in TIERS:
+            while True:
+                rows = st.pending_leaves(cfg.batch_max_leaves, max_seq=max_seq, tier=tier)
+                if not rows or (len(rows) < cfg.batch_max_leaves and now - rows[0]["at"] < cfg.batch_interval_s):
+                    break
+                bid, header_seq = self._close(rows, now, tier)
+                closed.append(bid)
+                if max_seq is None:
+                    max_seq = header_seq - 1  # the header signed now waits for the next tick
+        return closed
 
-    def _close(self, rows, now):
+    def notary_for(self, tier):
+        """The notary client for a tier, or None (the batch closes unanchored). Public: WITNESS_NOTARY_* (hash/1). Own: only the
+        own client, and only when its profile is not hash/1 (a client without a profile counts as hash/1): an own batch is
+        never sent with the public profile."""
+        cfg = self.w.cfg
+        if tier != "own":
+            return cfg.notary
+        own = getattr(cfg, "notary_own", None)
+        if own is None or getattr(own, "profile", notary_mod.PROFILE) == notary_mod.PROFILE or own is cfg.notary:
+            return None
+        return own
+
+    def _close(self, rows, now, tier="public"):
         cfg, st = self.w.cfg, self.w.storage
+        if any((r.get("tier") or "public") != tier for r in rows):
+            raise RuntimeError("a batch never mixes tiers")
+        client = self.notary_for(tier)
         leaves = [r["leaf"] for r in rows]
         root, paths = merkle.root(leaves), merkle.paths(leaves)
         info = self.w.signer.info()
-        header = header_of(cfg.witness_id, info["key_id"], rows, root, now, cfg.batch_interval_s)
-        signed = self.w.signer.sign(BATCH_TYPE, header)
+        header = header_of(cfg.witness_id, info["key_id"], rows, root, now, cfg.batch_interval_s, anchoring=tier)
+        signed = self.w.signer.sign(BATCH_TYPE, header, tier=tier)  # the header's own leaf joins the next batch of its tier
         full = dict(header, sig=signed["sig"])
         batch = {"id": header["batch_id"], "first_seq": rows[0]["seq"], "last_seq": rows[-1]["seq"], "size": len(rows),
-                 "root": root, "header": full, "notary": None if cfg.notary is not None else notary_mod.off_result(),
-                 "state": "pending" if cfg.notary is not None else "unanchored", "created_at": now}
+                 "root": root, "header": full, "notary": None if client is not None else notary_mod.off_result(),
+                 "state": "pending" if client is not None else "unanchored", "created_at": now}
         st.write_batch(batch, [{"seq": r["seq"], "payload_id": r["payload_id"], "leaf_index": i, "path": paths[i]}
                                for i, r in enumerate(rows)])
-        if cfg.notary is not None:
-            self._notarize(batch["id"], full)
+        if client is not None:
+            self._notarize(batch["id"], full, client)
         return batch["id"], signed["log_seq"]
 
-    def _notarize(self, batch_id, signed_header):
+    def _notarize(self, batch_id, signed_header, client):
+        tier = anchoring_of(signed_header)
         try:
-            res = self.w.cfg.notary.seal(over_of(signed_header))
+            res = client.seal(over_of(signed_header))
         except Exception as e:  # noqa: BLE001 - a notary failure leaves the seal pending, retried next tick
-            res = {"status": "failed", "profile": notary_mod.PROFILE, "over": "sha256:" + over_of(signed_header),
-                   "key": over_of(signed_header), "anchors": [], "reason": f"error: {type(e).__name__}"}
+            res = {"status": "failed", "profile": getattr(client, "profile", notary_mod.PROFILE),
+                   "over": "sha256:" + over_of(signed_header), "key": over_of(signed_header), "anchors": [],
+                   "reason": f"error: {type(e).__name__}"}
+        if tier == "own":
+            res = own_seal_guard(res, signed_header)
         self.w.storage.update_batch(batch_id, notary=res, state="anchored" if notary_mod.all_final(res) else "pending")
 
     def _retry_notary(self):
-        if self.w.cfg.notary is None:
-            return
         for b in self.w.storage.batches("pending"):
-            self._notarize(b["id"], b["header"])
+            client = self.notary_for(anchoring_of(b["header"]))
+            if client is not None:
+                self._notarize(b["id"], b["header"], client)
 
     # ------------------------------------------------------------------------------------------------------- the loop
 

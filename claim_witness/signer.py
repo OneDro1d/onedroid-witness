@@ -21,6 +21,7 @@ import time
 
 from . import crypto, dsse, ids, jcs, schemas
 from .schemas import BATCH_TYPE, CLAIM_TYPE, KEYLIST_TYPE, OBSERVATION_TYPE
+from .storage import TIERS
 
 BATCH_PAYLOAD_TYPE = "application/vnd.onedroid.witness.batch-header+json"
 MAX_REQUEST = 8 << 20
@@ -139,7 +140,14 @@ class SignerCore:
         return {"witness_id": self.witness_id, "key_id": self.key_id, "key_list_seq": self.seq,
                 "public": base64.b64encode(self.public).decode()}
 
-    def sign(self, predicate_type, payload):
+    def sign(self, predicate_type, payload, tier="public"):
+        """Sign and append to the signing log under `tier` (own model key, C2): "own" for what is signed while serving an
+        own-key request, else "public". A batch header's `anchoring` must be its tier (absent = public)."""
+        if tier not in TIERS:
+            raise Refused(f"tier: one of {list(TIERS)}")
+        if predicate_type == BATCH_TYPE and isinstance(payload, dict) and payload.get("anchoring", "public") != tier:
+            raise Refused(f"a batch header with anchoring {payload.get('anchoring', 'public')!r} is signed in tier "
+                          f"{payload.get('anchoring', 'public')!r} only, not {tier!r}")
         with self.lock:
             try:
                 self.seq = self._current_seq()
@@ -160,12 +168,12 @@ class SignerCore:
             pid = ids.record_id(raw)
             if predicate_type == BATCH_TYPE:
                 sig = crypto.ed25519_sign(self.seed, dsse.pae(BATCH_PAYLOAD_TYPE, raw))
-                seq = self.storage.append_signing_log(pid, predicate_type, now, leaf=ids.leaf_hash(raw))
+                seq = self.storage.append_signing_log(pid, predicate_type, now, leaf=ids.leaf_hash(raw), tier=tier)
                 return {"keyid": self.key_id, "sig": base64.b64encode(sig).decode(), "payload_id": pid, "log_seq": seq,
-                        "payloadType": BATCH_PAYLOAD_TYPE}
+                        "payloadType": BATCH_PAYLOAD_TYPE, "tier": tier}
             env = dsse.sign(raw, [(self.key_id, self.seed)])
-            seq = self.storage.append_signing_log(pid, predicate_type, now, leaf=ids.leaf_hash(raw))
-            return {"envelope": env, "payload_id": pid, "log_seq": seq}
+            seq = self.storage.append_signing_log(pid, predicate_type, now, leaf=ids.leaf_hash(raw), tier=tier)
+            return {"envelope": env, "payload_id": pid, "log_seq": seq, "tier": tier}
 
     def handle(self, req):
         """One request object to one answer object (the socket protocol)."""
@@ -177,7 +185,7 @@ class SignerCore:
         if op != "sign":
             return {"error": "bad-request", "detail": f"unknown op {op!r}"}
         try:
-            return self.sign(req.get("predicateType"), req.get("payload"))
+            return self.sign(req.get("predicateType"), req.get("payload"), req.get("tier", "public"))
         except Refused as e:
             return {"error": "refused", "detail": str(e)}
 
@@ -199,8 +207,14 @@ class LocalSignerClient:
     def info(self):
         return self._call({"op": "info"})
 
-    def sign(self, predicate_type, payload):
-        return self._call({"op": "sign", "predicateType": predicate_type, "payload": payload})
+    def sign(self, predicate_type, payload, tier="public"):
+        req = {"op": "sign", "predicateType": predicate_type, "payload": payload}
+        if tier != "public":
+            req["tier"] = tier
+        out = self._call(req)
+        if out.get("tier", "public") != tier:  # a signer that does not know tiers logged the row as public: never pass it off
+            raise SignerUnavailable(f"the signer logged tier {out.get('tier', 'public')!r}, not {tier!r}")
+        return out
 
 
 class SocketSignerClient(LocalSignerClient):

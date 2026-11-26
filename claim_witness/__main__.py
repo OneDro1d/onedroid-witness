@@ -11,6 +11,8 @@
            (match.screenshot). B3: WITNESS_BATCH_INTERVAL_S (3600), WITNESS_BATCH_MAX_LEAVES (100000), WITNESS_SEALER
            (1; 0 runs no sealer in this process), WITNESS_SEALER_POLL_S (30), WITNESS_NOTARY_URL, WITNESS_NOTARY_TOKEN_FILE,
            WITNESS_NOTARY_CA_FILE, WITNESS_NOTARY_TIMEOUT_S (no token file: batches are closed but never anchored),
+           WITNESS_NOTARY_OWN_PROFILE (hash/1-own; "" or off: own-key batches close unanchored; hash/1 is refused),
+           WITNESS_NOTARY_OWN_TOKEN_FILE (optional, else the notary token),
            ARMARIUM_URL, ARMARIUM_TOKEN_FILE, ARMARIUM_CA_FILE, ARMARIUM_CASE (no URL: nothing is written to n-dim),
            NDIM_STORE_EVIDENCE (0), WITNESS_LINK_BASE (https://evidence.onedroid.ai), WITNESS_OPERATOR_ACCOUNTS (comma list).
            B7: WITNESS_EMBEDDER_URL (an OpenAI-compatible /v1/embeddings endpoint; unset: GET /v1/search mode=semantic answers
@@ -57,7 +59,7 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
                          image_digest=(env.get("WITNESS_IMAGE_DIGEST") or "").strip() or None,
                          tesseract_bin=(env.get("WITNESS_TESSERACT_BIN") or "").strip() or shutil.which("tesseract"),
                          host_fetches_per_minute=int(env.get("WITNESS_HOST_FETCHES_PER_MINUTE") or 6),
-                         notary=notary.from_env(env), armarium=armarium, ndim_case=case,
+                         notary=notary.from_env(env), notary_own=notary.own_from_env(env), armarium=armarium, ndim_case=case,
                          ndim_store_evidence=(env.get("NDIM_STORE_EVIDENCE") or "0").strip() == "1",
                          batch_interval_s=int(env.get("WITNESS_BATCH_INTERVAL_S") or 3600),
                          batch_max_leaves=int(env.get("WITNESS_BATCH_MAX_LEAVES") or 100000),
@@ -71,6 +73,9 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
     print(f"claim-witness: notary {'configured' if cfg.notary else 'not configured (batches close, never anchored)'}; "
           f"n-dim {('claimant chain per owner under case ' + case) if armarium else 'not configured (nothing is written)'}"
           f"{' with kept evidence' if armarium and cfg.ndim_store_evidence else ''}", flush=True)
+    print(f"claim-witness: own-key batches "
+          f"{('notarized with profile ' + cfg.notary_own.profile) if cfg.notary_own else 'close unanchored (no own notary profile)'}",
+          flush=True)
     witness = service.Witness(storage, signer_client, cfg)
     try:  # B7: edges and search rows for records signed or kept before this version; idempotent, never fatal
         g, s = witness.graph.backfill(), witness.search.backfill()
