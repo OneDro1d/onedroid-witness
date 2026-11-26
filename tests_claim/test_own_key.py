@@ -523,7 +523,18 @@ class OwnNotarySettings(unittest.TestCase):
         self.srv = HttpsNotary(self.tls, chain="lab-qbft")
         self.addCleanup(self.srv.close)
         self.env = {"WITNESS_NOTARY_URL": self.srv.url, "WITNESS_NOTARY_TOKEN_FILE": self.srv.token_file,
-                    "WITNESS_NOTARY_CA_FILE": self.srv.ca_file}
+                    "WITNESS_NOTARY_CA_FILE": self.srv.ca_file, "WITNESS_NOTARY_OWN_TOKEN_FILE": self.srv.token_file}
+
+    def test_no_own_token_file_means_no_own_notary_never_the_public_token(self):
+        # DESIGN C2: "No own profile or token configured -> own batches unanchored". The own-key judge found own_settings()
+        # falling back to WITNESS_NOTARY_TOKEN_FILE, so an own batch went out with the PUBLIC token (26 Nov, PROBE-own-token-unset).
+        env = dict(self.env)
+        del env["WITNESS_NOTARY_OWN_TOKEN_FILE"]
+        self.assertIsNone(notary.own_from_env(env))
+        self.assertIsNone(notary.own_from_env(dict(env, WITNESS_NOTARY_OWN_TOKEN_FILE="")))
+        missing = str(pathlib.Path(tempfile.mkdtemp(prefix="cw-owntok-")) / "absent")
+        self.assertIsNone(notary.own_from_env(dict(env, WITNESS_NOTARY_OWN_TOKEN_FILE=missing)))
+        self.assertEqual(self.srv.requests, [])
 
     def test_the_default_own_profile_is_hash_1_own_and_is_sent_as_the_profile(self):
         n = notary.own_from_env(self.env)
