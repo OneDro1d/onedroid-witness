@@ -336,6 +336,44 @@ class Idempotency(Base):
         again = self.ok(h.exact_request(b"pv", b"pv", visibility="private"))
         self.assertEqual(again["disclosure"], first["disclosure"])
 
+    # The replay marker (Aleksander, #argus-onedroid 26 Nov): an answer from the object-only rule says it is a replay and
+    # reports price 0, because the BFF charges a record once; the record itself is unchanged.
+    def test_content_replay_says_replayed_and_price_zero(self):
+        first = self.ok(h.exact_request(b"rp", b"rp"))
+        self.assertNotIn("replayed", first)
+        self.assertEqual(first["price"]["credits"], 1)
+        again = self.ok(h.exact_request(b"rp", b"rp"))
+        self.assertIs(again["replayed"], True)
+        self.assertEqual(again["price"], {"credits": 0, "lines": []})
+        self.assertEqual(again["record_id"], first["record_id"])
+        self.assertEqual(again["envelope"], first["envelope"])
+
+    def test_content_replay_under_a_new_idempotency_key_is_marked_and_repeats_marked(self):
+        first = self.ok(h.exact_request(b"rk", b"rk"), headers={"Idempotency-Key": "rk-1"})
+        self.assertNotIn("replayed", first)
+        again = self.ok(h.exact_request(b"rk", b"rk"), headers={"Idempotency-Key": "rk-2"})
+        self.assertIs(again["replayed"], True)
+        self.assertEqual(again["price"], {"credits": 0, "lines": []})
+        self.assertEqual(again["record_id"], first["record_id"])
+        # the same key again answers that (marked) answer; the first key still answers the first, unmarked one
+        self.assertEqual(self.ok(h.exact_request(b"rk", b"rk"), headers={"Idempotency-Key": "rk-2"}), again)
+        self.assertEqual(self.ok(h.exact_request(b"rk", b"rk"), headers={"Idempotency-Key": "rk-1"}), first)
+
+    def test_content_replay_of_private_record_keeps_disclosure_and_is_marked(self):
+        first = self.ok(h.exact_request(b"rv", b"rv", visibility="private"))
+        again = self.ok(h.exact_request(b"rv", b"rv", visibility="private"))
+        self.assertEqual(again["disclosure"], first["disclosure"])
+        self.assertIs(again["replayed"], True)
+
+    def test_new_label_is_a_new_record_not_a_replay(self):
+        first = self.ok(h.exact_request(b"rl", b"rl"))
+        req = h.exact_request(b"rl", b"rl")
+        req["label"] = "another run"
+        other = self.ok(req)
+        self.assertNotEqual(other["record_id"], first["record_id"])
+        self.assertNotIn("replayed", other)
+        self.assertEqual(other["price"]["credits"], 1)
+
 
 class Jobs(Base):
     def test_wait_zero_gives_202_then_job_done(self):
