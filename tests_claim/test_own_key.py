@@ -264,6 +264,17 @@ class OwnKeyMechanical(unittest.TestCase):
         code, again, _ = self.s.witness_call(exact_request())
         self.assertEqual(again["record_id"], paid["record_id"])
 
+    def test_an_own_key_replay_is_marked_and_keeps_its_billing(self):
+        # the replay marker (README_CLAIM.md item 5) on an own-key record: price 0 with billing own-key, anchoring own
+        code, mine, _ = self.s.witness_call(own(exact_request(b"own replay\n")), headers=HDR)
+        self.assertEqual(code, 200, mine)
+        code, again, _ = self.s.witness_call(own(exact_request(b"own replay\n")), headers=HDR)
+        self.assertEqual(code, 200, again)
+        self.assertEqual(again["record_id"], mine["record_id"])
+        self.assertIs(again["replayed"], True)
+        self.assertEqual(again["price"], {"credits": 0, "lines": [], "billing": "own-key"})
+        self.assertEqual(again["anchoring"], "own")
+
     def test_signer_answers_name_the_tier(self):
         out = self.s.signer.sign(BATCH_TYPE, {"witness": "witness:test", "batch_id": "a" * 64, "root": "b" * 64, "size": 1,
                                               "opened_at": "2026-11-24T00:00:00Z", "closed_at": "2026-11-24T01:00:00Z",

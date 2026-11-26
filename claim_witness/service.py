@@ -417,11 +417,18 @@ class Witness:
         if p.auto_fp is not None:
             prev = self.storage.find_job_by_auto(account, p.auto_fp, since=now - IDEM_WINDOW)
             if prev is not None:
+                # The replay marker: the same record, marked as a replay, at price 0. The BFF charges a record once, so
+                # the first answer's price would misreport this one. The price is not signed; the envelope is unchanged.
+                replay = self._answer_of(prev)
+                replay["replayed"] = True
+                price = {"credits": 0, "lines": []}
+                if (replay.get("price") or {}).get("billing"):
+                    price["billing"] = replay["price"]["billing"]  # an own-key record stays marked as one
+                replay["price"] = price
                 if idem_key is not None:
-                    jid = self._new_job(p, now, state="done", answer=prev["answer"], answer_ctx=prev["id"],
-                                        record_id=prev.get("record_id"))
+                    jid = self._new_job(p, now, state="done", record_id=prev.get("record_id"), plain=replay)
                     return self._respond(jid, 0)
-                return 200, self._answer_of(prev), {}
+                return 200, replay, {}
         jid = self._new_job(p, now)
         ev = threading.Event()
         with self.events_lock:
@@ -444,9 +451,11 @@ class Witness:
             return status, out, {}
         return 202, {"job_id": jid, "state": job["state"] if job else "queued"}, {"Location": f"/v1/jobs/{jid}"}
 
-    def _new_job(self, p, now, state="queued", answer=None, answer_ctx=None, record_id=None):
+    def _new_job(self, p, now, state="queued", answer=None, answer_ctx=None, record_id=None, plain=None):
         jid = uuid.uuid4().hex
-        if answer is not None and answer_ctx != jid:
+        if plain is not None:  # an answer object, sealed under this job's id
+            answer = crypto.seal_box(self.cfg.master_key, jid, json.dumps(plain, ensure_ascii=False).encode("utf-8"))
+        elif answer is not None and answer_ctx != jid:
             answer = crypto.seal_box(self.cfg.master_key, jid, crypto.open_box(self.cfg.master_key, answer_ctx, answer))
         try:
             self.storage.create_job({"id": jid, "account": p.account, "state": state, "created_at": now, "idem_key": p.idem_key,

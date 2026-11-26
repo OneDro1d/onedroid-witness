@@ -369,6 +369,8 @@ price: {credits, lines: [{item, credits, model?}, ...], fresh_observations?, reu
 - `lines` has a `check` line (1) for a mechanical check over objects and for every `judge.supports` claim; a `model-run` line
   (with `model`) for each model run made, `ceil(10 × price_factor)`; and an `observation` line (5) for each fresh observation
   past the free 50 of the day. `credits` is the sum of the lines.
+- An answer from the object-only idempotency rule (item 5 under the order of checks) is a replay: `"replayed": true` beside
+  the envelope and `price: {credits: 0, lines: []}`, since its record was already priced and the BFF charges a record once.
 - A mechanical check whose evidence includes a `url` or an `observation` has no `check` line: BD3 prices a check over objects
   at 1 and a fresh observation at 5, and a check over observations pays for its fresh observations only. So a `page.live`
   with one free fresh observation costs 0, and the 51st fresh observation of the day costs 5.
@@ -725,6 +727,10 @@ Where SPEC and DECISIONS left a choice, these are the simplest readings taken. E
 5. **The object-only idempotency fingerprint** is H(account, claim id, method id and version, the evidence slots with their
    sha256, media type and name, visibility, label, agent key id). Visibility is in it because the VR-19 test checks a private
    and then a public check of one claim as two records; the agent key id so that a returned record's submitter is the caller's.
+   **The replay marker** (26 Nov): an answer from this rule is the existing record (the same `record_id`, envelope and, for a
+   private record, disclosure) with `"replayed": true` and `price: {credits: 0, lines: []}` (plus `billing: "own-key"` for an
+   own-key record), because the BFF charges a record once. Under an Idempotency-Key, that marked answer is what the key
+   answers afterwards. A new `label` is a new record.
 6. **`options_used`** in B1 records is `{accept_untrusted, allow_provider, panel}`, the SPEC §2.4 example's fields with the
    request's values. BD2's `models: {count, require}` is accepted and validated (count 1-3, require ≤ count) but not recorded:
    no B1 method runs a model.
