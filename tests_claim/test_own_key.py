@@ -365,6 +365,7 @@ class OwnKeyObservations(unittest.TestCase):
     def test_a_paid_check_never_reuses_an_own_observation(self):
         code, mine, _ = self.observe()
         self.assertEqual(code, 200, mine)
+        self.s.clock.advance(5)  # a fresh capture in the same second would be the very same signed payload
         code, paid, _ = self.observe(billing=None, max_age=3600)
         self.assertEqual(code, 200, paid)
         self.assertFalse(paid["reused"])
@@ -487,10 +488,12 @@ class SealerTiers(unittest.TestCase):
                 self.assertEqual(seal["notary"]["status"], "failed")
                 self.assertIn("base-sepolia", seal["notary"]["reason"])
                 self.assertNotIn("base-sepolia", json.dumps(seal["notary"]["anchors"]))
+                calls = len(n.calls)  # a tick notarizes what it closes and then repeats every pending batch
                 s.clock.advance(60)
                 s.witness.sealer.tick()  # retried with the own notary, still never anchored
                 self.assertEqual(seal_of(s, mine["record_id"])["state"], "pending")
-                self.assertEqual(len(n.calls), 2)
+                self.assertGreater(len(n.calls), calls)
+                self.assertFalse(set(n.calls) & set(s.witness.cfg.notary.calls))  # (the key list's public batch goes there)
             finally:
                 s.close()
 
