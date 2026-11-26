@@ -11,6 +11,9 @@ A behaviour is a callable(request_body) -> one of
     ("sleep", seconds, text)                 the same, after sleeping
     ("status", code, body_bytes)             any status with any body
     ("raw", body_bytes)                      200 with a body that is not the chat.completion shape
+    ("json", obj)                            200 with obj as the whole JSON body
+
+Own key: `accepted_keys` are more Bearer keys the fake serves; `key_answers[key] = (status, body)` refuses a key.
 """
 import json
 import threading
@@ -60,9 +63,16 @@ def raw(body_bytes):
     return lambda body: ("raw", body_bytes)
 
 
+def completion(obj):
+    """200 with exactly `obj` as the JSON body (a chat.completion whose fields the test chooses)."""
+    return lambda body: ("json", obj)
+
+
 class FakeModels:
     def __init__(self, api_key="fake-model-key-0123456789"):
         self.api_key = api_key
+        # own key (bring your own OpenRouter key): more keys the fake accepts, and keys it refuses with a status and body
+        self.accepted_keys, self.key_answers = set(), {}
         self.behaviours = {}
         self.requests = []
         self.lock = threading.Lock()
@@ -96,7 +106,12 @@ class FakeModels:
                                           "headers": dict(self.headers), "raw": raw_body, "body": body})
                 if self.path != "/v1/chat/completions":
                     return self._send(404, b'{"error": "no route"}')
-                if self.headers.get("Authorization") != f"Bearer {fake.api_key}":
+                auth = self.headers.get("Authorization") or ""
+                given = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
+                if given in fake.key_answers:
+                    code, body_bytes = fake.key_answers[given]
+                    return self._send(code, body_bytes)
+                if given != fake.api_key and given not in fake.accepted_keys:
                     return self._send(401, b'{"error": "bad key"}')
                 model = (body or {}).get("model")
                 beh = fake.behaviours.get(model)
@@ -115,6 +130,8 @@ class FakeModels:
                     return self._send(200, json.dumps(resp).encode())
                 if out[0] == "status":
                     return self._send(out[1], out[2])
+                if out[0] == "json":  # a whole chat.completion object of the test's own making
+                    return self._send(200, json.dumps(out[1]).encode())
                 return self._send(200, out[1], "text/plain")
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)

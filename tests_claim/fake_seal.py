@@ -23,20 +23,25 @@ class FakeNotary:
     """NotaryClient: seal(over_hex) -> the notary result object (onedroid-audit notary.py shape). `fail` makes the next seals
     fail; `delay_s` sets block_time that many seconds after the clock."""
 
-    def __init__(self, clock=time.time, chain="base-sepolia", delay_s=60, final=True):
+    def __init__(self, clock=time.time, chain="base-sepolia", delay_s=60, final=True, profile="hash/1", chains=None):
         self.clock, self.chain, self.delay_s, self.final = clock, chain, delay_s, final
+        self.profile = profile  # own key: the own-tier client is a notary with profile hash/1-own (lab-qbft only)
+        self.chains = list(chains) if chains else [chain]
         self.calls, self.fail = [], False
 
     def seal(self, over_hex):
         self.calls.append(over_hex)
         if self.fail:
-            return {"status": "failed", "profile": "hash/1", "over": "sha256:" + over_hex, "key": over_hex, "anchors": [],
+            return {"status": "failed", "profile": self.profile, "over": "sha256:" + over_hex, "key": over_hex, "anchors": [],
                     "reason": "not_landed: fake"}
-        tx = "0x" + hashlib.sha256(b"tx|" + over_hex.encode()).hexdigest()
-        return {"status": "landed", "profile": "hash/1", "over": "sha256:" + over_hex, "key": over_hex,
-                "anchors": [{"chain": self.chain, "state": "landed", "tx_hash": tx, "block": 1000 + len(self.calls),
-                             "block_time": _iso(self.clock() + self.delay_s), "explorer_url": None, "final": self.final}],
-                "reason": None}
+        anchors = []
+        for c in self.chains:
+            tx = "0x" + hashlib.sha256(b"tx|" + c.encode() + b"|" + over_hex.encode()).hexdigest() if c != self.chains[0] else \
+                "0x" + hashlib.sha256(b"tx|" + over_hex.encode()).hexdigest()
+            anchors.append({"chain": c, "state": "landed", "tx_hash": tx, "block": 1000 + len(self.calls),
+                            "block_time": _iso(self.clock() + self.delay_s), "explorer_url": None, "final": self.final})
+        return {"status": "landed", "profile": self.profile, "over": "sha256:" + over_hex, "key": over_hex,
+                "anchors": anchors, "reason": None}
 
 
 class FakeArmarium:
@@ -189,8 +194,8 @@ class HttpsFake:
 class HttpsNotary(HttpsFake):
     """POST /notary/v1/seals {profile, key, payload}: 200 with every chain landed (or `answer_status` to force another)."""
 
-    def __init__(self, tls, block_time="2026-11-24T12:00:00Z"):
-        self.answer_status, self.block_time = 200, block_time
+    def __init__(self, tls, block_time="2026-11-24T12:00:00Z", chain="base-sepolia"):
+        self.answer_status, self.block_time, self.chain = 200, block_time, chain
         super().__init__(tls)
 
     def handle(self, method, path, q, body):
@@ -204,6 +209,6 @@ class HttpsNotary(HttpsFake):
             return 409, {"error": "key_conflict", "message": "x", "anchors": []}
         tx = "0x" + hashlib.sha256(req["key"].encode()).hexdigest()
         return self.answer_status, {"profile": req["profile"], "key": req["key"], "anchors": [
-            {"chain": "base-sepolia", "state": "landed" if self.answer_status == 200 else "in_doubt",
-             "ref": {"chain": "base-sepolia", "correlation_id": "c1", "block": 4242, "tx_hash": tx},
+            {"chain": self.chain, "state": "landed" if self.answer_status == 200 else "in_doubt",
+             "ref": {"chain": self.chain, "correlation_id": "c1", "block": 4242, "tx_hash": tx},
              "signer": "0x" + "1" * 40, "block_time": self.block_time, "final": False}]}

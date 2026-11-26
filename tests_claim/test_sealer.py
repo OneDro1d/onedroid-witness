@@ -19,7 +19,7 @@ from tests_claim import helpers as h
 from tests_claim.fake_seal import FakeNotary
 from tests_claim.helpers import claim, obj_item, request
 
-BATCH_KEYS = {"witness", "batch_id", "root", "size", "opened_at", "closed_at", "interval_s", "key_id", "sig"}
+BATCH_KEYS = {"witness", "batch_id", "root", "size", "opened_at", "closed_at", "interval_s", "key_id", "anchoring", "sig"}
 
 
 def stack(notary=True, **over):
