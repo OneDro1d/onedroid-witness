@@ -579,8 +579,8 @@ does what it is told in the body the BFF signs. Name in code and APIs: **own key
 - **Sealer**: batches are formed per tier and never mix tiers. Every new header carries `"anchoring": "public" | "own"` (signed;
   a header without it is public, so every older seal still verifies). Public batches are unchanged (profile hash/1, lab-qbft +
   base-sepolia). Own batches go only to the own notary client: profile `WITNESS_NOTARY_OWN_PROFILE` (unset: `hash/1-own`;
-  empty or `off`: none; `hash/1` is refused at start), token `WITNESS_NOTARY_OWN_TOKEN_FILE` when set and mounted, else
-  `WITNESS_NOTARY_TOKEN_FILE`; URL, CA and timeout are the notary's. Without an own client own batches close unanchored
+  empty or `off`: none; `hash/1` is refused at start), token `WITNESS_NOTARY_OWN_TOKEN_FILE`, required (unset, empty or not
+  mounted: no own client, never the public token); URL, CA and timeout are the notary's. Without an own client own batches close unanchored
   (`notary.status: off`) and are never sent with hash/1. An answer for an own batch that names any chain other than lab-qbft
   is a failed seal (state stays pending, reason names the chain, no anchor kept), asked again each tick with the own client.
 - **witness-verify**: a header with `anchoring: own` prints `INFO anchoring: own chain only (a check paid with the user's own
@@ -1476,7 +1476,8 @@ Where the design left a choice open, the reading that keeps the key private and 
      seal vectors are unchanged; witness-verify never checked the header's key set, so older verifiers verify the new headers.
 174. **`WITNESS_NOTARY_OWN_PROFILE`**: unset means `hash/1-own` (the design's default); empty or `off` means no own profile (own
      batches close unanchored); `hash/1` is refused at start like any other bad notary setting. `WITNESS_NOTARY_OWN_TOKEN_FILE` is
-     used when set and mounted, else the notary token; with no notary settings at all there is no own client. The sealer uses
+     required: unset, empty or not mounted means no own client (own batches close unanchored), never the public notary token
+     (fixed 26 Nov after the own-key holdout's PROBE-own-token-unset; before, it fell back to the notary token). The sealer uses
      the own client only when its `profile` is not hash/1 (a client without one counts as hash/1) and it is not the public client.
      The k8s manifest is unchanged: on dev the own profile is `hash/1-own` with the witness's notary token.
 175. **The own-chain guard is in the sealer** (it holds for any notary client): any anchor on a chain other than lab-qbft, or an

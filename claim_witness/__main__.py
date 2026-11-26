@@ -12,7 +12,7 @@
            (1; 0 runs no sealer in this process), WITNESS_SEALER_POLL_S (30), WITNESS_NOTARY_URL, WITNESS_NOTARY_TOKEN_FILE,
            WITNESS_NOTARY_CA_FILE, WITNESS_NOTARY_TIMEOUT_S (no token file: batches are closed but never anchored),
            WITNESS_NOTARY_OWN_PROFILE (hash/1-own; "" or off: own-key batches close unanchored; hash/1 is refused),
-           WITNESS_NOTARY_OWN_TOKEN_FILE (optional, else the notary token),
+           WITNESS_NOTARY_OWN_TOKEN_FILE (required for own anchoring; unset: own-key batches close unanchored),
            ARMARIUM_URL, ARMARIUM_TOKEN_FILE, ARMARIUM_CA_FILE, ARMARIUM_CASE (no URL: nothing is written to n-dim),
            NDIM_STORE_EVIDENCE (0), WITNESS_LINK_BASE (https://evidence.onedroid.ai), WITNESS_OPERATOR_ACCOUNTS (comma list).
            B7: WITNESS_EMBEDDER_URL (an OpenAI-compatible /v1/embeddings endpoint; unset: GET /v1/search mode=semantic answers

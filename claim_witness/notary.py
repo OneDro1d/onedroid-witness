@@ -18,7 +18,7 @@ The key is the hash itself, so a repeat (a retry after a 202 or a later sealer t
 the same transactions. A 202, 429, 5xx or no answer is repeated with the same bytes, at most MAX_ATTEMPTS times inside
 WITNESS_NOTARY_TIMEOUT_S (60 s); a 409, any other 4xx, a 200 that is not every chain landed, or a certificate that does not
 verify ends it at once. Own model key (C2): own_from_env builds the client for own batches, the same request with profile
-WITNESS_NOTARY_OWN_PROFILE (hash/1-own; never hash/1) and WITNESS_NOTARY_OWN_TOKEN_FILE when set. TLS is always verified (WITNESS_NOTARY_CA_FILE, else the system's trust). The token is read from its
+WITNESS_NOTARY_OWN_PROFILE (hash/1-own; never hash/1) and WITNESS_NOTARY_OWN_TOKEN_FILE (required: never the public token). TLS is always verified (WITNESS_NOTARY_CA_FILE, else the system's trust). The token is read from its
 file for each seal, sent only in the Authorization header, and never logged or returned; no free text from the notary is kept.
 """
 import base64
@@ -131,8 +131,9 @@ def from_env(env):
 def own_settings(env):
     """Own model key (C2): the settings of the notary client for own batches, or None (own batches close unanchored).
     WITNESS_NOTARY_OWN_PROFILE: unset means hash/1-own; empty or "off" means no own profile; hash/1 (the public profile) is
-    refused, so an own batch can never be sent with it. WITNESS_NOTARY_OWN_TOKEN_FILE: the token for it when set (and
-    mounted), else WITNESS_NOTARY_TOKEN_FILE. The URL, CA and timeout are the notary's."""
+    refused, so an own batch can never be sent with it. WITNESS_NOTARY_OWN_TOKEN_FILE: the token for it, required: unset,
+    empty or not mounted means no own notary (DESIGN C2: own batches unanchored), never the public token. The URL, CA and
+    timeout are the notary's."""
     raw = env.get("WITNESS_NOTARY_OWN_PROFILE")
     profile = OWN_PROFILE if raw is None else raw.strip()
     if profile in ("", "off"):
@@ -142,9 +143,9 @@ def own_settings(env):
     if not IDENT_PROFILE.fullmatch(profile):
         raise ValueError("WITNESS_NOTARY_OWN_PROFILE: a profile name like hash/1-own")
     own_token = (env.get("WITNESS_NOTARY_OWN_TOKEN_FILE") or "").strip()
-    if own_token and os.path.exists(own_token):
-        env = dict(env, WITNESS_NOTARY_TOKEN_FILE=own_token)
-    cfg = settings(env)
+    if not own_token or not os.path.exists(own_token):
+        return None
+    cfg = settings(dict(env, WITNESS_NOTARY_TOKEN_FILE=own_token))
     if cfg is None:
         return None
     return dict(cfg, profile=profile)
