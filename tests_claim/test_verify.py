@@ -139,6 +139,34 @@ class PublicRecord(Fixture):
         self.assertEqual(code, 1)
         self.assertIn("FAIL bundle-files", out)
 
+    # CLI fixes (found while writing the user guide, 26 Nov): --help exits 0, and --evidence takes a folder of files
+    def test_help_exits_zero(self):
+        code, _ = run_verify("--help")
+        self.assertEqual(code, 0)
+        code, _ = run_verify("--no-such-flag")
+        self.assertEqual(code, 2)
+
+    def test_evidence_folder_is_read_like_a_bundles_evidence(self):
+        d = self.dir / "evidence-folder"
+        d.mkdir(exist_ok=True)
+        (d / "source.txt").write_bytes(self.source)
+        code, out = run_verify("--envelope", self.dir / "public.json", "--keys", self.dir / "keys.json", "--methods", self.tar,
+                               "--evidence", d)
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS bundle-files", out)
+        self.assertIn("PASS method-rerun", out)
+
+    def test_missing_evidence_path_is_a_message_not_a_traceback(self):
+        err = io.StringIO()
+        real, sys.stderr = sys.stderr, err
+        try:
+            code, out = run_verify("--envelope", self.dir / "public.json", "--keys", self.dir / "keys.json",
+                                   "--evidence", self.dir / "no-such-file.txt")
+        finally:
+            sys.stderr = real
+        self.assertEqual(code, 2, out)
+        self.assertIn("witness-verify: cannot read input", err.getvalue())
+
     def test_tampered_tarball_fails(self):
         t = self.dir / "tampered.tar.gz"
         t.write_bytes(self.tar.read_bytes() + b"\x00")
