@@ -1122,7 +1122,8 @@ def main(argv=None, out=None):
                                          "GET /v1/records/{id}); a bundle never carries it; also taken from DIR/disclosure.json")
     ap.add_argument("--agent-key")
     ap.add_argument("--methods")
-    ap.add_argument("--evidence", action="append", default=[])
+    ap.add_argument("--evidence", action="append", default=[],
+                    help="an evidence file, or a folder whose files are all read (like a bundle's evidence/); repeatable")
     ap.add_argument("--record-id")
     ap.add_argument("--record", action="append", default=[],
                     help="a record record.valid or record.disclose names: its envelope (an answer or a record view, with its seal)")
@@ -1137,8 +1138,8 @@ def main(argv=None, out=None):
                          "list's sealers. With neither, the sender is reported, not checked")
     try:
         a = ap.parse_args(argv)
-    except SystemExit:
-        return 2
+    except SystemExit as e:  # --help is 0, a usage error 2: argparse's own code
+        return e.code if isinstance(e.code, int) else 2
     if a.rpc is not None and not a.rpc.lower().startswith(("http://", "https://")):
         print("witness-verify: --rpc must be an http(s) URL", file=sys.stderr)
         return 2
@@ -1146,7 +1147,13 @@ def main(argv=None, out=None):
         if not _ADDRESS.match(s):
             print(f"witness-verify: --sealer {s!r} is not an address (0x and 40 hex digits)", file=sys.stderr)
             return 2
-    files, tar_bytes = [pathlib.Path(p).read_bytes() for p in a.evidence], None
+    try:  # an evidence path is a file, or a folder whose files are all read (sorted, like a bundle's evidence/)
+        files, tar_bytes = [], None
+        for p in map(pathlib.Path, a.evidence):
+            files += [q.read_bytes() for q in sorted(p.iterdir()) if q.is_file()] if p.is_dir() else [p.read_bytes()]
+    except OSError as e:
+        print(f"witness-verify: cannot read input: {e}", file=sys.stderr)
+        return 2
     env_path, keys_path, disc_path, agent_path, tar_path = a.envelope, a.keys, a.disclosure, a.agent_key, a.methods
     seal_path = a.seal
     if a.bundle:
