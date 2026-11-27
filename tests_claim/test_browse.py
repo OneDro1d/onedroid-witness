@@ -81,7 +81,7 @@ class Base:
                 "reason": None, "detail": None, "limits": "", "judgment": None, "attempt": None, "relied_on": [],
                 "submitter": {"account": account, "agent": "agt_fixture", "agent_key_id": "ak_fixture", "agent_sig": "c2ln",
                               "nonce": "nonce-fixture", "agent_time": h.iso(t or h.T0)},
-                "options_used": {}, "witnessed_at": h.iso(t or h.T0), "witness": {"id": "witness:test"}, "label": None}
+                "options_used": {}, "witnessed_at": h.iso(t or h.T0), "witness": {"id": "witness:test"}, "label": "Labelcanary7 acme launch"}
 
     def plant(self, account, method, params=None, evidence=(), outcome="SUPPORTED", visibility="public", statement=None,
               rid=None, index=True):
@@ -732,7 +732,7 @@ class Api(Base):
     def test_s28_no_submitter_field_or_label_in_any_answer(self):
         f = self.fixture()
         text = "\n".join(self.every_answer(f))
-        for needle in ("acct_", "agt_", "ak_fixture", "agent_key_id", "agent_sig", "nonce", "submitter", "label", "c2ln",
+        for needle in ("acct_", "agt_", "ak_fixture", "agent_key_id", "agent_sig", "nonce", "submitter", "Labelcanary7", "c2ln",
                        "copy-of-acme", "terms-sourcefile"):
             self.assertNotIn(needle, text, needle)
         hits = json.dumps(self.search(subject=sid_of("site", "example.com"))[1])
