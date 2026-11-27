@@ -77,6 +77,12 @@
    "library_version": "1.9.0",
    "commit": "f7aeafda6e306a221d861c5f24a14e9e5f0fa34e",
    "first_commit_date": "2026-11-27T10:14:01Z"
+  },
+  {
+   "sha256": "a931acfd474191d811a5d23a72c0e6800977559defbb54e2f1d0a661d8a0c233",
+   "library_version": "1.10.0",
+   "commit": "9b2a9adefb9722a89dd0fc1036779e86ee2f996d",
+   "first_commit_date": "2026-11-27T22:54:18Z"
   }
  ]
 }
