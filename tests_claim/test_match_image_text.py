@@ -435,6 +435,22 @@ class Witness(Base):
         self.assertEqual((b["finding"], b["reason"]), (None, "too-large"))
         self.assertTrue(b["judgment"]["truncated"])
 
+    def test_the_same_check_again_asks_the_models_again(self):
+        # a model method is not replayed by the object-only idempotency rule (judge.supports is not either): a check whose models
+        # all failed can be asked again at once, and every answer counts as an attempt (attempt.prior shows the earlier ones)
+        for mid in (SEED, HAIKU, GEMMA):
+            self.fake.script(mid, fm.status(503))
+        out1, b1 = self.ok(self.body(png(INVOICE)))
+        self.assertEqual(b1["reason"], "model-unavailable")
+        self.fake.script(SEED, thinker)
+        out2, b2 = self.ok(self.body(png(INVOICE)))
+        self.assertNotIn("replayed", out2)
+        self.assertNotEqual(out1["record_id"], out2["record_id"])
+        self.assertEqual((b2["finding"], b2["outcome"]), ("consistent", "SUPPORTED"))
+        self.assertEqual(b2["attempt"]["n"], 2)
+        self.assertEqual(b2["attempt"]["prior"]["CANNOT_WITNESS"], 1)
+        self.assertEqual(out2["price"], {"credits": 1, "lines": [{"item": "check", "credits": 1}]})
+
     def test_a_jpeg_and_a_webp(self):
         out, b = self.ok(self.body(jpeg(INVOICE), media_type="image/jpeg"))
         self.assertEqual(b["finding"], "consistent")
