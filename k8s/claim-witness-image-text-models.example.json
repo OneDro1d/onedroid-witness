@@ -1,0 +1,8 @@
+{"models": [
+  {"id": "bytedance-seed/seed-2.0-mini", "vendor": "bytedance-seed", "timeout": 60, "reasoning": false,
+   "rank_note": "OCR eval 27 Nov: R1 64/64 (no false differs, 32/32 forgeries), reasoning off"},
+  {"id": "anthropic/claude-haiku-5.5", "vendor": "anthropic", "timeout": 60, "reasoning": false,
+   "rank_note": "OCR eval 27 Nov: R1 64/64 (no false differs, 32/32 forgeries), reasoning off"},
+  {"id": "google/gemma-4-31b-it", "vendor": "google", "timeout": 60,
+   "rank_note": "OCR eval 27 Nov: R1 63/64 (one false differs, 32/32 forgeries)"}
+]}

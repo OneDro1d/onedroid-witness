@@ -18,6 +18,8 @@
            B7: WITNESS_EMBEDDER_URL (an OpenAI-compatible /v1/embeddings endpoint; unset: GET /v1/search mode=semantic answers
            503 and mode=hybrid answers keyword results flagged degraded), WITNESS_EMBEDDER_MODEL, WITNESS_EMBEDDER_KEY_FILE.
            NS-4A: WITNESS_KEYWORD_DENYLIST_FILE (one word a line: never a listed browse keyword; unset: none).
+           NS-11: WITNESS_IMAGE_TEXT_MODELS_FILE (match.image-text's ordered transcriber list, with WITNESS_JUDGE_BASE_URL and
+           WITNESS_JUDGE_API_KEY_FILE; unset: the method answers 503), WITNESS_IMAGE_TEXT_MAX_TOKENS (8192).
   signer   the signer sidecar (`signer serve`) and the operator key-list commands (`signer keylist init|rotate|show`); see
            claim_witness/signer.py.
   dev      API and signer in one process for a laptop: memory storage unless WITNESS_DATABASE_URL is set, a throwaway
@@ -46,7 +48,7 @@ def _auth(env):
 def run_api(env, signer_client, storage, attempt_key, master_key):
     import shutil
 
-    from . import api, browse, dns, fetcher, judge, ndim, notary, search, service
+    from . import api, browse, dns, fetcher, judge, ndim, notary, search, service, transcribe
     log = lambda line: print(line, flush=True)  # noqa: E731
     armarium, case = ndim.from_env(env)
     cfg = service.Config(witness_id=env.get("WITNESS_ID") or "witness:onedroid", attempt_key=attempt_key, master_key=master_key,
@@ -67,9 +69,11 @@ def run_api(env, signer_client, storage, attempt_key, master_key):
                          sealer_poll_s=float(env.get("WITNESS_SEALER_POLL_S") or 30),
                          link_base=(env.get("WITNESS_LINK_BASE") or "").strip() or "https://evidence.onedroid.ai",
                          operator_accounts=[a.strip() for a in (env.get("WITNESS_OPERATOR_ACCOUNTS") or "").split(",") if a.strip()],
-                         embedder=search.embedder_from_env(env), keyword_denylist=browse.denylist_from_env(env))
+                         embedder=search.embedder_from_env(env), keyword_denylist=browse.denylist_from_env(env),
+                         image_text=transcribe.from_env(env, log=log))
     print(f"claim-witness: fetcher {'configured' if cfg.fetcher else 'not configured (url evidence answers 503)'}; "
-          f"match.screenshot {'ready' if cfg.image_digest and cfg.tesseract_bin else 'unavailable (needs WITNESS_IMAGE_DIGEST and tesseract)'}",
+          f"match.screenshot {'ready' if cfg.image_digest and cfg.tesseract_bin else 'unavailable (needs WITNESS_IMAGE_DIGEST and tesseract)'}; "
+          f"match.image-text {('transcribes with ' + ', '.join(m.id for m in cfg.image_text.models)) if cfg.image_text else 'unavailable (needs WITNESS_IMAGE_TEXT_MODELS_FILE)'}",
           flush=True)
     print(f"claim-witness: notary {'configured' if cfg.notary else 'not configured (batches close, never anchored)'}; "
           f"n-dim {('claimant chain per owner under case ' + case) if armarium else 'not configured (nothing is written)'}"

@@ -1,7 +1,8 @@
 """The witness method library (SPEC §4): match.exact, quote.in-source, tests.pass (B1); judge.supports (B6: its pure part
 here, its model calls in claim_witness/judge.py); page.live, match.text, match.screenshot (B2b); post.by-author (B5a, Bluesky:
 it reads the platform fields of a `capture: post` observation, post_by_author.py); record.valid and record.disclose (B5b:
-they read kept records: record_valid.py, record_disclose.py, recordcheck.py).
+they read kept records: record_valid.py, record_disclose.py, recordcheck.py); match.image-text (NS-11: rule R1 over the
+transcription a vision model made of the image, match_image_text.py; the model call is in claim_witness/transcribe.py).
 
 Pure functions over bytes, standard library only, relative imports only: this package is published as the reproducible
 tarball witness-methods-<LIBRARY_VERSION>.tar.gz whose sha256 is every method's `code_sha256` (SPEC §9.4), and
@@ -16,11 +17,12 @@ import re
 import urllib.parse
 import unicodedata
 
-from . import (canon, judge_supports, match_exact, match_screenshot, match_text, page_live, post_by_author,  # noqa: F401
-               quote_in_source, record_disclose, record_valid, recordcheck, tests_pass)
+from . import (canon, judge_supports, match_exact, match_image_text, match_screenshot, match_text, page_live,  # noqa: F401
+               post_by_author, quote_in_source, record_disclose, record_valid, recordcheck, tests_pass)
 from .result import Result
 
-LIBRARY_VERSION = "1.9.0"  # 1.8.0: judge.supports decision models (WM-2), 1.9.0: judge.supports 1.1.0 reliance rule (W2)
+# 1.8.0: judge.supports decision models (WM-2), 1.9.0: judge.supports 1.1.0 reliance rule (W2), 1.10.0: match.image-text (NS-11)
+LIBRARY_VERSION = "1.10.0"
 POSITIVE, NEGATIVE, NEUTRAL = "positive", "negative", "neutral"
 HEX_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_QUOTE = 4000
@@ -62,11 +64,11 @@ def _no_params(params):
         raise ParamsError("this method takes no params: {}")
 
 
-def _text_param(value, name):
+def _text_param(value, name, max_len=MAX_QUOTE):
     if not isinstance(value, str) or not value.strip():
         raise ParamsError(f"{name}: a non-empty string")
-    if len(value) > MAX_QUOTE:
-        raise ParamsError(f"{name}: at most {MAX_QUOTE} characters")
+    if len(value) > max_len:
+        raise ParamsError(f"{name}: at most {max_len} characters")
     if unicodedata.normalize("NFC", value) != value:
         raise ParamsError(f"{name}: must be NFC-normalised Unicode")
     if any(unicodedata.category(c) == "Cc" and c not in "\n\t" for c in value):
@@ -77,6 +79,13 @@ def _quote_params(params):
     if set(params) != {"quote"}:
         raise ParamsError("params: exactly {quote}")
     _text_param(params["quote"], "quote")
+
+
+def _image_text_params(params):
+    """match.image-text: exactly {text}, the claimed block: 1 to 20,000 characters of NFC text (newlines and tabs allowed)."""
+    if not isinstance(params, dict) or set(params) != {"text"}:
+        raise ParamsError("params: exactly {text}")
+    _text_param(params["text"], "text", match_image_text.MAX_TEXT)
 
 
 def _tests_params(params):
@@ -207,6 +216,19 @@ METHODS = {
         {True: "Record {id}, sealed at {anchor_time}, had the content shown here.", False: None},
         {"disclosed": POSITIVE},
         "Publishes an earlier private record unchanged. No new check was made.", record_disclose.run, _no_params),
+    # NS-11: R1 is pure (this package); the transcription it reads is made by the witness (claim_witness/transcribe.py) and
+    # kept in the record's body, so witness-verify re-runs R1 from this tarball. code_sha256 is the tarball's.
+    "match.image-text": Method(
+        "match.image-text", 1, "1.0.0",
+        {"type": "object", "properties": {"text": {"type": "string", "minLength": 1, "maxLength": match_image_text.MAX_TEXT}},
+         "required": ["text"], "additionalProperties": False},
+        {"image": ("object",)},
+        {True: "The submitted image {sha} shows the text with sha256 {text_sha256}.",
+         False: "The submitted image {sha} does not show the text with sha256 {text_sha256}."},
+        {"consistent": POSITIVE, "differs": NEGATIVE},
+        "A vision model only transcribed the image; the witness compared that transcription with the text by rule R1 (a "
+        "missing number or date, or three missing words, differs). The pixels were not proven: an image can be edited, and a "
+        "model can misread one.", match_image_text.run, _image_text_params, determinism="model"),
 }
 
 

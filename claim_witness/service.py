@@ -37,7 +37,7 @@ import urllib.parse
 from . import (attempts, crypto, dsse, ids, jcs, judge as judge_mod, methods, observation, ocr, record, screen,
                signer as signer_mod, tarball)
 from .fetcher import FetchFailed
-from .methods import judge_supports, page_live, post_by_author, recordcheck
+from .methods import judge_supports, match_image_text, page_live, post_by_author, recordcheck
 from .methods.result import Result
 from .schemas import CLAIM_TYPE, KEYLIST_TYPE, OBSERVATION_TYPE
 from .storage import Conflict
@@ -73,6 +73,10 @@ FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 MAX_AGE = 30 * DAY
 KINDS = ("object", "url", "observation", "record")
 RUNTIME = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+IMAGE_TEXT_PRICE_RULE = ("match.image-text costs one check line (the price list's check, 1 credit), like every mechanical check "
+                         "over objects. Its transcription is part of the check: the models of the list it tries are not "
+                         "billed apart (an eval transcription cost US$0.0001 to US$0.0007). With your own key (billing "
+                         "own-key) the transcription goes on your key and the check costs 0.")
 
 
 class WitnessError(Exception):
@@ -94,7 +98,7 @@ class Config:
                  observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY,
                  notary=None, armarium=None, ndim_case=None, ndim_store_evidence=False, batch_interval_s=3600,
                  batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None,
-                 embedder=None, notary_own=None, keyword_denylist=None):
+                 embedder=None, notary_own=None, keyword_denylist=None, image_text=None):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
         if not master_key or len(master_key) < 32:
@@ -136,6 +140,9 @@ class Config:
         self.embedder = embedder
         # NS-4A: the operator's keyword denylist (WITNESS_KEYWORD_DENYLIST_FILE, browse.denylist_from_env): never a listed keyword
         self.keyword_denylist = set(keyword_denylist or ())
+        # NS-11: match.image-text's transcriber (transcribe.Transcriber: the ordered vision-model list), or None: the method
+        # then answers 503 transcriber-not-configured
+        self.image_text = image_text
 
 
 def iso(t):
@@ -144,6 +151,17 @@ def iso(t):
 
 def parse_iso(s):
     return calendar.timegm(time.strptime(s, "%Y-%m-%dT%H:%M:%SZ"))
+
+
+def image_bytes_are(media_type, data):
+    """True when the bytes start as the media type says: PNG's signature, JPEG's SOI marker, WebP's RIFF....WEBP header."""
+    if media_type == "image/png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if media_type == "image/jpeg":
+        return data.startswith(b"\xff\xd8\xff")
+    if media_type == "image/webp":
+        return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    return False
 
 
 def _text_ok(s, max_len):
@@ -185,6 +203,7 @@ class Ctx:
 
     def __init__(self):
         self.fresh, self.paid, self.reused, self.relied_on = 0, 0, 0, []
+        self.judgment = None  # match.image-text (NS-11): the transcription and R1's details, for the record's body
 
     def rely(self, oid, signer, trusted):
         if all(r["id"] != oid for r in self.relied_on):
@@ -284,6 +303,10 @@ class Witness:
             if m.id == "judge.supports":
                 entry.update(prompt_sha256=judge_supports.prompt_sha256(), max_input_tokens=judge_supports.MAX_INPUT_TOKENS,
                              served=self.cfg.judge is not None)
+            if m.id == "match.image-text":
+                entry.update(prompt_sha256=match_image_text.PROMPT_SHA256, rule=match_image_text.RULE,
+                             models=self._image_text_models(), served=self.cfg.image_text is not None,
+                             media_types=list(match_image_text.MEDIA_TYPES))
             out.append(entry)
         return {"library": {"version": tarball.library_version(), "tarball": tarball.tarball_name(), "code_sha256": code,
                             "runtime": RUNTIME, "canonicaliser": "canon/1"},
@@ -293,10 +316,16 @@ class Witness:
     def _public_models(self):
         return judge_mod.public_models(self.cfg.judge.models, self.cfg.price) if self.cfg.judge is not None else []
 
+    def _image_text_models(self):
+        return self.cfg.image_text.public_models() if self.cfg.image_text is not None else []
+
     def price_view(self):
         """GET /v1/price (BD3): the provisional price list in credits, the model list with each run's price, and the free
-        fresh observations a day."""
+        fresh observations a day; match.image-text's price and its transcriber list (NS-11)."""
+        image_text = {"method": "match.image-text", "credits": self.cfg.price["check"], "rule": IMAGE_TEXT_PRICE_RULE,
+                      "models": self._image_text_models()}
         return dict(self.cfg.price, models=self._public_models(), free_observations_per_day=self.cfg.free_observations_per_day,
+                    image_text=image_text,
                     listed_models={"rule": judge_mod.LISTED_RULE}, unlisted_models=judge_mod.unlisted_terms(),
                     note="Prices are provisional (DECISIONS BD3). The witness reports a price with each answer; the BFF holds "
                          "and settles the credits.")
@@ -510,6 +539,7 @@ class Witness:
         judgment, model_runs, raw_outputs = None, [], []
         if m.mechanical:
             res, rec_evidence = self._evaluate(p, ctx)
+            judgment = ctx.judgment  # None for every mechanical method but match.image-text (its transcription, NS-11)
         else:  # judge.supports (§5): the model calls happen here, before the attempt lock and the signer
             res, rec_evidence, judgment, model_runs, raw_outputs = self._judge(p, ctx)
         # one signing path for every outcome, so every path (a finding, a refusal before the method ran, evidence that could
@@ -705,7 +735,35 @@ class Witness:
             img = ev["submitted"]
             img["ocr_text"] = self._ocr().text(img["data"])
             img["ocr_readability"] = self._ocr().readability(img["data"])
+        if m.id == "match.image-text":
+            return self._image_text(p, ev, ctx), rec
         return methods.run(m.id, p.claim["params"], ev), rec
+
+    def _image_text(self, p, ev, ctx):
+        """match.image-text (NS-11): the transcriber reads the image (the model sees the fixed prompt and the image only, never
+        the claimed text), then the pure method applies rule R1. ctx.judgment gets what the record's body keeps so anyone can
+        re-run R1: the model that served, every run's note, the transcription and its sha256, the missing tokens. Own model
+        key: the user's key reads the image; refused on every run (401, 402, 403), nothing is signed (422 model-key-rejected)."""
+        img = ev["image"]
+        mt = img["media_type"].split(";", 1)[0].strip().lower()
+        t = self.cfg.image_text.run(img["data"], mt, api_key=p.model_key)
+        if p.model_key is not None and t["statuses"] and all(s in judge_mod.KEY_REJECTED for s in t["statuses"]):
+            raise WitnessError(422, "model-key-rejected", judge_mod.key_rejected_detail(t["statuses"][0]))
+        img["transcription"] = t["evidence"]
+        res = methods.run("match.image-text", p.claim["params"], ev)
+        text = None if t["evidence"] is None else t["evidence"]["text"]
+        rule = match_image_text.r1(p.claim["params"]["text"], text) if text is not None else None
+        ctx.judgment = {
+            "kind": "transcription", "prompt_sha256": match_image_text.PROMPT_SHA256,
+            "sampling": {"temperature": 0, "max_tokens": self.cfg.image_text.max_tokens},
+            "served": t["served"], "runs": t["runs"],
+            "transcription": text,
+            "transcription_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest() if text is not None else None,
+            "truncated": bool(t["evidence"] and t["evidence"]["truncated"]),
+            "rule": match_image_text.RULE, "text_sha256": match_image_text.text_sha256(p.claim["params"]["text"]),
+            "missing_tokens": rule["missing_tokens"] if rule else None,
+            "missing_number_tokens": rule["missing_number_tokens"] if rule else None}
+        return res
 
     def _lookup_tag(self, visibility, account, url, capture, handle=None):
         obj = {"visibility": visibility, "account": account if visibility == "private" else None, "url": url, "capture": capture}
@@ -1008,6 +1066,27 @@ class Witness:
         if p.method.id == "match.screenshot":
             if not self.cfg.image_digest or not self.cfg.tesseract_bin or not self._ocr().available():
                 raise WitnessError(503, "ocr-unavailable", "match.screenshot needs Tesseract and WITNESS_IMAGE_DIGEST; nothing was signed")
+        if p.method.id == "match.image-text":
+            self._image_text_checks(p)
+
+    def _image_text_checks(self, p):
+        """match.image-text (NS-11) before anything runs: a configured transcriber (else 503), the image a PNG, JPEG or WebP
+        whose bytes are that format (else 422 invalid-evidence: no model is asked to read what is not an image), and a private
+        claim only with allow_provider (the image is read by a model provider, as judge.supports' §5.7)."""
+        if self.cfg.image_text is None:
+            raise WitnessError(503, "transcriber-not-configured", "match.image-text needs its transcriber model list "
+                                                                  "(WITNESS_IMAGE_TEXT_MODELS_FILE); nothing was signed")
+        e = p.evidence[0]
+        mt = e["media_type"].split(";", 1)[0].strip().lower()
+        if mt not in match_image_text.MEDIA_TYPES:
+            raise WitnessError(422, "invalid-evidence", "evidence image: match.image-text reads a PNG, JPEG or WebP image "
+                                                        "(media_type image/png, image/jpeg or image/webp)")
+        if not image_bytes_are(mt, p.objects[e["sha256"]]):
+            raise WitnessError(422, "invalid-evidence", f"evidence image: the bytes are not a {mt} file")
+        if p.options["visibility"] == "private" and not p.options["allow_provider"]:
+            raise WitnessError(422, "provider-not-allowed", "a private match.image-text claim is read by a model provider (the "
+                                                            "image only, never the text): send options.allow_provider: true to "
+                                                            "allow it")
 
     # ------------------------------------------------------------------------------------------------------- POST /v1/observe
 

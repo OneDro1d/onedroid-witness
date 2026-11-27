@@ -1770,3 +1770,100 @@ never listed and never shown, whatever its count.
      (unknown parameters are still ignored there).
 203. **unlist** is operator-only, idempotent and needs a kept record (404 otherwise); an unlisted record keeps its own page,
      bundle and seal. There is no route to list a record again: that is a database operation for the operator.
+
+## NS-11: match.image-text (an image shows a given text)
+
+Branch `feat/witness-image-text` from `09930bb` (M-20261127-NAME-SITE, BRIEF-NS-11-OCR; Michal, 27 Nov, Slack
+C0CDYK0D6KW/1795817936.145609: "build match.image-text: yes, build"). Code: `claim_witness/methods/match_image_text.py` (pure,
+in the tarball), `claim_witness/transcribe.py` (the model call), `service.py` (`_image_text_checks`, `_image_text`),
+`verify.py` (`rerun_image_text`); tests `tests_claim/test_match_image_text.py`; example list
+`k8s/claim-witness-image-text-models.example.json`.
+
+- **Claim**: `{"method": "match.image-text", "method_major": 1, "params": {"text": "<the claimed block>"}, "assertion":
+  true|false, "statement": null}`. `text` is 1 to 20,000 characters of NFC text (newlines and tabs allowed, no other control
+  characters). **Slot `image`**: exactly one object, `image/png`, `image/jpeg` or `image/webp`, whose bytes start as that
+  format (PNG signature, JPEG SOI, RIFF....WEBP), at most the witness's object limit (20 MiB, like match.screenshot). An image
+  is refused on a public claim (VR-21, `media-not-allowed`), so every record of this method is private.
+- **T**: "The submitted image {sha} shows the text with sha256 {text_sha256}." **F**: "The submitted image {sha} does not show
+  the text with sha256 {text_sha256}." (`text_sha256` = sha256 of `params.text` in UTF-8: the block itself can be 20,000
+  characters, the statement names it by hash.) **Limits**: "A vision model only transcribed the image; the witness compared
+  that transcription with the text by rule R1 (a missing number or date, or three missing words, differs). The pixels were
+  not proven: an image can be edited, and a model can misread one."
+- **The model only transcribes.** The witness sends one user message: the OCR eval's fixed prompt (`match_image_text.PROMPT`,
+  byte for byte `eval_vision.py`'s, sha256 `c57f8c28c99b4a6993916248ee15026cdc2fe47cafd4c08021c5b91067093600`) and the image
+  as a data URL; the eval's request shape (`temperature` 0, `max_tokens` 8192, `usage: {include: true}`), and
+  `"reasoning": {"enabled": false}` last for an entry listed with `"reasoning": false`. It never sends the claimed text, the
+  claim, the account or the options.
+- **Rule R1** (the eval's `orch_strict_score.py`, ported unchanged, with a parity test against a restated copy of the eval's
+  code): both sides through canon/1 `normalise`, split into tokens; a block token is covered when difflib's matching blocks of
+  (block, transcription) cover it (in order, autojunk off); `missing` = the uncovered block tokens, `missing_numbers` = those
+  holding a digit or being a month name (after stripping `. , ; : ( )`, lower-cased). **differs iff missing_numbers >= 1 or
+  missing >= 3**, else consistent. Extra text in the image around the block does not count against it.
+- **Findings**: `consistent` (+) and `differs` (−), so SUPPORTED / NOT_SUPPORTED by the outcome table. No finding
+  (CANNOT_WITNESS): `unreadable` (every model answered empty, or the transcription has no readable token, or more than half of
+  its tokens are `[illegible]`: a property of the reading only, never of the claimed text), `model-unavailable` (every model
+  of the list failed: timeout, HTTP error, wrong shape), `too-large` (over 50,000 tokens, or the model stopped at its token
+  budget, `finish_reason: length`, and R1 would say `differs`: what is missing may lie past the cut; a cut transcription that
+  still covers the block stays `consistent`).
+- **The record.** `detail` (in the private payload too) holds integers and enums only: `{rule: "R1", text_tokens,
+  transcription_tokens, missing, missing_numbers, truncated}` (`{transcription: "failed"}` when every model failed). The body
+  (the disclosure) adds `judgment`: `{kind: "transcription", prompt_sha256, sampling: {temperature, max_tokens}, served: {id,
+  provider, version, rank} | null, runs: [{model, rank, note, status, finish_reason}], transcription, transcription_sha256,
+  truncated, rule, text_sha256, missing_tokens, missing_number_tokens}`, so anyone can re-run R1 and see which model read the
+  image. `method.code_sha256` is the methods tarball (the method is `pure`: R1 ships in it), `determinism` is `model`.
+- **The models** (`WITNESS_IMAGE_TEXT_MODELS_FILE`, with the judge's `WITNESS_JUDGE_BASE_URL` and `WITNESS_JUDGE_API_KEY_FILE`;
+  `WITNESS_IMAGE_TEXT_MAX_TOKENS`, default 8192): an ordered list of 1 to 5 `{id, vendor, timeout, reasoning?: false,
+  rank_note?}`; routers, aliases, variants and free tiers are refused as in the judge list. They are tried in order and the
+  first that answers with text is used; an empty answer, a timeout or an error moves on. The example list is the eval's best
+  three: `bytedance-seed/seed-2.0-mini` (reasoning off), `anthropic/claude-haiku-5.5` (reasoning off),
+  `google/gemma-4-31b-it`. Without the list the method answers 503 `transcriber-not-configured` and signs nothing.
+- **Privacy**: the image is read by a model provider, so a (private) claim needs `options.allow_provider: true`, else 422
+  `provider-not-allowed`, as judge.supports' §5.7. With billing own-key the user's key reads the image; a key refused on every
+  run (401, 402, 403) is 422 `model-key-rejected` with nothing signed.
+- **Price**: the house rule for a mechanical check over objects, one `check` line (1 credit); the transcription is part of
+  the check, its model runs are not billed apart (the eval's transcriptions cost US$0.0001 to US$0.0007 each, under one
+  credit's US$0.001 even when all three models are tried). Own key: the check costs 0, like every own-key mechanical check.
+  `GET /v1/price` lists `image_text: {method, credits, rule, models}`; `GET /v1/methods` lists the method with
+  `prompt_sha256`, `rule`, `media_types`, `models` and `served`.
+- **witness-verify** re-runs R1 offline from the tarball over the disclosed body's transcription: `PASS transcription-sha256`
+  (the text is the sha256 the record names), `PASS transcription-prompt` (the record's prompt is the tarball's), `SKIP
+  transcription-rerun` (the model's reading is not re-run: it needs the model), `PASS method-rerun: match.image-text 1.0.0
+  re-ran R1 over the recorded transcription to <finding or reason>` (finding, reason, outcome, detail, statement, limits and the
+  missing tokens must all match). Without the disclosure: `SKIP method-rerun: private record and no disclosure given`.
+
+**The evidence behind it** (M-20261127-WITNESS-MODELS, the OCR eval, read not redone): ranking page
+https://engram.onedroid.ai/l/6f1754c1-7820-40e0-9d2b-9d342e06ff65/f247b26c-58d2-4a71-9dce-b0881fcb751e/81cbd043-8848-435f-9ce0-defb0518b4ef;
+code and logs in the claims notepad, `.df/missions/M-20261127-WITNESS-MODELS/eval/` (`eval_vision.py`, `orch_strict_score.py`,
+`vision-round1.jsonl`, `vision-round1-strict.json`). A sealed set of 64 image/text cases (32 honest, 32 forged: 12 one
+sentence, 14 one number, 6 unrelated texts). A similarity score cannot catch a one-number forgery even with a perfect reader
+(one token in 50 to 200 moves it about 100 bp; 0/14 caught at match.screenshot's thresholds). R1 caught every forgery with
+every one of the 16 vision models (32/32; gemini-3.5-flash ran 52 of the 64 cases and caught its 26); on the 32 honest images seed-2.0-mini and claude-haiku-5.5 (reasoning off) made no false
+`differs` (64/64), gemma-4-31b-it one (63/64), Tesseract 20 (44/64).
+
+### Builder decisions, NS-11 match.image-text (204-)
+
+204. **Tests first.** `b0bfcb9` ("test change:": the library pins 1.9.0 -> 1.10.0 and the method set gains match.image-text,
+     each pin replaced by its new exact value), RED `93abe0b` (`tests_claim/test_match_image_text.py`, 47 tests, 47 failing),
+     two "test change:" fixes of the RED file's own bugs (`ce3ceb5`: the archive index is `{"entries": [...]}`; `1686cf0`: a
+     helper's parameter clashed with a keyword), assertions unchanged.
+205. **Pure rule, recorded reading.** The model call is the only impure step and is recorded, so the method is `pure` (R1 in
+     the tarball, `code_sha256` the tarball's) and witness-verify re-runs the decision; unlike match.screenshot (Tesseract in
+     the image, `code_sha256` the image digest, "re-run skipped (needs image)"). The transcription and the missing tokens are
+     content, so they live in the body (`judgment`), never in the private payload's `detail`.
+206. **"Unreadable" looks at the reading only**: no token with a letter or digit, or more than half `[illegible]` markers, or
+     every model answering empty. A model that errors on every try is `model-unavailable`, not `unreadable` (the image was
+     never read; a no-finding reason the schema already has). A `[illegible]` marker that replaces a claimed word simply counts
+     as missing, as in the eval.
+207. **A cut transcription never signs `differs`**: `max_tokens` 8192 (the eval's 2048 would cut a 20,000-character block),
+     and `finish_reason: length` with an R1 `differs` is `too-large`.
+208. **Price = the check line.** About one credit was asked; the house rule already prices a mechanical check over objects at
+     the list's `check` (1), and a separate model-run line (10 x price_factor) would make it 11. The transcriber list carries
+     no price_factor.
+209. **Library 1.9.0 -> 1.10.0** (a new method), match.image-text method 1.0.0; every other method's version is unchanged, but
+     every pure method's `code_sha256` moves with the tarball. The vectors were regenerated with `python3 -m
+     claim_witness.vectors --write` on python3.14 (only `envelope`, `seal`, `own_seal` and `record_methods` change; `--check`
+     passes on 3.12 and 3.14). The tarball is archived in the next commit (`tools/archive_methods_tarball.py add <GREEN
+     commit>`, decision 161).
+210. **Not changed:** match.screenshot, match.text and every other method's behaviour, judge.supports and its model list, the
+     price list, migrations, the k8s manifest (the example list is not applied). Serving the method needs the image rebuilt
+     and a ConfigMap for `WITNESS_IMAGE_TEXT_MODELS_FILE`; the BFF, MCP and site follow separately.

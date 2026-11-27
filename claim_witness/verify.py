@@ -29,6 +29,11 @@ Each observation the record names is verified as above first, and only then are 
 in the shape the server gives it. An observation that fails its own checks makes method-rerun FAIL; one the bundle lacks, or a
 fetch that left none, is a SKIP naming it. match.screenshot is never re-run by this verifier: "re-run skipped (needs image)".
 
+match.image-text (NS-11): the model's transcription of the image is not re-run (`SKIP transcription-rerun`); rule R1 is, from
+the tarball, over the transcription a private record's disclosed body keeps (judgment.transcription): `transcription-sha256`
+(the text is the sha256 the record names), `transcription-prompt` (the record's prompt_sha256 is the tarball's PROMPT), then
+`method-rerun` (finding, reason, outcome, detail, statement, limits and the missing tokens as the record has them).
+
 One module, Python 3.10+ standard library only, importing nothing from its own package, so it can be copied and run alone:
 
     python3 -m claim_witness.verify --envelope answer.json --keys keys.json [--disclosure d.json] [--agent-key a.json]
@@ -67,6 +72,7 @@ STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 CLAIM_TYPE = "https://onedroid.ai/witness/claim/v1"
 OBSERVATION_TYPE = "https://onedroid.ai/witness/observation/v1"
 NEEDS_IMAGE = ("match.screenshot",)
+IMAGE_TEXT = ("match.image-text",)  # NS-11: R1 re-runs over the transcription the record's body keeps
 RECORD_METHODS = ("record.valid", "record.disclose")  # B5b: their evidence names records, given with --record or a bundle
 KEYLIST_TYPE = "https://onedroid.ai/witness/key-list/v1"
 BATCH_PAYLOAD_TYPE = "application/vnd.onedroid.witness.batch-header+json"
@@ -895,6 +901,75 @@ def rerun_observed(r, view, files, tar_bytes, observations, keys, kl):
     _compare(r, lib, method, claim, view, res)
 
 
+def rerun_image_text(r, view, files, tar_bytes):
+    """Step 6 for match.image-text (NS-11): the model's reading of the image is not re-run (it needs the model); rule R1 is,
+    from the tarball, over the transcription the record keeps in its body (judgment.transcription), and must give the record's
+    finding, reason, outcome, detail, statement and limits and the judgment's missing tokens. The transcription must be its
+    recorded sha256 and the prompt the tarball's. The image bytes, when given, are fingerprinted against the record."""
+    method, claim, evidence = view["method"], view["claim"], view["evidence"]
+    by_sha = {sha256_hex(b): b for b in files}
+    wanted = {e["sha256"] for e in evidence if e.get("kind") == "object"}
+    if files:
+        extra = sorted(set(by_sha) - wanted)
+        r.check("bundle-files", not extra, f"file(s) {', '.join(x[:12] for x in extra)} match no evidence fingerprint in the record",
+                f"{len(by_sha)} file(s) match their fingerprints")
+    if tar_bytes is None:
+        r.skip("method-rerun", f"no methods tarball given (--methods); the record names methods tarball sha256 {method['code_sha256']}")
+        return
+    if not r.check("methods-tarball", sha256_hex(tar_bytes) == method["code_sha256"],
+                   f"tarball sha256 {sha256_hex(tar_bytes)[:16]}... is not the record's code_sha256 {method['code_sha256'][:16]}..."):
+        return
+    try:
+        lib = _load_methods(tar_bytes)
+    except Exception as e:  # noqa: BLE001
+        r.fail("method-rerun", f"the tarball does not load: {type(e).__name__}: {e}")
+        return
+    m = lib.get(method["id"])
+    mod = getattr(lib, "match_image_text", None)
+    if m is None or mod is None:
+        r.skip("method-rerun", f"{method['id']} is not a pure-Python method in this tarball")
+        return
+    if m.version != method["version"]:
+        r.fail("method-rerun", f"the tarball has {method['id']} {m.version}, the record names {method['version']}")
+        return
+    j = view.get("judgment")
+    if not isinstance(j, dict) or "transcription" not in j:
+        r.fail("method-rerun", "the record carries no transcription (judgment.transcription): R1 cannot be re-run")
+        return
+    text = j["transcription"]
+    if text is None:
+        r.check("transcription-sha256", j.get("transcription_sha256") is None,
+                "the record names a transcription sha256 but no transcription", "no transcription (every model failed)")
+    else:
+        r.check("transcription-sha256", isinstance(text, str) and sha256_hex(text.encode("utf-8")) == j.get("transcription_sha256"),
+                "the recorded transcription is not the sha256 the record names", j.get("transcription_sha256") or "")
+    r.check("transcription-prompt", j.get("prompt_sha256") == mod.PROMPT_SHA256,
+            f"the record's prompt_sha256 {str(j.get('prompt_sha256'))[:16]}... is not this tarball's prompt {mod.PROMPT_SHA256[:16]}...",
+            mod.PROMPT_SHA256)
+    r.skip("transcription-rerun", "the model's reading of the image is not re-run offline (it needs the model); R1 is re-run "
+                                  "over the recorded transcription")
+    img = next((e for e in evidence if e.get("kind") == "object" and e.get("slot") == "image"), None)
+    if img is None:
+        r.fail("method-rerun", "the record has no image evidence")
+        return
+    tr = None if text is None else {"text": text, "truncated": bool(j.get("truncated"))}
+    ev = {"image": dict(img, data=by_sha.get(img["sha256"]), transcription=tr)}
+    res = lib.run(method["id"], claim["params"], ev)
+    outcome = outcome_for(lib.finding_class(method["id"], res.finding), claim["assertion"])
+    statement = lib.render_statement(method["id"], claim["assertion"], res.vars)
+    diffs = []
+    checks = [("finding", res.finding, view["finding"]), ("reason", res.reason, view["reason"]),
+              ("outcome", outcome, view["outcome"]), ("detail", res.detail, view["detail"]),
+              ("statement", statement, view.get("statement", statement)), ("limits", m.limits, view["limits"])]
+    if text is not None:
+        rule = mod.r1(claim["params"]["text"], text)
+        checks += [("missing_tokens", rule["missing_tokens"], j.get("missing_tokens")),
+                   ("missing_number_tokens", rule["missing_number_tokens"], j.get("missing_number_tokens"))]
+    for name, got, want in checks:
+        if got != want:
+            diffs.append(f"{name}: re-run gives {got!r}, record has {want!r}")
+    r.check("method-rerun", not diffs, "; ".join(diffs),
+            f"{method['id']} {m.version} re-ran R1 over the recorded transcription to {res.finding or res.reason}")
 def rerun(r, view, files, tar_bytes, records=None, observations=None, keys=None, kl=None):
     """Step 6: files are fingerprinted; the method re-runs from the tarball and must give the record's finding."""
     method, claim, evidence = view["method"], view["claim"], view["evidence"]
@@ -903,6 +978,9 @@ def rerun(r, view, files, tar_bytes, records=None, observations=None, keys=None,
         return
     if method["id"] in NEEDS_IMAGE:
         r.skip("method-rerun", "re-run skipped (needs image)")
+        return
+    if method["id"] in IMAGE_TEXT:
+        rerun_image_text(r, view, files, tar_bytes)
         return
     if any(e.get("kind") != "object" for e in evidence):
         rerun_observed(r, view, files, tar_bytes, observations, keys, kl)
