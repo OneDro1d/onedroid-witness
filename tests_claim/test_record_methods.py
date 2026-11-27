@@ -97,13 +97,13 @@ class Registered(Base, unittest.TestCase):
         self.assertEqual(d.findings, {"disclosed": "positive"})
         self.assertEqual(d.limits, DISCLOSE_LIMITS)
         self.assertTrue(d.pure)
-        self.assertEqual(methods.LIBRARY_VERSION, "1.7.0")
+        self.assertEqual(methods.LIBRARY_VERSION, "1.8.0")
 
     def test_get_methods_lists_them_with_the_tarball_hash(self):
         code, reg, _ = self.s.call("GET", "/v1/methods", key=None)
         self.assertEqual(code, 200)
-        self.assertEqual(reg["library"]["version"], "1.7.0")
-        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.7.0.tar.gz")
+        self.assertEqual(reg["library"]["version"], "1.8.0")
+        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.8.0.tar.gz")
         by = {m["id"]: m for m in reg["methods"]}
         for mid in ("record.valid", "record.disclose"):
             self.assertEqual(by[mid]["code_sha256"], reg["library"]["code_sha256"])
@@ -123,7 +123,7 @@ class Registered(Base, unittest.TestCase):
         lib = verify._load_methods(data)
         self.assertEqual(lib.get("record.valid").version, "1.0.0")
         self.assertEqual(lib.get("record.disclose").templates[True], DISCLOSE_T)
-        self.assertEqual(lib.LIBRARY_VERSION, "1.7.0")
+        self.assertEqual(lib.LIBRARY_VERSION, "1.8.0")
 
 
 class RecordValid(Base, unittest.TestCase):

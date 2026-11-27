@@ -112,7 +112,7 @@ class OneModel(Base):
         self.assertRegex(j["runs"][0]["raw_output_sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(j["agreement"], {"count": 1, "require": 1, "agreeing": 1, "finding": "judged-supports"})
         self.assertEqual(p["options_used"], {"accept_untrusted": False, "allow_provider": False,
-                                             "models": {"count": 1, "require": 1}})
+                                             "models": {"shape": "count", "count": 1, "require": 1, "ids": ["acme/judge-1"]}})
         self.assertEqual(p["evidence"], [{"slot": "evidence", "kind": "object", "sha256": sha(PAGE), "media_type": "text/html",
                                           "name": "page.html"}])
         for v in p["detail"].values():
@@ -295,7 +295,7 @@ class Panels(Base):
         self.assertEqual(p["outcome"], "SUPPORTED")
         self.assertEqual([m["id"] for m in p["judgment"]["models"]], ["acme/judge-1", "beta/judge-2"])
         self.assertEqual(p["judgment"]["agreement"], {"count": 2, "require": 2, "agreeing": 2, "finding": "judged-supports"})
-        self.assertEqual(p["options_used"]["models"], {"count": 2, "require": 2})
+        self.assertEqual(p["options_used"]["models"], {"shape": "count", "count": 2, "require": 2, "ids": ["acme/judge-1", "beta/judge-2"]})
         self.assertEqual(out["price"]["credits"], 1 + 10 + 20)
 
     def test_ts17_two_models_disagree(self):
@@ -308,14 +308,14 @@ class Panels(Base):
         self.script(supports(), fm.answer("judged-contradicted", [fm.quote(0, PAGE_TEXT, "Prices start at 40 EUR.")]))
         p, _ = self.pred(judge_request(panel=2))
         self.assertEqual(p["reason"], "judges-disagree")
-        self.assertEqual(p["options_used"]["models"], {"count": 2, "require": 2})
+        self.assertEqual(p["options_used"]["models"], {"shape": "count", "count": 2, "require": 2, "ids": ["acme/judge-1", "beta/judge-2"]})
 
     def test_three_with_require_two(self):
         self.script(supports(), fm.answer("judged-silent"), supports())
         p, out = self.pred(judge_request(models={"count": 3, "require": 2}))
         self.assertEqual((p["outcome"], p["finding"]), ("SUPPORTED", "judged-supports"))
         self.assertEqual(p["judgment"]["agreement"], {"count": 3, "require": 2, "agreeing": 2, "finding": "judged-supports"})
-        self.assertEqual(p["options_used"]["models"], {"count": 3, "require": 2})
+        self.assertEqual(p["options_used"]["models"], {"shape": "count", "count": 3, "require": 2, "ids": ["acme/judge-1", "beta/judge-2", "gamma/judge-3"]})
         self.assertEqual(out["price"]["credits"], 1 + 10 + 20 + 10)
 
     def test_three_by_default_all_must_agree(self):
@@ -396,7 +396,7 @@ class Private(Base):
         self.assertEqual(set(p), {"visibility", "body_commitment", "finding", "outcome", "reason", "method", "limits", "detail",
                                   "attempt", "options_used", "witnessed_at", "witness"})
         self.assertEqual(p["outcome"], "SUPPORTED")
-        self.assertEqual(p["options_used"], {"accept_untrusted": False, "allow_provider": True, "models": {"count": 1, "require": 1}})
+        self.assertEqual(p["options_used"], {"accept_untrusted": False, "allow_provider": True, "models": {"shape": "count", "count": 1, "require": 1, "ids": ["acme/judge-1"]}})
         raw = payload_bytes(out["envelope"])
         everything = raw.decode() + base64.b64encode(raw).decode() + str(out["envelope"]["signatures"]) + json.dumps(out["price"])
         self.assertNotIn("Polish", everything)
@@ -494,7 +494,7 @@ class PriceList(Base):
         self.assertEqual([x["id"] for x in reg["models"]], [x["id"] for x in MODELS])
         self.assertEqual([x["credits_per_run"] for x in reg["models"]], [10, 20, 10])
         for x in reg["models"]:
-            self.assertEqual(set(x), {"id", "vendor", "price_factor", "credits_per_run", "timeout_s"})
+            self.assertEqual(set(x), {"rank", "id", "vendor", "kind", "price_factor", "credits_per_run", "timeout_s", "rank_note"})
         self.assertEqual(reg["price"]["model_run"], 10)
         self.assertEqual(reg["price"]["check"], 1)
 

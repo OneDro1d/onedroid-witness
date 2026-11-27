@@ -14,6 +14,16 @@ A behaviour is a callable(request_body) -> one of
     ("json", obj)                            200 with obj as the whole JSON body
 
 Own key: `accepted_keys` are more Bearer keys the fake serves; `key_answers[key] = (status, body)` refuses a key.
+
+Decision models (DESIGN M-20261127-WITNESS-MODELS WM-2): POST /alpha/decisions on the same server, the shape of OpenRouter's
+Decisions API as trilix's decision_probe.py called it (request {model, state, questions}; answer {id, model, provider,
+answers: {<key>: {type, choice, probabilities, confidence}}, usage: {input_tokens, output_tokens, cost}}).
+    srv.script("acme/decider-1", decision({"supports": 0.9, "contradicts": 0.05, "silent": 0.05}, confidence=0.88))
+    srv.decision_requests()
+
+The OpenRouter model catalogue (WM-4): GET /v1/models answers {"data": srv.catalogue}; `catalogue_entry` builds one entry in
+OpenRouter's shape (pricing in US$ per token as strings, architecture.output_modalities). `srv.costs[model]` is the US$ the
+fake reports as usage.cost for that model (chat and decisions); absent, usage carries no cost.
 """
 import json
 import threading
@@ -68,6 +78,27 @@ def completion(obj):
     return lambda body: ("json", obj)
 
 
+def decision(probabilities, confidence=None, choice=None, served=None, provider="FakeDecider", key="verdict"):
+    """A Decisions API answer to the choice question `key`: `choice` defaults to the argmax of `probabilities`, `served` is the
+    dated model id the answer names (default <model>-20261014)."""
+    def beh(body):
+        ch = choice if choice is not None else max(probabilities, key=probabilities.get)
+        ans = {"type": "choice", "choice": ch, "probabilities": dict(probabilities)}
+        if confidence is not None:
+            ans["confidence"] = confidence
+        return ("decision", {key: ans}, served, provider)
+    return beh
+
+
+def catalogue_entry(model_id, prompt="0.0000001", completion="0.0000004", decisions=False, request=None, name=None):
+    """One /api/v1/models entry in OpenRouter's shape (prices are US$ per token, as strings)."""
+    pricing = {"prompt": prompt, "completion": completion}
+    if request is not None:
+        pricing["request"] = request
+    return {"id": model_id, "name": name or model_id, "context_length": 131072, "pricing": pricing,
+            "architecture": {"input_modalities": ["text"], "output_modalities": ["decisions"] if decisions else ["text"]}}
+
+
 class FakeModels:
     def __init__(self, api_key="fake-model-key-0123456789"):
         self.api_key = api_key
@@ -75,6 +106,9 @@ class FakeModels:
         self.accepted_keys, self.key_answers = set(), {}
         self.behaviours = {}
         self.requests = []
+        self.costs = {}  # model id -> the US$ the fake reports as usage.cost
+        self.catalogue = []  # GET /v1/models answers {"data": catalogue}
+        self.catalogue_status = 200
         self.lock = threading.Lock()
         fake = self
 
@@ -94,6 +128,16 @@ class FakeModels:
                 except (BrokenPipeError, ConnectionResetError):
                     pass
 
+            def do_GET(self):
+                with fake.lock:
+                    fake.requests.append({"path": self.path, "authorization": self.headers.get("Authorization"),
+                                          "headers": dict(self.headers), "raw": b"", "body": None, "method": "GET"})
+                if self.path != "/v1/models":
+                    return self._send(404, b'{"error": "no route"}')
+                if fake.catalogue_status != 200:
+                    return self._send(fake.catalogue_status, b'{"error": "catalogue down"}')
+                return self._send(200, json.dumps({"data": fake.catalogue}).encode())
+
             def do_POST(self):
                 n = int(self.headers.get("Content-Length") or 0)
                 raw_body = self.rfile.read(n)
@@ -104,7 +148,7 @@ class FakeModels:
                 with fake.lock:
                     fake.requests.append({"path": self.path, "authorization": self.headers.get("Authorization"),
                                           "headers": dict(self.headers), "raw": raw_body, "body": body})
-                if self.path != "/v1/chat/completions":
+                if self.path not in ("/v1/chat/completions", "/alpha/decisions"):
                     return self._send(404, b'{"error": "no route"}')
                 auth = self.headers.get("Authorization") or ""
                 given = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
@@ -120,13 +164,28 @@ class FakeModels:
                 out = beh(body)
                 if out[0] == "sleep":
                     time.sleep(out[1])
-                    out = ("content", out[2])
+                    out = ("content", out[2]) if len(out) == 3 else out[3]
+                cost = fake.costs.get(model)
+                if out[0] == "decision":
+                    if self.path != "/alpha/decisions":
+                        return self._send(400, b'{"error": "a decision model answers on the Decisions API only"}')
+                    usage = {"input_tokens": 300, "output_tokens": 1}
+                    if cost is not None:
+                        usage["cost"] = cost
+                    resp = {"id": "dec-fake", "model": out[2] or f"{model}-20261014", "provider": out[3], "answers": out[1],
+                            "usage": usage}
+                    return self._send(200, json.dumps(resp).encode())
+                if out[0] in ("content", "json", "raw") and self.path == "/alpha/decisions":
+                    return self._send(400, b'{"error": "not a decision model"}')
                 if out[0] == "content":
+                    usage = {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120}
+                    if cost is not None:
+                        usage["cost"] = cost
                     resp = {"id": "chatcmpl-fake", "object": "chat.completion", "created": 1795600000,
                             "model": f"{model}-2026-11-01", "provider": "FakeProvider",
                             "choices": [{"index": 0, "message": {"role": "assistant", "content": out[1]},
                                          "finish_reason": "stop"}],
-                            "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120}}
+                            "usage": usage}
                     return self._send(200, json.dumps(resp).encode())
                 if out[0] == "status":
                     return self._send(out[1], out[2])
@@ -150,6 +209,23 @@ class FakeModels:
     def chat_requests(self):
         with self.lock:
             return [r for r in self.requests if r["path"] == "/v1/chat/completions"]
+
+    def decision_requests(self):
+        with self.lock:
+            return [r for r in self.requests if r["path"] == "/alpha/decisions"]
+
+    def model_requests(self):
+        """Every request that asked a model, chat or decision (the catalogue GET is not one)."""
+        with self.lock:
+            return [r for r in self.requests if r["path"] in ("/v1/chat/completions", "/alpha/decisions")]
+
+    def catalogue_requests(self):
+        with self.lock:
+            return [r for r in self.requests if r["path"] == "/v1/models"]
+
+    @property
+    def decisions_url(self):
+        return f"http://127.0.0.1:{self.port}/alpha/decisions"
 
     def close(self):
         self.server.shutdown()

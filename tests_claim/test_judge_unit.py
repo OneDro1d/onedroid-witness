@@ -95,9 +95,9 @@ class Prompt(unittest.TestCase):
 
     def test_library_version_bumped_for_the_new_method(self):
         from claim_witness import methods, tarball
-        # 1.3.0 = BD13 (README decision 63); 1.4.0 = + B5a post.by-author (decision 71) + screenshot T/F (decision 74); 1.5.0 = + B5b record.valid and record.disclose (decision 128), 1.6.0 = + key-validity naming (decision 156), 1.7.0 = + screenshot F re-set (BD19, README decision 157)
-        self.assertEqual(methods.LIBRARY_VERSION, "1.7.0")
-        self.assertEqual(tarball.tarball_name(), "witness-methods-1.7.0.tar.gz")
+        # 1.3.0 = BD13 (README decision 63); 1.4.0 = + B5a post.by-author (decision 71) + screenshot T/F (decision 74); 1.5.0 = + B5b record.valid and record.disclose (decision 128), 1.6.0 = + key-validity naming (decision 156), 1.7.0 = + screenshot F re-set (BD19, README decision 157), 1.8.0 = + judge.supports decision models (M-20261127-WITNESS-MODELS WM-2)
+        self.assertEqual(methods.LIBRARY_VERSION, "1.8.0")
+        self.assertEqual(tarball.tarball_name(), "witness-methods-1.8.0.tar.gz")
 
     def test_prompt_names_the_vocabulary_and_the_output_shape(self):
         t = js.prompt_text()
@@ -553,10 +553,11 @@ class Options(unittest.TestCase):
         need(judge, "claim_witness.judge")
 
     def test_parse_models_option(self):
-        self.assertEqual(judge.models_option(None), {"count": 1, "require": 1})
-        self.assertEqual(judge.models_option({"count": 3}), {"count": 3, "require": 3})
-        self.assertEqual(judge.models_option({"count": 3, "require": 2}), {"count": 3, "require": 2})
-        for bad in ({"count": 4}, {"count": 0}, {"count": 2, "require": 3}, {"count": 2, "require": 0}, {"count": True},
+        # WM-3 (M-20261127-WITNESS-MODELS): count 1..5 and the shape named; {ids} is tested in test_witness_models.py
+        self.assertEqual(judge.models_option(None), {"shape": "count", "count": 1, "require": 1})
+        self.assertEqual(judge.models_option({"count": 3}), {"shape": "count", "count": 3, "require": 3})
+        self.assertEqual(judge.models_option({"count": 3, "require": 2}), {"shape": "count", "count": 3, "require": 2})
+        for bad in ({"count": 6}, {"count": 0}, {"count": 2, "require": 3}, {"count": 2, "require": 0}, {"count": True},
                     {"count": 2, "require": False}, {"count": "2"}, {"require": 1}, {"count": 2, "x": 1}, [], "3"):
             with self.assertRaises(ValueError, msg=repr(bad)):
                 judge.models_option(bad)
@@ -594,14 +595,16 @@ class ModelList(unittest.TestCase):
         with self.assertRaises(ValueError):
             judge.load_models(self.write([]))
 
-    def test_different_vendors_where_the_list_allows(self):
+    def test_rank_order_no_vendor_reordering(self):
+        # WM-3 (M-20261127-WITNESS-MODELS): the list is the ranking and models are called in that order; the vendor-first
+        # reordering of BD2 is dropped
         M = judge.ModelSpec
         ms = [M("a/1", "a", 1, 5), M("a/2", "a", 1, 5), M("b/1", "b", 1, 5), M("c/1", "c", 1, 5)]
         self.assertEqual([m.id for m in judge.select_models(ms, 1)], ["a/1"])
-        self.assertEqual([m.id for m in judge.select_models(ms, 2)], ["a/1", "b/1"])
-        self.assertEqual([m.id for m in judge.select_models(ms, 3)], ["a/1", "b/1", "c/1"])
+        self.assertEqual([m.id for m in judge.select_models(ms, 2)], ["a/1", "a/2"])
+        self.assertEqual([m.id for m in judge.select_models(ms, 3)], ["a/1", "a/2", "b/1"])
         same = [M("a/1", "a", 1, 5), M("a/2", "a", 1, 5), M("b/1", "b", 1, 5)]
-        self.assertEqual([m.id for m in judge.select_models(same, 3)], ["a/1", "b/1", "a/2"])
+        self.assertEqual([m.id for m in judge.select_models(same, 3)], ["a/1", "a/2", "b/1"])
         with self.assertRaises(ValueError):
             judge.select_models(same[:1], 2)
 

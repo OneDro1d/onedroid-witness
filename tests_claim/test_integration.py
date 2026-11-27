@@ -256,7 +256,7 @@ class Trust(Base):
         self.fake.script("acme/judge-1", fm.answer("judged-supports", [fm.quote(0, visible, "two-year warranty")]))
         p, _ = self.ok([item], accept_untrusted=True)
         self.assertEqual((p["outcome"], p["finding"]), ("SUPPORTED", "judged-supports"))
-        self.assertEqual(p["options_used"], {"accept_untrusted": True, "allow_provider": False, "models": {"count": 1, "require": 1}})
+        self.assertEqual(p["options_used"], {"accept_untrusted": True, "allow_provider": False, "models": {"shape": "count", "count": 1, "require": 1, "ids": [MODELS[0]["id"]]}})
         self.assertEqual(p["relied_on"][0]["trusted"], False)
         self.assertEqual(len(self.fake.chat_requests()), 1)
 
@@ -272,8 +272,8 @@ class OneLibraryOnePriceList(Base):
     def test_methods_and_price_routes(self):
         code, reg, _ = self.s.call("GET", "/v1/methods", key=None)
         self.assertEqual(code, 200)
-        self.assertEqual(reg["library"]["version"], "1.7.0")
-        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.7.0.tar.gz")
+        self.assertEqual(reg["library"]["version"], "1.8.0")
+        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.8.0.tar.gz")
         by_id = {m["id"]: m for m in reg["methods"]}
         self.assertEqual(set(by_id), {"match.exact", "quote.in-source", "tests.pass", "judge.supports", "page.live", "match.text",
                                       "match.screenshot", "post.by-author", "record.valid", "record.disclose"})
