@@ -365,8 +365,9 @@ class DecisionModels(Base):
         run = j["runs"][0]
         self.assertEqual(run["kind"], "decision")
         self.assertEqual(run["version"], "typesafe/jev-1.14-20261014")
-        self.assertEqual(run["probabilities"], {"supports": 0.98, "contradicts": 0.01, "silent": 0.01})
-        self.assertEqual(run["confidence"], 0.97)
+        # a signed record is RFC 8785 with integers only, so the probabilities are basis points (0..10000)
+        self.assertEqual(run["probabilities_bp"], {"supports": 9800, "contradicts": 100, "silent": 100})
+        self.assertEqual((run["confidence_bp"], run["threshold_bp"]), (9700, 8000))
         self.assertEqual(run["questions_sha256"], js.decision_questions_sha256())
         self.assertEqual(j["questions_sha256"], js.decision_questions_sha256())
         self.assertEqual(run["quotes"], [])
