@@ -905,5 +905,12 @@ class KeepAndTakedown(Base):
         self.assertNotIn("secret-launch", json.dumps(self.every_answer()))
 
 
+def _bind():
+    for cls in (Subjects, KeywordIndex, Categories, Api, Search, Listing, KeepAndTakedown):
+        globals()["Memory" + cls.__name__] = type("Memory" + cls.__name__, (cls, unittest.TestCase), {})
+
+
+_bind()
+
 if __name__ == "__main__":
     unittest.main()
