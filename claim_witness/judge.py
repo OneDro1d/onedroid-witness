@@ -42,7 +42,8 @@ import urllib.request
 from .methods import judge_supports as js
 
 MODEL_KEYS = {"id", "vendor", "price_factor", "timeout"}
-OPTIONAL_MODEL_KEYS = {"kind", "rank_note"}
+OPTIONAL_MODEL_KEYS = {"kind", "rank_note", "reasoning"}
+REASONING_OFF = {"enabled": False}  # OpenRouter's request field for a model listed with "reasoning": false (BRIEF-W3)
 KINDS = ("chat", "decision")
 MAX_MODELS = 5
 MAX_RANK_NOTE = 200
@@ -86,12 +87,16 @@ class ModelSpec:
     """One model: a listed one (from the ranked list; `rank` 1..5) or an unlisted one (any plain OpenRouter model id, made per
     request, with its catalogue `pricing`). `charged` and `cost_usd` are set on an unlisted spec by the run that used it."""
     __slots__ = ("id", "vendor", "price_factor", "timeout", "kind", "rank", "rank_note", "listed", "pricing", "charged",
-                 "cost_usd", "estimate")
+                 "cost_usd", "estimate", "reasoning")
 
-    def __init__(self, id, vendor, price_factor, timeout, kind="chat", rank=None, rank_note=None, listed=True, pricing=None):
+    def __init__(self, id, vendor, price_factor, timeout, kind="chat", rank=None, rank_note=None, listed=True, pricing=None,
+                 reasoning=None):
         self.id, self.vendor, self.price_factor, self.timeout = id, vendor, price_factor, timeout
         self.kind, self.rank, self.rank_note, self.listed, self.pricing = kind, rank, rank_note, listed, pricing
         self.charged, self.cost_usd, self.estimate = None, None, None
+        # BRIEF-W3: False = every chat call adds {"reasoning": {"enabled": false}}; None (the default, and every unlisted
+        # spec) = the request as before, byte for byte
+        self.reasoning = reasoning
 
     def __repr__(self):
         return f"ModelSpec({self.id!r}, {self.vendor!r}, {self.price_factor!r}, {self.timeout!r}, kind={self.kind!r}, " \
@@ -109,7 +114,8 @@ def _int(v):
 def load_models(path):
     """The ranked model list from a JSON file (WM-1): a list (or {"models": list}) of at most 5 entries, rank 1 first, each
     {id, vendor, price_factor, timeout} plus optional kind ("chat" | "decision", default chat: the list shape before
-    WM-1 still reads) and rank_note (a short public sentence). ValueError when it is not a valid list."""
+    WM-1 still reads), rank_note (a short public sentence) and reasoning (BRIEF-W3: only `false`, chat entries only; absent
+    = the request as before). ValueError when it is not a valid list."""
     with open(path, encoding="utf-8") as f:
         doc = json.load(f)
     if isinstance(doc, dict) and set(doc) == {"models"}:
@@ -121,7 +127,7 @@ def load_models(path):
     out, seen = [], set()
     for e in doc:
         if not isinstance(e, dict) or not MODEL_KEYS <= set(e) <= MODEL_KEYS | OPTIONAL_MODEL_KEYS:
-            raise ValueError("each model is {id, vendor, price_factor, timeout} plus optional kind and rank_note")
+            raise ValueError("each model is {id, vendor, price_factor, timeout} plus optional kind, rank_note and reasoning")
         if not isinstance(e["id"], str) or not 0 < len(e["id"]) <= 200 or e["id"] in seen:
             raise ValueError("model id: a unique non-empty string")
         refuse_routers(e["id"])
@@ -137,9 +143,15 @@ def load_models(path):
         note = e.get("rank_note")
         if "rank_note" in e and (not isinstance(note, str) or not note.strip() or len(note) > MAX_RANK_NOTE):
             raise ValueError(f"{e['id']}: rank_note is a short sentence (1 to {MAX_RANK_NOTE} characters)")
+        if "reasoning" in e:
+            if e["reasoning"] is not False:
+                raise ValueError(f"{e['id']}: reasoning is false or absent (false turns the model's reasoning off)")
+            if kind == "decision":
+                raise ValueError(f"{e['id']}: reasoning is a chat setting; a decision model refuses it (the Decisions API "
+                                 "body is {model, state, questions})")
         seen.add(e["id"])
         out.append(ModelSpec(e["id"], e["vendor"], e["price_factor"], e["timeout"], kind=kind, rank=len(out) + 1,
-                             rank_note=note))
+                             rank_note=note, reasoning=e.get("reasoning")))
     return out
 
 
@@ -261,10 +273,17 @@ def price_of(model_runs, pl, base="check"):
 
 
 def public_models(models, pl):
-    """GET /v1/models (WM-1): the ranked list, rank 1 first."""
-    return [{"rank": m.rank if m.rank is not None else i + 1, "id": m.id, "vendor": m.vendor, "kind": m.kind,
+    """GET /v1/models (WM-1): the ranked list, rank 1 first. An entry listed with "reasoning": false says so (BRIEF-W3);
+    the others carry no reasoning key, as before."""
+    out = []
+    for i, m in enumerate(models):
+        e = {"rank": m.rank if m.rank is not None else i + 1, "id": m.id, "vendor": m.vendor, "kind": m.kind,
              "price_factor": m.price_factor, "credits_per_run": credits_per_run(m, pl), "timeout_s": m.timeout,
-             "rank_note": m.rank_note} for i, m in enumerate(models)]
+             "rank_note": m.rank_note}
+        if getattr(m, "reasoning", None) is False:
+            e["reasoning"] = False
+        out.append(e)
+    return out
 
 
 LISTED_RULE = ("A listed model (GET /v1/models) costs model_run x price_factor credits per run, rounded up; a run that timed "
@@ -390,6 +409,8 @@ class Backend:
         Authorization header and nowhere else, and every string taken from the provider's answer is scrubbed of it."""
         body = {"model": spec.id, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "temperature": 0, "max_tokens": self.max_tokens}
+        if getattr(spec, "reasoning", None) is False:  # BRIEF-W3: listed with "reasoning": false; added last, nothing else
+            body["reasoning"] = dict(REASONING_OFF)
         ans, st = self._post(self.url, body, spec.timeout, api_key)
         out = {"text": None, "served_model": None, "provider": None, "note": st["note"], "status": st["status"], "cost": None}
         if ans is None:

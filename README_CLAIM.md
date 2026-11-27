@@ -155,13 +155,15 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
 - **The backend.** Any OpenAI-compatible `POST <base>/chat/completions`, configured by env only:
   - `WITNESS_JUDGE_BASE_URL`, for example `https://openrouter.ai/api/v1`, or the host's vLLM in standalone;
   - `WITNESS_JUDGE_API_KEY_FILE`, a key file and never an env value;
-  - `WITNESS_JUDGE_MODELS_FILE`, `[{"id", "vendor", "kind"?, "price_factor", "timeout", "rank_note"?}]`, at most 5, rank 1
-    first (`kind` defaults to `chat`, so the list shape before WM-1 still reads);
+  - `WITNESS_JUDGE_MODELS_FILE`, `[{"id", "vendor", "kind"?, "price_factor", "timeout", "rank_note"?, "reasoning"?}]`, at
+    most 5, rank 1 first (`kind` defaults to `chat`, so the list shape before WM-1 still reads; `reasoning` is only ever
+    `false`, on a chat entry, decision 193);
   - optionally `WITNESS_JUDGE_MAX_TOKENS`, which defaults to 1024;
   - optionally `WITNESS_JUDGE_DECISIONS_URL` (default: the base without `/v1`, plus `/alpha/decisions`) and
     `WITNESS_JUDGE_CATALOGUE_URL` (default: the base plus `/models`; read without a key, cached 1 h, for unlisted ids).
 
   The request is the model id, the two messages, `temperature: 0` and `max_tokens`: no tools, no functions and no user field.
+  A model listed with `"reasoning": false` also gets `"reasoning": {"enabled": false}` on every chat call (decision 193).
   It never carries the account, the agent, key ids, the options or the label. Each call is held to its model's `timeout`
   seconds. A router, an alias or a variant (`openrouter/auto`, `~...`, `...-latest`, `...:free`) is refused when the list is
   loaded. If any of the three settings is unset, or a mounted file is absent, `judge.supports` answers 503
@@ -1659,3 +1661,30 @@ Where the design left a choice open, the reading that keeps the key private and 
 192. **Not changed:** the hard injection rules and their order, BD13 quote verification, the agreement rule, the price, the
      decision threshold, the model list and selection, the k8s manifest, migrations. The image must be rebuilt, and anything
      downstream that names library 1.8.0 or judge.supports 1.0.0 (BFF WM-5, MCP/site WM-6) follows separately.
+
+### Builder decision, a per-model reasoning setting (193; branch feat/witness-reasoning from 5634748; BRIEF-W3)
+
+193. **`"reasoning": false` in the model list.** Measured live 27 Nov: reasoning models (anthropic/claude-haiku-5.5,
+     qwen/qwen3.7-flash, deepseek/deepseek-v4-flash-0731) answer HTTP 200 with empty content under `max_tokens` 1024, because
+     the hidden reasoning uses the whole budget, and the call is still charged. OpenRouter's request field
+     `"reasoning": {"enabled": false}` makes them answer (haiku 28/36 against 16/36). Some models refuse that field
+     (z-ai/glm-5.3-flash answers 400), so it is a per-model setting, never global. The rule:
+     - a list entry may carry `"reasoning": false`. Absent, the request is what it was before, byte for byte. False: every
+       chat call to that model adds `"reasoning": {"enabled": false}` as the body's last key, and nothing else in the body
+       changes. Any other value (`true`, a string, an object, `0`, `null`) is refused when the list is loaded (ValueError
+       naming `reasoning`), and so is the field on a `decision` entry: the Decisions API body stays `{model, state, questions}`;
+     - `GET /v1/models`, `/v1/price` and `/v1/methods` list it as `"reasoning": false` on that entry only; other entries
+       carry no `reasoning` key, as before;
+     - an empty answer (200 with empty, whitespace-only or missing content) is unchanged: run note `no-content`, no finding,
+       and the run still counts for the price (a listed run its `ceil(10 x price_factor)`, an unlisted one its reported
+       `usage.cost`). `tests_claim/test_witness_reasoning.py` pins it;
+     - **unlisted ids** (`{ids}` shape, any plain OpenRouter model id) are not affected: no `reasoning` field is sent for
+       them, unless a later decision says otherwise. A caller who needs it for a reasoning model asks for it to be listed;
+     - the signed record is unchanged: `judgment.sampling` stays `{temperature, max_tokens}` and does not name the reasoning
+       setting (a reader finds it on `GET /v1/models`). Whether the record should carry it is left to a later decision.
+
+     **Not changed:** `claim_witness/methods/` and the methods library version (1.9.0, tarball `518c3fe1...`): the change is
+     in `claim_witness/judge.py`, which the methods tarball does not ship (`claim_witness/tarball.py` packs only
+     `METHODS_DIR = claim_witness/methods`, files ending `.py` or `.txt`). The prompt, the injection rules, quote
+     verification, the agreement rule, the price, the decision threshold, selection, the k8s manifest and migrations are
+     unchanged. Turning the setting on for a live model is a ConfigMap change, and the image must be rebuilt first.
