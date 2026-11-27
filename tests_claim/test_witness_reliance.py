@@ -448,8 +448,8 @@ class ThroughTheApi(unittest.TestCase):
 class Library(unittest.TestCase):
     def test_library_moves_to_1_9_0(self):
         from claim_witness import methods, tarball
-        self.assertEqual(methods.LIBRARY_VERSION, "1.9.0")
-        self.assertEqual(tarball.tarball_name(), "witness-methods-1.9.0.tar.gz")
+        self.assertEqual(methods.LIBRARY_VERSION, "1.10.0")
+        self.assertEqual(tarball.tarball_name(), "witness-methods-1.10.0.tar.gz")
 
     def test_the_1_8_0_tarball_stays_archived_and_the_new_one_is_archived(self):
         from claim_witness import tarball
@@ -458,7 +458,7 @@ class Library(unittest.TestCase):
         self.assertEqual(by_sha["8db0f509aca57b3a840ba7a42c9fcf7e5c6b060d13bdcf87302805bedd9913d3"]["library_version"], "1.8.0")
         cur = tarball.methods_code_sha256()
         self.assertIn(cur, by_sha)
-        self.assertEqual(by_sha[cur]["library_version"], "1.9.0")
+        self.assertEqual(by_sha[cur]["library_version"], "1.10.0")
 
 
 if __name__ == "__main__":

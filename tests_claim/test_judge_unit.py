@@ -95,9 +95,9 @@ class Prompt(unittest.TestCase):
 
     def test_library_version_bumped_for_the_new_method(self):
         from claim_witness import methods, tarball
-        # 1.3.0 = BD13 (README decision 63); 1.4.0 = + B5a post.by-author (decision 71) + screenshot T/F (decision 74); 1.5.0 = + B5b record.valid and record.disclose (decision 128), 1.6.0 = + key-validity naming (decision 156), 1.7.0 = + screenshot F re-set (BD19, README decision 157), 1.8.0 = + judge.supports decision models (M-20261127-WITNESS-MODELS WM-2), 1.9.0 = + the reliance rule in the judge prompt and question (BRIEF-W2)
-        self.assertEqual(methods.LIBRARY_VERSION, "1.9.0")
-        self.assertEqual(tarball.tarball_name(), "witness-methods-1.9.0.tar.gz")
+        # 1.3.0 = BD13 (README decision 63); 1.4.0 = + B5a post.by-author (decision 71) + screenshot T/F (decision 74); 1.5.0 = + B5b record.valid and record.disclose (decision 128), 1.6.0 = + key-validity naming (decision 156), 1.7.0 = + screenshot F re-set (BD19, README decision 157), 1.8.0 = + judge.supports decision models (M-20261127-WITNESS-MODELS WM-2), 1.9.0 = + the reliance rule in the judge prompt and question (BRIEF-W2), 1.10.0 = + match.image-text (NS-11)
+        self.assertEqual(methods.LIBRARY_VERSION, "1.10.0")
+        self.assertEqual(tarball.tarball_name(), "witness-methods-1.10.0.tar.gz")
 
     def test_prompt_names_the_vocabulary_and_the_output_shape(self):
         t = js.prompt_text()

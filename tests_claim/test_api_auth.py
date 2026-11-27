@@ -199,7 +199,8 @@ class ReadRoutes(unittest.TestCase):
         self.assertEqual(out["library"]["code_sha256"], hashlib.sha256(tarball.build_methods_tarball()).hexdigest())
         by_id = {m["id"]: m for m in out["methods"]}
         self.assertEqual(set(by_id), {"match.exact", "quote.in-source", "tests.pass", "judge.supports", "page.live", "match.text",
-                                      "match.screenshot", "post.by-author", "record.valid", "record.disclose"})  # B6 adds judge.supports, B2b the three observation methods, B5a post.by-author, B5b record.valid and record.disclose
+                                      "match.screenshot", "post.by-author", "record.valid", "record.disclose",
+                                      "match.image-text"})  # B6 adds judge.supports, B2b the three observation methods, B5a post.by-author, B5b record.valid and record.disclose, NS-11 match.image-text
         m = by_id["quote.in-source"]
         self.assertEqual(m["code_sha256"], out["library"]["code_sha256"])
         self.assertEqual(m["templates"]["true"], "{source} contains the passage: “{quote}”.")

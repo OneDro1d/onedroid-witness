@@ -72,7 +72,7 @@ class Method(unittest.TestCase):
                                       "signature-unverifiable": "neutral", "handle-unresolved": "neutral"})
         self.assertEqual(m.limits, LIMITS)
         self.assertTrue(m.mechanical)
-        self.assertEqual(methods.LIBRARY_VERSION, "1.9.0")  # 1.4.0 at B5a (README decision 71); 1.5.0 at B5b (decision 128), 1.6.0 at decision 156, 1.7.0 at decision 157 (BD19), 1.8.0 at M-20261127-WITNESS-MODELS (decision models), 1.9.0 at BRIEF-W2 (reliance rule)
+        self.assertEqual(methods.LIBRARY_VERSION, "1.10.0")  # 1.4.0 at B5a (README decision 71); 1.5.0 at B5b (decision 128), 1.6.0 at decision 156, 1.7.0 at decision 157 (BD19), 1.8.0 at M-20261127-WITNESS-MODELS (decision models), 1.9.0 at BRIEF-W2 (reliance rule), 1.10.0 at NS-11 (match.image-text)
 
     def test_real_post_by_its_handle_is_author_verified(self):
         res, outcome, statement = run("bsky.app", obs_evidence(REAL))
@@ -288,7 +288,7 @@ class Api(unittest.TestCase):
         entry = [m for m in reg["methods"] if m["id"] == "post.by-author"][0]
         self.assertEqual(entry["templates"], {"true": T_TEMPLATE, "false": F_TEMPLATE})
         self.assertEqual(entry["limits"], LIMITS)
-        self.assertEqual(reg["library"]["version"], "1.9.0")
+        self.assertEqual(reg["library"]["version"], "1.10.0")
 
     def test_witness_verify_passes_both_records_and_the_observation(self):
         self.ff.set(URL, post_page(REAL))

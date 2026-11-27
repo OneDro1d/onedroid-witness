@@ -272,11 +272,11 @@ class OneLibraryOnePriceList(Base):
     def test_methods_and_price_routes(self):
         code, reg, _ = self.s.call("GET", "/v1/methods", key=None)
         self.assertEqual(code, 200)
-        self.assertEqual(reg["library"]["version"], "1.9.0")
-        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.9.0.tar.gz")
+        self.assertEqual(reg["library"]["version"], "1.10.0")
+        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.10.0.tar.gz")
         by_id = {m["id"]: m for m in reg["methods"]}
         self.assertEqual(set(by_id), {"match.exact", "quote.in-source", "tests.pass", "judge.supports", "page.live", "match.text",
-                                      "match.screenshot", "post.by-author", "record.valid", "record.disclose"})
+                                      "match.screenshot", "post.by-author", "record.valid", "record.disclose", "match.image-text"})
         self.assertEqual(by_id["judge.supports"]["slots"], {"evidence": ["object", "observation"]})
         self.assertEqual(by_id["judge.supports"]["slot_counts"], {"evidence": [1, 5]})
         self.assertEqual(by_id["judge.supports"]["code_sha256"], reg["library"]["code_sha256"])
