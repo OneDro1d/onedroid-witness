@@ -1845,7 +1845,7 @@ every one of the 16 vision models (32/32; gemini-3.5-flash ran 52 of the 64 case
 204. **Tests first.** `b0bfcb9` ("test change:": the library pins 1.9.0 -> 1.10.0 and the method set gains match.image-text,
      each pin replaced by its new exact value), RED `93abe0b` (`tests_claim/test_match_image_text.py`, 47 tests, 47 failing),
      two "test change:" fixes of the RED file's own bugs (`ce3ceb5`: the archive index is `{"entries": [...]}`; `1686cf0`: a
-     helper's parameter clashed with a keyword), assertions unchanged.
+     helper's parameter clashed with a keyword), assertions unchanged. GREEN `9b2a9ad`, archive `54c9c3e`.
 205. **Pure rule, recorded reading.** The model call is the only impure step and is recorded, so the method is `pure` (R1 in
      the tarball, `code_sha256` the tarball's) and witness-verify re-runs the decision; unlike match.screenshot (Tesseract in
      the image, `code_sha256` the image digest, "re-run skipped (needs image)"). The transcription and the missing tokens are
@@ -1864,6 +1864,10 @@ every one of the 16 vision models (32/32; gemini-3.5-flash ran 52 of the 64 case
      claim_witness.vectors --write` on python3.14 (only `envelope`, `seal`, `own_seal` and `record_methods` change; `--check`
      passes on 3.12 and 3.14). The tarball is archived in the next commit (`tools/archive_methods_tarball.py add <GREEN
      commit>`, decision 161).
-210. **Not changed:** match.screenshot, match.text and every other method's behaviour, judge.supports and its model list, the
+210. **No replay.** A model reads the image, so the object-only idempotency rule (item 5) does not apply, as for
+     judge.supports: the same check again asks the models again and signs a new record, counted as the next attempt
+     (`attempt.prior` shows the earlier answers). Found while building (a check whose models all failed was replayed for 24 h):
+     RED `cf3c959`, then the fix (`prepare`: no `auto_fp` for `determinism: model`).
+211. **Not changed:** match.screenshot, match.text and every other method's behaviour, judge.supports and its model list, the
      price list, migrations, the k8s manifest (the example list is not applied). Serving the method needs the image rebuilt
      and a ConfigMap for `WITNESS_IMAGE_TEXT_MODELS_FILE`; the BFF, MCP and site follow separately.

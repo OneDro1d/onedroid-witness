@@ -1249,7 +1249,9 @@ class Witness:
         p.models, p.selection = None, None
         if not p.method.mechanical:
             p.models = self._judge_checks(p, body.get("options") or {})
-        if p.method.mechanical and all(e["kind"] == "object" for e in p.evidence):
+        # the object-only idempotency rule (item 5): not for a method whose reading a model makes (match.image-text, NS-11): a
+        # check whose models all failed must be askable again, and each answer counts as an attempt (judge.supports likewise)
+        if p.method.mechanical and p.method.determinism != "model" and all(e["kind"] == "object" for e in p.evidence):
             p.auto_fp = hashlib.sha256(jcs.canonical({
                 "account": account, "claim_id": ids.claim_id(p.claim), "method": p.method.id, "version": p.method.version,
                 "evidence": sorted([e["slot"], e["sha256"], e["media_type"], e["name"]] for e in p.evidence),
