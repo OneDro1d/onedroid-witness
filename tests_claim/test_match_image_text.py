@@ -211,8 +211,8 @@ class Registry(unittest.TestCase):
 
 
 class Pure(unittest.TestCase):
-    def run_it(self, text, **kw):
-        return methods.run("match.image-text", {"text": text}, ev_of(**kw))
+    def run_it(self, claimed, **kw):
+        return methods.run("match.image-text", {"text": claimed}, ev_of(**kw))
 
     def test_consistent(self):
         r = self.run_it(INVOICE, text=INVOICE)
