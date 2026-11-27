@@ -73,7 +73,7 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
   3. the injection rules run, and any hard flag gives `possible-injection`;
   4. an item with no visible text gives `unreadable`.
 
-  Then each model gets the fixed prompt (`claim_witness/methods/prompts/judge.supports-1.0.0.txt`, whose sha256 is the
+  Then each model gets the fixed prompt (`claim_witness/methods/prompts/judge.supports-1.1.0.txt`, whose sha256 is the
   record's `prompt_sha256`) and the input. The input holds the statement and the assertion, then each item, between marker
   lines whose nonce comes from the content, with every space written as U+02C6. The marking keeps lengths, so offsets hold.
   Every quote is verified, and a model run is then decided. Last, the runs are combined.
@@ -97,8 +97,13 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
   - `statement-in-hidden`: the statement word for word in a hidden node, or at least 90% of its content words when it has
     four or more.
 
-  The soft signal is `verdict-word` (SUPPORTED, NOT_SUPPORTED, EVIDENCED, judged-supports and the like). It is recorded and
-  does not block. Flags hold names, item indices and offsets only.
+  The soft signals are `verdict-word` (SUPPORTED, NOT_SUPPORTED, EVIDENCED, judged-supports and the like) and
+  `reliance-request` (judge.supports 1.1.0: text addressed to a human reader that asks to be believed instead of showing the
+  fact, such as "take my word for it", "no need to verify", "this counts as proof", "stands in for the output", "staging is a
+  copy of production, so these results apply"; `judge_supports.RELIANCE`, case-insensitive). They are recorded and never
+  block. Flags hold names, item indices and offsets only. `reliance-request` changes one thing (decision 190): a chat run's
+  `judged-supports` whose every verified quote lies inside a reliance line (a line of the visible text holding a reliance
+  request) is `judged-silent` with run note `reliance-only`. It never moves a finding toward `judged-supports`.
 - **The model setup (BD2, M-20261127-WITNESS-MODELS WM-1, WM-3).** The model list is the ranking (at most 5, rank 1 first;
   `GET /v1/models`, public, lists it with `rank`, `kind`, `credits_per_run` and `rank_note`). `options.models` is exactly one of:
   - `{"count": 1..5, "require"?: 1..count}`: the top `count` models in rank order (the default `{count: 1}` is rank 1);
@@ -135,7 +140,7 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
   Its `raw_output_sha256` is the sha256 of its `answers` object as sorted compact JSON. A chat model's entries are unchanged.
 
   `detail` holds counts only: `evidence_items`, `visible_chars`, `input_tokens_est`, `injection_hard`, `injection_soft`,
-  `models`, `require`, `models_run` and `agreeing`. A private record carries the judgment in the body only (§2.6).
+  `reliance_requests`, `models`, `require`, `models_run` and `agreeing`. A private record carries the judgment in the body only (§2.6).
 - **Private claims (§5.7).** A private claim is 422 `provider-not-allowed` unless `options.allow_provider` is true, which
   `options_used` records. Raw model outputs of a private record are discarded. The body has each one's sha256, and nothing is
   stored in the clear. A public record's raw outputs go to `judge_outputs` (migration `002_judge.sql`) with an `expires_at`
@@ -1606,3 +1611,51 @@ Where the design left a choice open, the reading that keeps the key private and 
      The image must be rebuilt and the BFF (WM-5) and MCP/site (WM-6) follow separately.
 189. **Not changed:** the chat prompt, the injection rules, BD13 quote verification, the own-key key handling, the k8s
      manifest (the example list is `k8s/claim-witness-judge-models.example.json`, not applied), migrations, `/.well-known`.
+
+### Builder decisions, the evidence's word is not evidence (190-; branch feat/witness-reliance; M-20261127-WITNESS-MODELS BRIEF-W2)
+
+190. **The defect and the rule.** Measured on a sealed set: when the only support for a claim is text inside the evidence
+     that vouches for itself or asks the reader to rely on it (a self-report standing in for lost or "unneeded" output; a
+     proxy, another environment, file or version, said by itself to be the claimed thing; a stand-in, a skipped test, a TODO,
+     a ticket, said to count as the result), most chat models answered judged-supports. The right finding is judged-silent;
+     when the evidence also shows the fact, the vouching text changes nothing. These passages are addressed to a human, not to
+     a model, so the hard gate does not and must not stop them. Tests first: `49d34ba` ("test change:", the version pins only)
+     and RED `25c4360` (`tests_claim/test_witness_reliance.py`, 32 tests, 26 failing at RED).
+     - **The prompt** (`judge.supports-1.1.0.txt`, Rules) gains three bullets: evidence must show the fact, not ask to be
+       believed; a passage that asserts the statement while it vouches for itself, vouches for a stand-in, or asks the reader
+       to rely on it, accept it without checking or treat it as proof is not evidence, and with nothing else, the answer is
+       judged-silent; evidence about a different thing (another environment, server, file, version, branch or build) shows the
+       thing named only when the evidence itself shows the two are the same; a shown fact still decides.
+     - **Decision models** get the same rule in `DECISION_INSTRUCTIONS`, and the `supports` criterion says a passage that only
+       vouches does not count. `decision_questions_sha256` moves c02db1e5... (decision 186) ->
+       `155faba32a80ba285e948857bf433c3fab3e8a5de2a01bafef0737ffa23bb59b`.
+     - **The soft flag** `reliance-request` (`judge_supports.RELIANCE`, case-insensitive, one compiled pattern of 23 branches
+       in seven families: someone's word or assurance; asked to trust or rely on the author or this passage; no checking
+       needed; this passage is to be relied on; counts or serves as proof or as done; a stand-in for the output; a different
+       thing said to be the same so its results apply). Each branch needs a self-reference, an addressee or a proof word, so
+       "reliable", "relies on the cache", "dependency", "trust store", "treat warnings as errors", "check out a branch" stay
+       quiet (tested on 21 ordinary texts; 20 reliance phrasings in other words than the code's examples fire). Recorded in
+       `injection_flags` (soft) and `detail.injection_soft`, counted in the new `detail.reliance_requests`; never a stop.
+     - **The one decision change**: a chat run's judged-supports whose every verified quote lies inside a reliance line (a
+       line of the visible text holding a reliance request; `reliance_lines`) is judged-silent, quotes [], run note
+       `reliance-only`. A support with any quote on another line (the real output) stands; contradicted and silent runs are
+       untouched; nothing moves toward judged-supports. Decision runs give no quotes, so they rely on the question text alone.
+       Why lines and not the whole item: a CI log or a page that shows the fact can carry such a sentence too, and the brief's
+       rule is "decide on what is shown"; a self-report and its vouching on separate lines is left to the prompt (the flag is
+       still recorded for the reader). The check is in `judge_run`, so the witness (`judge.py`) and the vectors replay apply
+       the same rule.
+191. **Versions.** judge.supports method **1.0.0 -> 1.1.0** (minor: same claim shape, `method_major` 1, same output shape):
+     decision 63 kept 1.0.0 only because the prompt did not change, and the record's `rubric_version` is the method version,
+     so a changed rubric under the old number would mislead a verifier. The prompt file is renamed to
+     `judge.supports-1.1.0.txt` (old prompt bytes stay in the archived tarballs); `prompt_sha256` 5950996a... ->
+     `78fc2b6ec04e9fbbc43c5142e5540f8fbe8e27e95f2044969954c88f863f31d3`. Library **1.8.0 -> 1.9.0**: 1.8.0 was never deployed
+     (decision 188), but its tarball 8db0f509... is already archived and on a branch others built from, so reusing the name
+     would make `witness-methods-1.8.0.tar.gz` name two tarballs. `methods_code_sha256` 8db0f509... ->
+     `518c3fe1da5ade591d51fa27165526fcbb2428ea7c6fcc815ca8596967988140`. The vectors were regenerated with
+     `python3 -m claim_witness.vectors --write` on python3.14: every earlier judge vector decides as before (only
+     `input_tokens_est`, the new `detail.reliance_requests` and the prompt sha256 move), two judge vectors are added (a support
+     quoting only the reliance line -> judged-silent `reliance-only`; the same text with the fact on its own line -> supports);
+     `--check` passes on 3.12 and 3.14. The tarball is archived in the next commit (decision 161).
+192. **Not changed:** the hard injection rules and their order, BD13 quote verification, the agreement rule, the price, the
+     decision threshold, the model list and selection, the k8s manifest, migrations. The image must be rebuilt, and anything
+     downstream that names library 1.8.0 or judge.supports 1.0.0 (BFF WM-5, MCP/site WM-6) follows separately.

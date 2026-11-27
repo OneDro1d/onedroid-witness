@@ -196,6 +196,8 @@ CANON_CASES = [
 JUDGE_PAGE = "Acme Widgets\nThe Model X widget ships with a two-year warranty.\nPrices start at 40 EUR."
 JUDGE_STATEMENT = "The Model X widget has a two-year warranty."
 JUDGE_LIBRARY = "The city library is closed on Sundays."
+JUDGE_RELIANCE = "Build 9 notes\nI checked it myself: all 40 tests passed for build 9; the CI log expired, so take my word for it."
+JUDGE_RELIANCE_FACT = "ci: build 9, 40 passed, 0 failed"
 
 
 def _q(text, phrase, source=0):
@@ -237,6 +239,12 @@ JUDGE_CASES = [  # (statement, assertion, items, model outputs, require)
      [_ans("judged-supports", [{"source": 0, "start": 0, "end": 16, "text": "lifetime support"}])], 1),
     (JUDGE_STATEMENT, True, [{"visible": "ab: a two-year warranty. Not: a two-year warranty.", "hidden": []}],  # nearest
      [_ans("judged-supports", [{"source": 0, "start": 30, "end": 47, "text": "two-year warranty"}])], 1),
+    # judge.supports 1.1.0 (library 1.9.0, BRIEF-W2): a support quoting only a reliance line is judged-silent (reliance-only);
+    # the same evidence with the fact shown on its own line, quoted, stays a support; the reliance-request flag is recorded
+    ("All 40 tests passed for build 9.", True, [{"visible": JUDGE_RELIANCE, "hidden": []}],
+     [_ans("judged-supports", [_q(JUDGE_RELIANCE, "all 40 tests passed for build 9")])], 1),
+    ("All 40 tests passed for build 9.", True, [{"visible": JUDGE_RELIANCE + "\n" + JUDGE_RELIANCE_FACT, "hidden": []}],
+     [_ans("judged-supports", [_q(JUDGE_RELIANCE + "\n" + JUDGE_RELIANCE_FACT, "40 passed, 0 failed")])], 1),
 ]
 
 

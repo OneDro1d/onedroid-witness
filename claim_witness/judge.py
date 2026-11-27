@@ -507,7 +507,7 @@ class Judge:
         """A judgment that called no model: unreadable evidence, or (integration) an observation the Evidence-trust rule
         refuses (`evidence-untrusted`)."""
         detail = {"evidence_items": n_items, "visible_chars": 0, "input_tokens_est": 0, "injection_hard": 0,
-                  "injection_soft": 0, "models": count, "require": require, "models_run": 0, "agreeing": 0}
+                  "injection_soft": 0, "reliance_requests": 0, "models": count, "require": require, "models_run": 0, "agreeing": 0}
         return {"finding": None, "reason": reason, "detail": detail, "vars": {"statement": statement}, "model_runs": [],
                 "raw": [], "judgment": self._judgment([], [], {"count": count, "require": require, "agreeing": 0,
                                                                "finding": None}, [], None)}
