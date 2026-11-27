@@ -1688,3 +1688,85 @@ Where the design left a choice open, the reading that keeps the key private and 
      `METHODS_DIR = claim_witness/methods`, files ending `.py` or `.txt`). The prompt, the injection rules, quote
      verification, the agreement rule, the price, the decision threshold, selection, the k8s manifest and migrations are
      unchanged. Turning the setting on for a live model is a ConfigMap change, and the image must be rebuilt first.
+
+## NS-4A: browse (subjects, keywords, categories)
+
+Branch `feat/witness-browse` from `68d4706` (M-20261127-NAME-SITE, NS-3-SPEC.md sections 2-4, 7, 9). `claim_witness/methods/` is
+not touched, so every `code_sha256` and the methods library (1.9.0) are unchanged. Migration `009_browse.sql`; code
+`claim_witness/browse.py`, `claim_witness/unlisted_seed.py`; storage methods on both backends; hooks in `records.keep`,
+`records.takedown`, `search.query` and the start-up backfill; tests `tests_claim/test_browse.py` and `test_browse_pg.py`.
+
+**Listed.** A record is listed iff it is public, kept, not taken down, not deleted and not in `unlisted_records`. Every browse
+list, count and existence test, and the browse filters of `/v1/search`, use listed records only, joined at query time (no stored
+count). `unlisted_records` starts with the 28 test record ids of the site's `lib/agent/seo-exclude.ts`.
+
+**Routes** (all GET, public; an `Authorization`, `X-Witness-Account` or signature header is never read, so every reader gets the
+same bytes; an unknown parameter or a bad value is `422 invalid-request`; `limit` 1-100, default 50; `offset` 0-10000;
+`next_offset` is null at the end; no list carries a total):
+
+| route | query | 200 answer |
+|---|---|---|
+| `/v1/browse/subjects` | `kind` (required: `page`, `site`, `profile`), `parent` (a sid, with `kind=page` only), `prefix` (`a`-`z` or `other`, on the first character of `display` after a leading `@`), `limit`, `offset` | `{subjects: [Subject], next_offset}` in `display` order, then `sid` |
+| `/v1/browse/subjects/{sid}` | none | `{subject: Subject, parent: SubjectRef or null, children, types: [{value, records}]}`; 404 unknown or no listed record; 422 a malformed sid |
+| `/v1/browse/keywords` | `sort` (`alpha` default, `records`: records desc then word), `prefix`, `limit`, `offset` | `{keywords: [{word, records, last_witnessed_at}], next_offset}`, listed keywords only |
+| `/v1/browse/keywords/{word}` | none | `{keyword, subjects}` (subjects: the number of sites and profiles with these records); 301 with `Location: /v1/browse/keywords/<canonical>` and `{canonical}` when the path word is not in canonical form (NFKC, casefold); 404 not listed |
+| `/v1/browse/categories` | none | `{facets: [{facet: "type", values}, {facet: "method", values}]}`, each value `{facet, value, label, records}` with records >= 1 |
+| `/v1/browse/records/{id}` | none | `{record_id, type, subjects: [SubjectRef], keywords (listed only), method}`; 404 private, unknown or unlisted; 410 taken down |
+| `POST /v1/records/{id}/unlist` | body `{}` or `{reason?}` (not stored) | an operator account only (`WITNESS_OPERATOR_ACCOUNTS`; anyone else 403 `not-operator`): `{record_id, unlisted: true, at, reason, note}`; the same answer again; 404 not kept |
+| `/v1/search` (B7) | adds `subject` (sid), `keyword` (word), `type` (one of the six types) | hits gain `type` (null when not listed) and `subjects` ([] then); with any of the three only listed records match, ANDed with the other filters; without them the answer is as before |
+
+`Subject = {sid, kind, key, display, platform, parent_sid, href, records, counts: {SUPPORTED, NOT_SUPPORTED, CANNOT_WITNESS},
+first_witnessed_at, last_witnessed_at}`; `SubjectRef = {sid, kind, key, display, platform, parent_sid}`. `href` (pages only) is
+the URL as the most recent listed record wrote it, userinfo removed. Types: `record`, `test-run`, `social-post`,
+`social-profile`, `web-page`, `document`.
+
+`WITNESS_KEYWORD_DENYLIST_FILE` (optional): one word a line, `#` comments; a denylisted word is never a candidate at index time,
+never listed and never shown, whatever its count.
+
+### Builder decisions, NS-4A browse (194-)
+
+194. **Computed in the witness at keep time, counted at query time** (spec P1). `browse.index` runs in `records.keep` beside
+     `search.index` for a public record only (a failure is logged and the keep stands; the start-up backfill writes the rows of
+     any public kept record that has none); `browse.remove` runs in `records.takedown` beside `search.remove`, in the same
+     request. Reads take one snapshot of the listed records' rows (one Postgres transaction) and aggregate in Python, so a list,
+     a count and an existence test can never disagree or go stale. This reads every listed row per request: right for today's
+     tens of records, and the place to add SQL aggregation when the record count grows (materialised counts are out of scope).
+195. **canon is Table 1 applied to a fixed point** (V2). Table 1 says "remove ONE leading `www.`" and "strip ONE trailing `/`",
+     but with exactly one removal `canon("https://" + canon(u))` changes `www.www.ex.com` and `/a//` again, which V2 forbids.
+     The rule is applied until nothing changes (`www.www.ex.com` -> `ex.com`, `/a//` -> `/a`); every Table 1 example gives its
+     output. Percent escapes are normalised before dot segments are removed, so `%2E` segments are dot segments (WHATWG).
+     Query: a pair with an empty key and an empty value is dropped; `+` is a space and is written `%20`; tracking keys are
+     compared case-insensitively after decoding. IDNA uses the standard library (`encodings.idna`, nameprep), not a UTS-46
+     package: the image adds no dependency; for ordinary IDNs (`BÜCHER.de` -> `xn--bcher-kva.de`) the result is the same.
+     **Path case is kept** (Table 1 step 6 keeps `C`): the spec's fixture R1 `https://WWW.Example.COM:443/About/...` therefore
+     makes `example.com/About?a=1&b=2`, not R2's `example.com/about?a=1&b=2` as S1 says. The tests use `/about/` for R1 so S1,
+     S30, S40 and S41 test what they mean; the spec's R1 line is a typo against its own Table 1, flagged to the orchestrator.
+196. **Table 2 details.** Aliases map to the main host for both the page and the profile (`twitter.com/ExampleCo/status/42` ->
+     page `x.com/exampleco/status/42`, profile `x.com/exampleco`). The profile segments of a page key are written as the profile
+     key writes them (handle or name lower-cased; a bsky DID kept as written). Any path under a derivable profile is a page with
+     that parent (x, github, linkedin, youtube, tiktok, bsky); instagram and facebook profiles are one-segment paths only, and
+     a deeper path (and `/p/`, `/reel/`) has no parent. A platform host with a port is an ordinary host. Profile display:
+     `@name on Bluesky|X|Instagram`, `name on GitHub|LinkedIn|Facebook`, `@name on YouTube|TikTok` (the `@` is the name's own).
+197. **post.by-author's page hangs under the handle's profile** (V8, S8): on bsky.app the profile is
+     `bsky.app/profile/{params.handle lower-cased}` and the post page's `parent_sid` is that profile, not the DID profile the URL
+     would give; no DID profile subject is written. A subject's `parent_sid` is first-write-wins (`ON CONFLICT DO NOTHING`).
+198. **The page cap (V1) counts distinct page URLs**: a record's rows hold up to 5 pages plus their parents. Rows keep the
+     record's own order in a `pos` column on `record_subjects` and `record_keywords` (an addition to the spec's columns), so a
+     record's subjects are listed page then parent, in evidence order, and its keywords in source order.
+199. **record.valid inherits, record.disclose discloses** (V13). record.valid copies the rows of the record it checks when that
+     record is listed at index time; when that record is taken down or unlisted, every record.valid that checks it is
+     re-indexed in the same request (and has no subject). record.disclose runs Table 3 over the disclosed body, its keywords
+     from the body's quote and statement; its observations are private and give no subject (V12). Both are type `record`.
+200. **Keyword sources skip a profile's handle** (3.2 "Never: ... handles"): the URL text a keyword may come from is the path
+     past the profile segments plus the query values, so `bsky.app/profile/did:plc:abc123/post/3kxyz` gives no `profile`,
+     `plc` or handle word. The stop list is the NLTK English list (179 words), the URL-noise list and every word of every
+     method template with its `{fields}` removed, built from `methods.METHODS` at import.
+201. **Types** (V23): `social-post` is a platform page that is not the profile URL itself (and instagram `/p/`, `/reel/`, x
+     `/i/status/`); `social-profile` a platform page whose key is its profile's key; a platform page with no parent (`x.com/search`)
+     is `web-page`. Category labels are singular ("Web page"); method labels are the method ids.
+202. **`/v1/search` filters**: `keyword` matches only a listed keyword (a word one account alone used, or a denylisted one,
+     matches nothing); a malformed `subject`, an unknown `type`, an empty or over-128-byte `keyword` is 422. Hits of records that
+     are not listed (private, test ids) carry `type: null, subjects: []`. The other search parameters keep their B7 behaviour
+     (unknown parameters are still ignored there).
+203. **unlist** is operator-only, idempotent and needs a kept record (404 otherwise); an unlisted record keeps its own page,
+     bundle and seal. There is no route to list a record again: that is a database operation for the operator.

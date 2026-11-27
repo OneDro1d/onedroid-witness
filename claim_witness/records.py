@@ -259,6 +259,10 @@ class Records:
             self.st.put_index(rid, account, [self._token(account, w) for w in _words(searchable(view))])
         else:  # B7: a public record's text goes to the public full-text index; a private one's never does
             self.w.search.index(rid, view)
+            try:  # NS-4A: its subjects, keywords and type; a failure must not lose the keep (browse.backfill writes them at start)
+                self.w.browse.index(rid, view)
+            except Exception as e:
+                print(f"browse: rows for {rid[:12]} not written ({type(e).__name__})", flush=True)
         for r in view.get("relied_on") or []:
             if isinstance(r, dict) and isinstance(r.get("id"), str) and self.st.get_observation(r["id"]) is not None:
                 self.st.set_observation_kept(r["id"], True)  # kept as long as the record (SPEC §8 retention)
@@ -514,6 +518,7 @@ class Records:
         if row["taken_down_at"] is None:
             self.st.update_kept(rid, taken_down_at=self.now(), takedown_by="owner" if owner else "operator")
             self.w.search.remove(rid)  # B7: the indexed text goes with the page (graph reads the kept row's taken_down_at)
+            self.w.browse.remove(rid)  # NS-4A: its browse rows, in the same request (V36)
             row = self.st.get_kept(rid)
         return {"record_id": rid, "taken_down_at": iso(row["taken_down_at"]), "by": row["takedown_by"],
                 "note": "the public page and the bundle are hidden; the signed record and its seal stay valid wherever someone holds them"}

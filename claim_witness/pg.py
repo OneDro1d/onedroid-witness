@@ -14,7 +14,7 @@ import psycopg
 
 from .storage import (BATCH_FIELDS, EDGE_FIELDS, JOB_FIELDS, KEPT_FIELDS, NDIM_CHAIN_FIELDS, NODE_FIELDS, OBS_FIELDS, OUTCOMES,
                       OUTPUT_FIELDS,
-                      SHARE_FIELDS, Conflict, Storage)
+                      SHARE_FIELDS, SUBJECT_FIELDS, Conflict, Storage)
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
 MIGRATION_LOCK = 0x636C6169  # "clai": the advisory lock key the migration holds
@@ -540,10 +540,13 @@ class PostgresStorage(Storage):
                 args.append(v)
         return sql, args
 
-    def search_records(self, tokens, method, outcome, since, account, limit, offset):
+    def search_records(self, tokens, method, outcome, since, account, limit, offset, only=None):
         """See MemoryStorage.search_records. The words go to plainto_tsquery as ONE bound parameter (alphanumeric words joined
         by spaces): no tsquery operator and no SQL can come out of a query."""
         flt, fargs = self._filters(method, outcome, since)
+        if only is not None:
+            flt += " AND k.record_id = ANY(%s)"
+            fargs.append(sorted(only))
         if tokens:
             sql = ("SELECT k.record_id FROM search_docs d JOIN kept_records k ON k.record_id = d.record_id "
                    "WHERE k.visibility = 'public' AND k.taken_down_at IS NULL AND d.fts @@ plainto_tsquery('simple', %s)" + flt)
@@ -554,6 +557,86 @@ class PostgresStorage(Storage):
             args = [account, account, *fargs]
         rows = self._q(sql + " ORDER BY k.kept_at DESC, k.record_id LIMIT %s OFFSET %s", (*args, int(limit), int(offset)), fetch="all")
         return [r[0] for r in rows]
+
+    # ------------------------------------------------------------------------------------------------- NS-4A: browse
+
+    _LISTED = ("k.visibility = 'public' AND k.taken_down_at IS NULL AND k.deleted_at IS NULL "
+               "AND NOT EXISTS (SELECT 1 FROM unlisted_records u WHERE u.record_id = k.record_id)")
+
+    def put_browse(self, record_id, subjects, links, words, rtype):
+        """One transaction: the subjects (first write wins), then the record's rows replaced."""
+        with self.lock:
+            c = self._c()
+            with c.transaction():
+                for s in subjects:
+                    c.execute(f"INSERT INTO subjects ({', '.join(SUBJECT_FIELDS)}) VALUES (%s, %s, %s, %s, %s, %s) "
+                              "ON CONFLICT (sid) DO NOTHING", [s.get(k) for k in SUBJECT_FIELDS])
+                for t in ("record_subjects", "record_keywords", "record_types"):
+                    c.execute(f"DELETE FROM {t} WHERE record_id = %s", (record_id,))
+                for i, (sid, href) in enumerate(links):
+                    c.execute("INSERT INTO record_subjects (record_id, sid, href, pos) VALUES (%s, %s, %s, %s)",
+                              (record_id, sid, href, i))
+                for i, w in enumerate(words):
+                    c.execute("INSERT INTO record_keywords (record_id, word, pos) VALUES (%s, %s, %s)", (record_id, w, i))
+                c.execute("INSERT INTO record_types (record_id, type) VALUES (%s, %s)", (record_id, rtype))
+
+    def delete_browse(self, record_id):
+        with self.lock:
+            c = self._c()
+            with c.transaction():
+                for t in ("record_subjects", "record_keywords", "record_types"):
+                    c.execute(f"DELETE FROM {t} WHERE record_id = %s", (record_id,))
+
+    def has_browse(self, record_id):
+        return self._q("SELECT 1 FROM record_types WHERE record_id = %s", (record_id,), fetch="one") is not None
+
+    def get_browse(self, record_id):
+        t = self._q("SELECT type FROM record_types WHERE record_id = %s", (record_id,), fetch="one")
+        if t is None:
+            return None
+        links = self._q("SELECT sid, href FROM record_subjects WHERE record_id = %s ORDER BY pos", (record_id,), fetch="all")
+        words = self._q("SELECT word FROM record_keywords WHERE record_id = %s ORDER BY pos", (record_id,), fetch="all")
+        return {"type": t[0], "links": [(r[0], r[1]) for r in links], "words": [r[0] for r in words]}
+
+    def get_subjects(self, sids):
+        sids = list(sids)
+        if not sids:
+            return {}
+        rows = self._q(f"SELECT {', '.join(SUBJECT_FIELDS)} FROM subjects WHERE sid = ANY(%s)", (sids,), fetch="all")
+        return {r[0]: dict(zip(SUBJECT_FIELDS, r)) for r in rows}
+
+    def browse_snapshot(self):
+        """The listed records' browse rows, read in one transaction (one consistent view)."""
+        with self.lock:
+            c = self._c()
+            with c.transaction():
+                recs = c.execute("SELECT k.record_id, k.account, k.outcome, k.witnessed_at, k.kept_at, k.method, t.type "
+                                 "FROM record_types t JOIN kept_records k ON k.record_id = t.record_id WHERE " + self._LISTED
+                                 ).fetchall()
+                links = c.execute("SELECT rs.record_id, rs.sid, rs.href, rs.pos FROM record_subjects rs JOIN record_types t "
+                                  "ON t.record_id = rs.record_id JOIN kept_records k ON k.record_id = rs.record_id WHERE "
+                                  + self._LISTED).fetchall()
+                words = c.execute("SELECT rk.record_id, rk.word, rk.pos FROM record_keywords rk JOIN record_types t "
+                                  "ON t.record_id = rk.record_id JOIN kept_records k ON k.record_id = rk.record_id WHERE "
+                                  + self._LISTED).fetchall()
+                subs = c.execute(f"SELECT {', '.join('s.' + f for f in SUBJECT_FIELDS)} FROM subjects s WHERE s.sid IN "
+                                 "(SELECT rs.sid FROM record_subjects rs JOIN kept_records k ON k.record_id = rs.record_id WHERE "
+                                 + self._LISTED + ")").fetchall()
+        return {"records": {r[0]: {"account": r[1], "outcome": r[2], "witnessed_at": r[3], "kept_at": r[4], "method": r[5],
+                                   "type": r[6]} for r in recs},
+                "links": [(r[0], r[1], r[2], r[3]) for r in links], "words": [(r[0], r[1], r[2]) for r in words],
+                "subjects": {r[0]: dict(zip(SUBJECT_FIELDS, r)) for r in subs}}
+
+    def unlist(self, record_id, at, reason):
+        self._q("INSERT INTO unlisted_records (record_id, at, reason) VALUES (%s, %s, %s) ON CONFLICT (record_id) DO NOTHING",
+                (record_id, int(at), reason))
+
+    def get_unlisted(self, record_id):
+        r = self._q("SELECT at, reason FROM unlisted_records WHERE record_id = %s", (record_id,), fetch="one")
+        return {"at": r[0], "reason": r[1]} if r else None
+
+    def unlisted_ids(self):
+        return [r[0] for r in self._q("SELECT record_id FROM unlisted_records ORDER BY record_id", fetch="all")]
 
     def semantic_docs(self, method, outcome, since, limit):
         flt, fargs = self._filters(method, outcome, since)

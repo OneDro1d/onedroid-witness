@@ -108,10 +108,22 @@ class Storage:
     def delete_search_doc(self, record_id): raise NotImplementedError
     def set_embedding(self, record_id, embedding): raise NotImplementedError
     def docs_missing_embedding(self, limit): raise NotImplementedError
-    def search_records(self, tokens, method, outcome, since, account, limit, offset): raise NotImplementedError
+    def search_records(self, tokens, method, outcome, since, account, limit, offset, only=None): raise NotImplementedError
     def semantic_docs(self, method, outcome, since, limit): raise NotImplementedError
+    # NS-4A, browse (migration 009_browse.sql): subjects, each public kept record's subjects (with the URL as written),
+    # keywords and type, in their order; unlisted_records. browse_snapshot reads LISTED records only (V34).
+    def put_browse(self, record_id, subjects, links, words, rtype): raise NotImplementedError
+    def delete_browse(self, record_id): raise NotImplementedError
+    def has_browse(self, record_id): raise NotImplementedError
+    def get_browse(self, record_id): raise NotImplementedError
+    def get_subjects(self, sids): raise NotImplementedError
+    def browse_snapshot(self): raise NotImplementedError
+    def unlist(self, record_id, at, reason): raise NotImplementedError
+    def get_unlisted(self, record_id): raise NotImplementedError
+    def unlisted_ids(self): raise NotImplementedError
 
 
+SUBJECT_FIELDS = ("sid", "kind", "key", "display", "platform", "parent_sid")
 NODE_FIELDS = ("id", "kind", "visibility", "account", "method", "outcome", "witnessed_at")
 EDGE_FIELDS = ("src", "dst", "rel", "visibility", "src_account", "dst_account", "at")
 OUTPUT_FIELDS = ("record_id", "model", "provider", "served_model", "raw", "created_at", "expires_at")
@@ -126,6 +138,9 @@ class MemoryStorage(Storage):
         self.batch_rows, self.seal_rows, self.kept, self.kept_ev, self.index, self.shares = {}, {}, {}, {}, set(), {}
         self.ndim_chain_rows = {}
         self.nodes, self.edges, self.docs = {}, {}, {}
+        from .unlisted_seed import SEED_UNLISTED
+        self.br_subjects, self.br_links, self.br_words, self.br_types = {}, {}, {}, {}
+        self.unlisted_rows = {rid: {"at": 0, "reason": "test"} for rid in SEED_UNLISTED}
 
     def _changed(self):
         pass
@@ -558,13 +573,14 @@ class MemoryStorage(Storage):
                     and (since is None or k["witnessed_at"] >= since):
                 yield k
 
-    def search_records(self, tokens, method, outcome, since, account, limit, offset):
+    def search_records(self, tokens, method, outcome, since, account, limit, offset, only=None):
         """Record ids, newest kept first: the public kept records not taken down whose indexed words include every token;
-        with no tokens, every such record and, for `account`, that account's own live private ones (listed, never matched)."""
+        with no tokens, every such record and, for `account`, that account's own live private ones (listed, never matched).
+        only (NS-4A, a set of record ids): just those."""
         with self.lock:
             want, rows = set(tokens), []
             for k in self._search_rows(method, outcome, since):
-                if k["taken_down_at"] is not None:
+                if k["taken_down_at"] is not None or (only is not None and k["record_id"] not in only):
                     continue
                 public = k["visibility"] == "public"
                 mine = (not want and account is not None and k["visibility"] == "private" and k["account"] == account
@@ -586,6 +602,69 @@ class MemoryStorage(Storage):
                     and (self.docs.get(k["record_id"]) or {}).get("embedding")]
             rows.sort(key=lambda k: (-k["kept_at"], k["record_id"]))
             return [(k["record_id"], list(self.docs[k["record_id"]]["embedding"])) for k in rows[:int(limit)]]
+
+    # ------------------------------------------------------------------------------------------------- NS-4A: browse
+
+    def put_browse(self, record_id, subjects, links, words, rtype):
+        with self.lock:
+            for s in subjects:
+                self.br_subjects.setdefault(s["sid"], {k: s.get(k) for k in SUBJECT_FIELDS})  # first write wins, as ON CONFLICT
+            self.br_links[record_id] = [(s, h) for s, h in links]
+            self.br_words[record_id] = list(words)
+            self.br_types[record_id] = rtype
+            self._changed()
+
+    def delete_browse(self, record_id):
+        with self.lock:
+            for d in (self.br_links, self.br_words, self.br_types):
+                d.pop(record_id, None)
+            self._changed()
+
+    def has_browse(self, record_id):
+        with self.lock:
+            return record_id in self.br_types
+
+    def get_browse(self, record_id):
+        with self.lock:
+            if record_id not in self.br_types:
+                return None
+            return {"type": self.br_types[record_id], "links": list(self.br_links.get(record_id, [])),
+                    "words": list(self.br_words.get(record_id, []))}
+
+    def get_subjects(self, sids):
+        with self.lock:
+            return {s: dict(self.br_subjects[s]) for s in sids if s in self.br_subjects}
+
+    def _listed(self, k):
+        return (k["visibility"] == "public" and k["taken_down_at"] is None and k["deleted_at"] is None
+                and k["record_id"] not in self.unlisted_rows)
+
+    def browse_snapshot(self):
+        with self.lock:
+            listed = {rid for rid, k in self.kept.items() if self._listed(k) and rid in self.br_types}
+            records = {rid: {"account": self.kept[rid]["account"], "outcome": self.kept[rid]["outcome"],
+                             "witnessed_at": self.kept[rid]["witnessed_at"], "kept_at": self.kept[rid]["kept_at"],
+                             "method": self.kept[rid]["method"], "type": self.br_types[rid]} for rid in listed}
+            links = [(rid, s, h, i) for rid in listed for i, (s, h) in enumerate(self.br_links.get(rid, []))]
+            words = [(rid, w, i) for rid in listed for i, w in enumerate(self.br_words.get(rid, []))]
+            subjects = {s: dict(self.br_subjects[s]) for _r, s, _h, _i in links if s in self.br_subjects}
+            return {"records": records, "links": links, "words": words, "subjects": subjects}
+
+    def unlist(self, record_id, at, reason):
+        if reason not in ("test", "operator"):
+            raise ValueError("reason: test or operator")
+        with self.lock:
+            self.unlisted_rows.setdefault(record_id, {"at": int(at), "reason": reason})
+            self._changed()
+
+    def get_unlisted(self, record_id):
+        with self.lock:
+            u = self.unlisted_rows.get(record_id)
+            return dict(u) if u else None
+
+    def unlisted_ids(self):
+        with self.lock:
+            return sorted(self.unlisted_rows)
 
 
 class FileStorage(MemoryStorage):

@@ -1,7 +1,10 @@
 """Search (SPEC §3 GET /v1/search; ARCHITECTURE §5 standalone): Postgres full text over PUBLIC kept records, an optional
 embedding, and the reader's own private records listed but never content-matched.
 
-    GET /v1/search?q=&mode=hybrid|keyword|semantic&outcome=&method=&since=&limit=&offset=
+    GET /v1/search?q=&mode=hybrid|keyword|semantic&outcome=&method=&since=&limit=&offset=&subject=&keyword=&type=
+
+NS-4A: subject (a sid), keyword (a listed keyword) and type (a record type) match listed records only (browse.py), ANDed with
+the rest; every hit gains `type` (null when the record is not listed) and `subjects` ([] then). Without them search is unchanged.
 
 What is indexed. When a public record is kept (POST /v1/records/{id}/keep) its text (statement, claim, evidence names and URLs:
 records.searchable) goes to search_docs, as a tsvector (GIN) and, when the host has an embedder, an embedding. A record that was
@@ -189,6 +192,7 @@ class Search:
                 raise WitnessError(422, "invalid-request", "since: like 2026-11-24T10:41:07Z") from None
         limit = self._int(params.get("limit"), "limit", 1, MAX_LIMIT, DEFAULT_LIMIT)
         offset = self._int(params.get("offset"), "offset", 0, MAX_OFFSET, 0)
+        only = self._browse_filter(params)
         toks = words(q)
         if len(toks) > MAX_WORDS:
             raise WitnessError(422, "invalid-request", f"q: at most {MAX_WORDS} distinct words")
@@ -210,19 +214,22 @@ class Search:
                     note = "the embedder did not answer: these are keyword results"
         elif mode == "semantic":
             raise WitnessError(422, "invalid-request", "q: semantic search needs a query")
-        if has_text and not toks and used == "keyword":
+        if (has_text and not toks and used == "keyword") or only == set():
             ids = []
             next_offset = None
         elif used == "keyword":
-            ids = self.st.search_records(toks, method, outcome, since, account, limit + 1, offset)
+            ids = self.st.search_records(toks, method, outcome, since, account, limit + 1, offset, only=only)
             next_offset = offset + limit if len(ids) > limit else None
             ids = ids[:limit]
         else:
             ranked = self._rank(used, toks, qvec, method, outcome, since)
+            if only is not None:
+                ranked = [r for r in ranked if r in only]
             ids = ranked[offset:offset + limit]
             next_offset = offset + limit if len(ranked) > offset + limit else None
+        snap = self.w.browse.snapshot()  # NS-4A: each hit's type and subjects (V32)
         out = {"query": q, "mode": mode, "mode_used": used, "degraded": note is not None,
-               "records": [x for x in (self._item(r) for r in ids) if x is not None], "next_offset": next_offset}
+               "records": [x for x in (self._item(r, snap) for r in ids) if x is not None], "next_offset": next_offset}
         if note:
             out["note"] = note
         if account is not None and has_text:
@@ -246,7 +253,24 @@ class Search:
                 score[rid] = score.get(rid, 0.0) + 1.0 / (RRF_K + i + 1)
         return [rid for rid, _s in sorted(score.items(), key=lambda kv: (-kv[1], kv[0]))]
 
-    def _item(self, rid):
+    def _browse_filter(self, params):
+        """NS-4A (V28, V31): the record ids the subject, keyword and type filters allow (listed records only), or None when
+        none is given."""
+        from .browse import SID, TYPES, normalize_word
+        subject, keyword, rtype = params.get("subject"), params.get("keyword"), params.get("type")
+        if subject is None and keyword is None and rtype is None:
+            return None
+        if subject is not None and not SID.match(subject):
+            raise WitnessError(422, "invalid-request", "subject: a sid (32 lower-case hex) from GET /v1/browse/subjects")
+        if keyword is not None:
+            if not 1 <= len(keyword.encode("utf-8")) <= 128 or any(c in keyword for c in "\x00\r\n\t"):
+                raise WitnessError(422, "invalid-request", "keyword: a word of 1 to 128 bytes")
+            keyword = normalize_word(keyword)
+        if rtype is not None and rtype not in TYPES:
+            raise WitnessError(422, "invalid-request", f"type: one of {', '.join(TYPES)}")
+        return self.w.browse.filter_ids(subject, keyword, rtype)
+
+    def _item(self, rid, snap=None):
         row = self.st.get_kept(rid)
         if row is None:
             return None
@@ -254,4 +278,6 @@ class Search:
                "witnessed_at": row["witnessed_at"], "link": self.w.records._link(rid)}
         if row["visibility"] == "public":
             out["statement"] = json.loads(dsse.payload_bytes(row["envelope"]))["predicate"].get("statement")
+        if snap is not None:
+            out.update(self.w.browse.hit_fields(snap, rid))
         return out

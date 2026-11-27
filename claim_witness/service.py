@@ -94,7 +94,7 @@ class Config:
                  observation_price=None, image_digest=None, tesseract_bin=None, host_fetches_per_minute=6, observation_ttl=DAY,
                  notary=None, armarium=None, ndim_case=None, ndim_store_evidence=False, batch_interval_s=3600,
                  batch_max_leaves=100000, sealer_poll_s=30, link_base="https://evidence.onedroid.ai", operator_accounts=None,
-                 embedder=None, notary_own=None):
+                 embedder=None, notary_own=None, keyword_denylist=None):
         if not attempt_key or len(attempt_key) < 32:
             raise ValueError("attempt_key: at least 32 bytes")
         if not master_key or len(master_key) < 32:
@@ -134,6 +134,8 @@ class Config:
         # B7: an object with embed(text) -> list of floats (search.HttpEmbedder), or None: semantic search is then unavailable
         # and hybrid search answers keyword results with a flag
         self.embedder = embedder
+        # NS-4A: the operator's keyword denylist (WITNESS_KEYWORD_DENYLIST_FILE, browse.denylist_from_env): never a listed keyword
+        self.keyword_denylist = set(keyword_denylist or ())
 
 
 def iso(t):
@@ -247,9 +249,11 @@ class Witness:
         from .sealer import Sealer
         from .graph import Graph  # B7
         from .search import Search
+        from .browse import Browse  # NS-4A
         self.records = Records(self)
         self.graph = Graph(self)
         self.search = Search(self)
+        self.browse = Browse(self)
         self.sealer = Sealer(self)
 
     def now(self):

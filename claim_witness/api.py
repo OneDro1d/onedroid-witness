@@ -31,6 +31,10 @@ B3 (kept records, SPEC §3 and DECISIONS BD1; claim_witness/records.py, sealer.p
     DELETE /v1/records/{id}                   owner delete (private records)
     DELETE /v1/records/{id}/evidence          owner: delete the kept evidence
     POST   /v1/records/{id}/takedown          owner or operator: hide the record and its bundle (the seal stays)
+    POST   /v1/records/{id}/unlist            (NS-4A) operator: the record leaves every browse list and count
+
+NS-4A browse (claim_witness/browse.py), public, GET only, no credential read: /v1/browse/subjects, /v1/browse/subjects/{sid},
+/v1/browse/keywords, /v1/browse/keywords/{word}, /v1/browse/categories, /v1/browse/records/{id}.
 
 Auth (BD8) for the first three: `Authorization: Bearer <dev key>` (WITNESS_DEV_KEYS_FILE, each key mapped to an account; any
 X-Witness-Account header is ignored), or the BFF's onedroid-req/1 signature (X-Store-Key, X-Store-Time, X-Store-Signature,
@@ -55,7 +59,7 @@ KEYLIST_PATH = re.compile(r"^/v1/key-lists/([0-9]{1,9})$")
 OBS_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})$")
 OBS_FILE_PATH = re.compile(r"^/v1/observations/([0-9a-f]{64})/files/([A-Za-z0-9][A-Za-z0-9._-]{0,63})$")
 REC_PATH = re.compile(r"^/v1/records/([0-9a-f]{64})$")
-REC_SUB = re.compile(r"^/v1/records/([0-9a-f]{64})/(seal|bundle|shares|keep|takedown|evidence|graph)$")
+REC_SUB = re.compile(r"^/v1/records/([0-9a-f]{64})/(seal|bundle|shares|keep|takedown|evidence|graph|unlist)$")
 REC_EVIDENCE = re.compile(r"^/v1/records/([0-9a-f]{64})/evidence/([0-9a-f]{64})$")
 REC_SHARE = re.compile(r"^/v1/records/([0-9a-f]{64})/shares/(tok_[0-9a-f]{16})$")
 
@@ -244,6 +248,9 @@ def make_handler(witness, auth):
                     return self._records_get(path)
                 if path == "/v1/search":  # B7: public records, plus the reader's own listed (key optional)
                     return self._send(200, witness.search.query(self._maybe_account(path), self._query()))
+                if path.startswith("/v1/browse/"):  # NS-4A: public, and no credential is ever read (V27)
+                    status, out, headers = witness.browse.route(path, self._query())
+                    return self._send(status, out, headers)
                 if path == "/healthz":
                     ok, out = witness.health()
                     return self._send(200 if ok else 503, out)
@@ -301,7 +308,7 @@ def make_handler(witness, auth):
 
         def _records_post(self, path):
             m = REC_SUB.match(path)
-            if not m or m.group(2) not in ("keep", "shares", "takedown"):
+            if not m or m.group(2) not in ("keep", "shares", "takedown", "unlist"):
                 return False
             raw = self._read_body()
             acct = auth.account("POST", path, raw, self.headers)
@@ -311,6 +318,8 @@ def make_handler(witness, auth):
                 self._send(200, witness.records.keep(acct, rid, body, parts))
             elif what == "shares":
                 self._send(200, witness.records.share_create(acct, rid, self._json_or_empty(raw)))
+            elif what == "unlist":  # NS-4A: an operator account only (V37)
+                self._send(200, witness.browse.unlist(acct, rid, self._json_or_empty(raw)))
             else:
                 self._send(200, witness.records.takedown(acct, rid, self._json_or_empty(raw)))
             return True
