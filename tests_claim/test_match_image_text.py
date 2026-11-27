@@ -558,7 +558,7 @@ class Library(unittest.TestCase):
 
     def test_the_1_9_0_tarball_stays_archived_and_the_new_one_is_archived(self):
         idx = json.loads((pathlib.Path(tarball.__file__).parent / "methods_archive" / "index.json").read_text())
-        by_sha = {e["sha256"]: e for e in idx}
+        by_sha = {e["sha256"]: e for e in idx["entries"]}
         self.assertEqual(by_sha["518c3fe1da5ade591d51fa27165526fcbb2428ea7c6fcc815ca8596967988140"]["library_version"], "1.9.0")
         self.assertEqual(by_sha[tarball.methods_code_sha256()]["library_version"], "1.10.0")
 
