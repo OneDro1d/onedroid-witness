@@ -427,6 +427,17 @@ class Selection(Base):
         self.assertEqual([x["model"] for x in out["price"]["lines"][1:]], order)
         self.assertEqual(p["options_used"]["models"], {"shape": "ids", "ids": order, "require": 2, "max_credits_per_run": 50})
 
+    def test_a_private_record_names_its_models_in_the_body_only(self):
+        body = judge_request(visibility="private", allow_provider=True, models={"ids": ["beta/judge-3", "acme/judge-1"]})
+        code, out, _ = self.s.witness_call(body)
+        self.assertEqual(code, 200, out)
+        raw = h.payload_bytes(out["envelope"]).decode()
+        self.assertNotIn("judge-3", raw)
+        self.assertNotIn("acme/", raw)
+        p = payload_of(out["envelope"])["predicate"]
+        self.assertEqual(p["options_used"]["models"], {"shape": "ids", "count": 2, "require": 2, "max_credits_per_run": 50})
+        self.assertEqual([m["id"] for m in out["disclosure"]["body"]["judgment"]["models"]], ["beta/judge-3", "acme/judge-1"])
+
     def test_wrong_shapes_are_invalid_request_naming_both(self):
         for bad in ({}, {"count": 1, "ids": ["acme/judge-1"]}, {"ids": []}, {"ids": ["acme/judge-1", "acme/judge-1"]},
                     {"count": 2, "max_credits_per_run": 5}, {"ids": ["acme/judge-1"], "max_credits_per_run": 0},

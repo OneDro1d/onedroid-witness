@@ -396,7 +396,7 @@ class Private(Base):
         self.assertEqual(set(p), {"visibility", "body_commitment", "finding", "outcome", "reason", "method", "limits", "detail",
                                   "attempt", "options_used", "witnessed_at", "witness"})
         self.assertEqual(p["outcome"], "SUPPORTED")
-        self.assertEqual(p["options_used"], {"accept_untrusted": False, "allow_provider": True, "models": {"shape": "count", "count": 1, "require": 1, "ids": ["acme/judge-1"]}})
+        self.assertEqual(p["options_used"], {"accept_untrusted": False, "allow_provider": True, "models": {"shape": "count", "count": 1, "require": 1}})
         raw = payload_bytes(out["envelope"])
         everything = raw.decode() + base64.b64encode(raw).decode() + str(out["envelope"]["signatures"]) + json.dumps(out["price"])
         self.assertNotIn("Polish", everything)
