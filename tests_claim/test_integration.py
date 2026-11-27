@@ -272,8 +272,8 @@ class OneLibraryOnePriceList(Base):
     def test_methods_and_price_routes(self):
         code, reg, _ = self.s.call("GET", "/v1/methods", key=None)
         self.assertEqual(code, 200)
-        self.assertEqual(reg["library"]["version"], "1.8.0")
-        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.8.0.tar.gz")
+        self.assertEqual(reg["library"]["version"], "1.9.0")
+        self.assertEqual(reg["library"]["tarball"], "witness-methods-1.9.0.tar.gz")
         by_id = {m["id"]: m for m in reg["methods"]}
         self.assertEqual(set(by_id), {"match.exact", "quote.in-source", "tests.pass", "judge.supports", "page.live", "match.text",
                                       "match.screenshot", "post.by-author", "record.valid", "record.disclose"})
@@ -294,7 +294,7 @@ class OneLibraryOnePriceList(Base):
         tb = tarball.build_methods_tarball()
         with tarfile.open(fileobj=io.BytesIO(tb), mode="r:gz") as t:
             names = t.getnames()
-        for f in ("judge_supports.py", "prompts/judge.supports-1.0.0.txt", "page_live.py", "match_text.py", "match_screenshot.py",
+        for f in ("judge_supports.py", "prompts/judge.supports-1.1.0.txt", "page_live.py", "match_text.py", "match_screenshot.py",
                   "observed.py", "canon.py"):
             self.assertTrue(any(n.endswith(f) for n in names), (f, names))
 

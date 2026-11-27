@@ -97,7 +97,7 @@ class OneModel(Base):
         self.assertEqual(p["statement"], STATEMENT)
         self.assertEqual(p["claim"], judge_claim())
         self.assertEqual(p["method"]["id"], "judge.supports")
-        self.assertEqual(p["method"]["version"], "1.0.0")
+        self.assertEqual(p["method"]["version"], "1.1.0")
         self.assertTrue(p["limits"])
         j = p["judgment"]
         self.assertEqual(set(j), {"models", "prompt_sha256", "rubric_version", "sampling", "runs", "agreement",

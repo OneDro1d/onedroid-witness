@@ -51,7 +51,7 @@ class Method(unittest.TestCase):
 
     def test_registered_with_slots_findings_and_version(self):
         self.assertIsNotNone(self.m)
-        self.assertEqual((self.m.id, self.m.major, self.m.version), ("judge.supports", 1, "1.0.0"))
+        self.assertEqual((self.m.id, self.m.major, self.m.version), ("judge.supports", 1, "1.1.0"))
         self.assertFalse(self.m.mechanical)
         self.assertEqual(self.m.params_schema, {"type": "object", "properties": {}, "additionalProperties": False})
         self.assertEqual(set(self.m.slots), {"evidence"})
@@ -79,7 +79,7 @@ class Prompt(unittest.TestCase):
         need(js, "claim_witness.methods.judge_supports")
 
     def test_one_fixed_prompt_file_per_method_version(self):
-        p = h.ROOT / "claim_witness" / "methods" / "prompts" / "judge.supports-1.0.0.txt"
+        p = h.ROOT / "claim_witness" / "methods" / "prompts" / "judge.supports-1.1.0.txt"
         self.assertTrue(p.is_file())
         self.assertEqual(js.prompt_text(), p.read_text(encoding="utf-8"))
         self.assertEqual(js.prompt_sha256(), hashlib.sha256(p.read_bytes()).hexdigest())
@@ -89,15 +89,15 @@ class Prompt(unittest.TestCase):
         data = tarball.build_methods_tarball()
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
             names = tf.getnames()
-            body = tf.extractfile("witness_methods/prompts/judge.supports-1.0.0.txt").read()
+            body = tf.extractfile("witness_methods/prompts/judge.supports-1.1.0.txt").read()
         self.assertIn("witness_methods/judge_supports.py", names)
         self.assertEqual(hashlib.sha256(body).hexdigest(), js.prompt_sha256())
 
     def test_library_version_bumped_for_the_new_method(self):
         from claim_witness import methods, tarball
-        # 1.3.0 = BD13 (README decision 63); 1.4.0 = + B5a post.by-author (decision 71) + screenshot T/F (decision 74); 1.5.0 = + B5b record.valid and record.disclose (decision 128), 1.6.0 = + key-validity naming (decision 156), 1.7.0 = + screenshot F re-set (BD19, README decision 157), 1.8.0 = + judge.supports decision models (M-20261127-WITNESS-MODELS WM-2)
-        self.assertEqual(methods.LIBRARY_VERSION, "1.8.0")
-        self.assertEqual(tarball.tarball_name(), "witness-methods-1.8.0.tar.gz")
+        # 1.3.0 = BD13 (README decision 63); 1.4.0 = + B5a post.by-author (decision 71) + screenshot T/F (decision 74); 1.5.0 = + B5b record.valid and record.disclose (decision 128), 1.6.0 = + key-validity naming (decision 156), 1.7.0 = + screenshot F re-set (BD19, README decision 157), 1.8.0 = + judge.supports decision models (M-20261127-WITNESS-MODELS WM-2), 1.9.0 = + the reliance rule in the judge prompt and question (BRIEF-W2)
+        self.assertEqual(methods.LIBRARY_VERSION, "1.9.0")
+        self.assertEqual(tarball.tarball_name(), "witness-methods-1.9.0.tar.gz")
 
     def test_prompt_names_the_vocabulary_and_the_output_shape(self):
         t = js.prompt_text()
