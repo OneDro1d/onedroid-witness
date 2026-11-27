@@ -9,7 +9,8 @@ style): one JSON answer per request, one log line per request with no bodies and
     GET  /v1/observations/{id}    an observation's envelope and file names: public ones open, private ones to their account
     GET  /v1/observations/{id}/files/{name}   one file's bytes, same rule
     GET  /v1/methods              the method registry, the methods tarball's code_sha256, the judge's models and the price list
-    GET  /v1/price                the price list in credits (BD3) with each model run's price
+    GET  /v1/price                the price list in credits (BD3) with each model run's price, listed and unlisted rules
+    GET  /v1/models               the ranked model list (M-20261127-WITNESS-MODELS WM-1): rank, kind, credits_per_run, rank_note
     GET  /.well-known/witness.json
     GET  /v1/key-lists/{seq}
     GET  /healthz
@@ -250,6 +251,8 @@ def make_handler(witness, auth):
                     return self._send(200, witness.methods_registry())
                 if path == "/v1/price":
                     return self._send(200, witness.price_view())
+                if path == "/v1/models":  # WM-1: the ranked model list (public, no key)
+                    return self._send(200, witness.models_view())
                 if path == "/.well-known/witness.json":
                     return self._send(200, witness.well_known())
                 m = KEYLIST_PATH.match(path)

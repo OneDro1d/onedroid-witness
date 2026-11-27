@@ -151,6 +151,15 @@ class Readme(unittest.TestCase):
                      "claim-witness-judge-models", "wrong-evidence-slots", "allow_provider", "/v1/price"):
             self.assertIn(name, text)
 
+    def test_example_model_list_is_the_ranked_shape(self):
+        # M-20261127-WITNESS-MODELS WM-1: the example ConfigMap content loads, at most 5, rank 1 first, both kinds named
+        from claim_witness import judge
+        ms = judge.load_models(str(h.ROOT / "k8s" / "claim-witness-judge-models.example.json"))
+        self.assertLessEqual(len(ms), 5)
+        self.assertEqual([m.rank for m in ms], list(range(1, len(ms) + 1)))
+        self.assertEqual({m.kind for m in ms}, {"chat", "decision"})
+        self.assertIn("claim-witness-judge-models.example.json", (h.ROOT / "README_CLAIM.md").read_text())
+
     def test_readme_sections(self):
         text = (h.ROOT / "README_CLAIM.md").read_text()
         for heading in ("Builder decisions", "Running the tests", "Running it locally", "Secrets"):

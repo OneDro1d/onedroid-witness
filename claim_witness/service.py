@@ -153,7 +153,7 @@ class Prepared:
     """A validated request: everything the job needs."""
     __slots__ = ("account", "claim", "method", "label", "evidence", "objects", "options", "agent", "agent_row", "request_sha256",
                  "auto_fp", "idem_key", "models", "given_files", "given_rows", "record_rows", "disclosure", "disclosed_texts",
-                 "model_key", "tier")
+                 "model_key", "tier", "selection")
 
     def __repr__(self):  # never the model key
         return f"Prepared(account={getattr(self, 'account', None)!r}, tier={getattr(self, 'tier', None)!r})"
@@ -293,8 +293,15 @@ class Witness:
         """GET /v1/price (BD3): the provisional price list in credits, the model list with each run's price, and the free
         fresh observations a day."""
         return dict(self.cfg.price, models=self._public_models(), free_observations_per_day=self.cfg.free_observations_per_day,
+                    listed_models={"rule": judge_mod.LISTED_RULE}, unlisted_models=judge_mod.unlisted_terms(),
                     note="Prices are provisional (DECISIONS BD3). The witness reports a price with each answer; the BFF holds "
                          "and settles the credits.")
+
+    def models_view(self):
+        """GET /v1/models (WM-1, public): the ranked model list, rank 1 first, with each run's price and rank note, and the
+        rules for naming them (options.models) or any other OpenRouter model."""
+        return {"models": self._public_models(), "served": self.cfg.judge is not None, "selection": judge_mod.SHAPES,
+                "listed": {"rule": judge_mod.LISTED_RULE}, "unlisted": judge_mod.unlisted_terms()}
 
     def _ocr(self):
         return ocr.Ocr(self.cfg.tesseract_bin)
@@ -517,8 +524,15 @@ class Witness:
             options_used = {"accept_untrusted": p.options["accept_untrusted"], "allow_provider": p.options["allow_provider"],
                             "panel": p.options["panel"]}
         else:  # BD2 replaces §5.6's panel: the record says how many models ran and how many had to agree
+            # WM-3: the shape used and the resolved ids. options_used is in the public part of a private record too, and a
+            # private record names its models in the body only (§2.6), so there the ids are left out and only their number kept
+            used = dict(p.models)
+            if not public:
+                model_ids = used.pop("ids", [])
+                if used["shape"] == "ids":
+                    used["count"] = len(model_ids)
             options_used = {"accept_untrusted": p.options["accept_untrusted"], "allow_provider": p.options["allow_provider"],
-                            "models": dict(p.models)}
+                            "models": used}
         objs = [e["sha256"] for e in p.evidence if e["kind"] == "object"] + [e["id"] for e in p.evidence if e["kind"] in ("observation", "record")]
         urls = [e["url"] for e in p.evidence if e["kind"] == "url"]
         tag = attempts.attempt_tag(self.cfg.attempt_key, p.claim, objs, urls, m.id, p.account)
@@ -573,9 +587,15 @@ class Witness:
             lines = lines[1:]
         lines += [{"item": "observation", "credits": self.cfg.observation_price} for _ in range(ctx.paid)]
         out = {"credits": sum(x["credits"] for x in lines), "lines": lines}
-        if own_key:  # own model key (C1): nothing is charged; the user's own OpenRouter account pays for the model runs
-            lines = [dict(x, credits=0, **({"paid_by": "own-key"} if x["item"] == "model-run" else {})) for x in lines]
-            out = {"credits": 0, "billing": "own-key", "lines": lines}
+        if own_key:  # own model key (C1): the user's own OpenRouter account pays for the model runs; an unlisted run (WM-4)
+            # still pays the run fee
+            def own(x):
+                if x.get("unlisted"):
+                    return {"item": x["item"], "model": x["model"], "credits": judge_mod.RUN_FEE, "unlisted": True,
+                            "paid_by": "own-key"}
+                return dict(x, credits=0, **({"paid_by": "own-key"} if x["item"] == "model-run" else {}))
+            lines = [own(x) for x in lines]
+            out = {"credits": sum(x["credits"] for x in lines), "billing": "own-key", "lines": lines}
         if observations:
             used = self.storage.fresh_count(account, self.now() // DAY)
             out.update(fresh_observations=ctx.fresh, reused_observations=ctx.reused,
@@ -596,7 +616,9 @@ class Witness:
             else:
                 rec.append({"slot": e["slot"], "kind": "observation", "id": e["id"]})
         statement, assertion = p.claim["statement"], p.claim["assertion"]
-        count, require = p.models["count"], p.models["require"]
+        selection = p.selection if p.selection is not None else judge_mod.select_models(self.cfg.judge.models, p.models["count"])
+        count, require = len(selection), p.models["require"]
+        cap = p.models.get("max_credits_per_run", judge_mod.CAP_DEFAULT)
         try:
             for e in p.evidence:
                 if e["kind"] == "observation":
@@ -607,11 +629,18 @@ class Witness:
             j = self.cfg.judge.no_run(statement, u.reason, len(p.evidence), count, require)
         else:
             if p.model_key is not None:  # own model key (C1): the user's key for every model call, never the witness's
-                j = self.cfg.judge.run(statement, assertion, entries, count, require, api_key=p.model_key)
+                j = self.cfg.judge.run(statement, assertion, entries, count, require, api_key=p.model_key, selection=selection,
+                                       max_credits=cap)
                 if j.get("key_rejected") is not None:  # the router refused the key on every run: no record, nothing signed
                     raise WitnessError(422, "model-key-rejected", judge_mod.key_rejected_detail(j["key_rejected"]))
             else:
-                j = self.cfg.judge.run(statement, assertion, entries, count, require)
+                j = self.cfg.judge.run(statement, assertion, entries, count, require, selection=selection, max_credits=cap)
+            if j.get("over_cap"):  # WM-4: refused before any model was called; nothing signed, nothing charged
+                oc = j["over_cap"]
+                raise WitnessError(422, "model-over-cap", f"{oc['model']}: the estimate of one run is {oc['estimate']} credits "
+                                                          f"(prompt tokens + max_tokens at its OpenRouter prices, + the run fee "
+                                                          f"2), above options.models.max_credits_per_run {oc['cap']}; no model "
+                                                          "was called, nothing was signed or charged")
         res = methods.Result(j["finding"], j["detail"], j["vars"], reason=j["reason"])
         return res, rec, j["judgment"], j["model_runs"], j["raw"]
 
@@ -1134,7 +1163,7 @@ class Witness:
         p.agent = self._agent_block(body.get("agent"))
         p.agent_row = None
         p.auto_fp = None
-        p.models = None
+        p.models, p.selection = None, None
         if not p.method.mechanical:
             p.models = self._judge_checks(p, body.get("options") or {})
         if p.method.mechanical and all(e["kind"] == "object" for e in p.evidence):
@@ -1171,13 +1200,11 @@ class Witness:
             if not isinstance(v, int) or isinstance(v, bool) or v < lo or (hi is not None and v > hi):
                 raise WitnessError(422, "invalid-options", f"options.{k}: an integer from {lo}" + (f" to {hi}" if hi else ""))
         out["wait"] = min(out["wait"], self.cfg.max_wait)  # a longer wait is served as the longest the witness holds a request
-        mo = out["models"]
-        if mo is not None:
-            if not isinstance(mo, dict) or not set(mo) <= {"count", "require"} or "count" not in mo:
-                raise WitnessError(422, "invalid-options", "options.models: {count: 1|2|3, require?: n <= count}")
-            c, r = mo["count"], mo.get("require", mo["count"])
-            if not all(isinstance(x, int) and not isinstance(x, bool) for x in (c, r)) or not (1 <= c <= 3 and 1 <= r <= c):
-                raise WitnessError(422, "invalid-options", "options.models: {count: 1|2|3, require?: n <= count}")
+        if "models" in o:  # WM-3: {count: 1..5, require?} or {ids: [...], require?, max_credits_per_run?}
+            try:
+                out["models"] = judge_mod.models_option(o["models"])
+            except ValueError as e:
+                raise WitnessError(422, "invalid-request", str(e)) from None
         if out["keep"] or out["keep_evidence_days"]:
             raise WitnessError(422, "keep-not-served", "send keep: false and keep the record after the check with POST "
                                                        "/v1/records/{id}/keep (envelope, disclosure for a private record, "
@@ -1234,16 +1261,20 @@ class Witness:
         if judge is None:
             raise WitnessError(503, "judge-not-configured", "this witness has no model backend; nothing was signed")
         if "models" in raw_options:
-            models = judge_mod.models_option(p.options["models"])
-            if "panel" in raw_options and raw_options["panel"] != models["count"]:
-                raise WitnessError(422, "invalid-options", "options.panel and options.models.count disagree; send models only")
+            models = dict(p.options["models"])  # parsed by _options (WM-3)
+            if "panel" in raw_options and raw_options["panel"] != (models.get("count") or len(models.get("ids") or ())):
+                raise WitnessError(422, "invalid-options", "options.panel and options.models disagree; send models only")
         else:
-            models = {"count": p.options["panel"], "require": p.options["panel"]}
-        if models["count"] > len(judge.models):
-            raise WitnessError(422, "invalid-options", f"options.models.count: this witness has {len(judge.models)} model(s)")
+            models = {"shape": "count", "count": p.options["panel"], "require": p.options["panel"]}
+        try:  # WM-3: the models to call, in order; an unlisted id is checked against OpenRouter's catalogue here, before anything runs
+            p.selection = judge.resolve(models)
+        except judge_mod.SelectionError as e:
+            raise WitnessError(e.status, e.error, e.detail) from None
         if p.options["visibility"] == "private" and not p.options["allow_provider"]:
             raise WitnessError(422, "provider-not-allowed", "a private judge.supports claim is read by a model provider: send "
                                                             "options.allow_provider: true to allow it, or make the claim public")
+        if models["shape"] == "count":  # options_used records the shape used and the resolved ids
+            models["ids"] = [m.id for m in p.selection]
         return models
 
     @staticmethod

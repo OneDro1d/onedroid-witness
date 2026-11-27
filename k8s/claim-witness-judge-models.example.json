@@ -1,0 +1,7 @@
+[
+ {"id": "openai/gpt-4.1-mini", "vendor": "openai", "kind": "chat", "price_factor": 1, "timeout": 60},
+ {"id": "google/gemini-2.5-flash-lite", "vendor": "google", "kind": "chat", "price_factor": 1, "timeout": 60},
+ {"id": "mistralai/mistral-small-3.2-24b-instruct", "vendor": "mistralai", "kind": "chat", "price_factor": 1, "timeout": 60},
+ {"id": "typesafe/jev-1.14", "vendor": "typesafe", "kind": "decision", "price_factor": 1, "timeout": 60,
+  "rank_note": "a decision model: 57 of 61 decided rows agreed on the 12 Nov audit-grading set; not yet measured on witness tasks"}
+]

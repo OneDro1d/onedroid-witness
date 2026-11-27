@@ -99,17 +99,40 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
 
   The soft signal is `verdict-word` (SUPPORTED, NOT_SUPPORTED, EVIDENCED, judged-supports and the like). It is recorded and
   does not block. Flags hold names, item indices and offsets only.
-- **The model setup (BD2).** `options.models: {"count": 1|2|3, "require": n}`, with `require <= count` and a default `require`
-  equal to `count`, strict integers. The legacy `panel: n` means `{count: n, require: n}`, and a `panel` that disagrees with
-  `models.count` is 422. Models are picked one per vendor in list order while vendors last, then the rest of the list. A
-  finding needs `require` runs agreeing and no other finding as large. Two findings with no winner give `judges-disagree`.
-  Otherwise the runs' failure decides: `undecided`, `timeout` or `model-unavailable`. `options_used` is
-  `{accept_untrusted, allow_provider, models: {count, require}}`.
+- **The model setup (BD2, M-20261127-WITNESS-MODELS WM-1, WM-3).** The model list is the ranking (at most 5, rank 1 first;
+  `GET /v1/models`, public, lists it with `rank`, `kind`, `credits_per_run` and `rank_note`). `options.models` is exactly one of:
+  - `{"count": 1..5, "require"?: 1..count}`: the top `count` models in rank order (the default `{count: 1}` is rank 1);
+  - `{"ids": [1 to 5 distinct ids], "require"?: 1..len, "max_credits_per_run"?: 1..1000}`: those models, in the order given.
+    An id in the list is listed; any other id must be a plain OpenRouter model id (`^[a-z0-9-]+/[a-z0-9._:-]+$`, no router,
+    no `~` alias, no variant or free tier, no `openrouter/auto`) that OpenRouter's model catalogue lists with a price;
+    it is a decision model when the catalogue gives it output modality `decisions`, else a chat model.
+
+  `require` defaults to all, strict integers. Anything else is 422 `invalid-request` naming the two shapes; more models than
+  listed is 422 `invalid-options`; an unlisted id OpenRouter does not list is 422 `unknown-model`; a catalogue that cannot be
+  read is 503 `model-catalogue-unavailable`; none of these runs a model. The legacy `panel: n` means `{count: n, require: n}`,
+  and a `panel` that disagrees with `models` is 422. A finding needs `require` runs agreeing and no other finding as large.
+  Two findings with no winner give `judges-disagree`. Otherwise the runs' failure decides: `undecided`, `timeout` or
+  `model-unavailable`. `options_used` is `{accept_untrusted, allow_provider, models}`, `models` naming the shape used and
+  the resolved ids: `{shape: "count", count, require, ids}` or `{shape: "ids", ids, require, max_credits_per_run}`. A
+  private record leaves the ids out there (its models are named in the body only) and keeps `count`.
+- **Decision models (WM-2).** A model of kind `decision` is asked through OpenRouter's Decisions API (`POST
+  https://openrouter.ai/api/alpha/decisions`, the same key) with body `{model, state, questions}` and nothing else: `state`
+  is the same datamarked input a chat model gets, `questions` is one typed choice question (`judge_supports.
+  decision_questions()`: supports | contradicts | silent). It writes no text and gives no quotes. Its run is the argmax option
+  of `answers.verdict.probabilities`, kept only when `answers.verdict.confidence` (or, when absent, that option's
+  probability) is at least 0.8; below it the run is `judged-silent` with note `below-confidence`. Another answer shape is
+  `wrong-shape`. The injection gates run before any model of either kind, as before.
 - **The record.** `judgment` holds:
   - `models`: `{id, provider, version}`, where `version` is the dated model id the endpoint answered with;
   - `prompt_sha256`, `rubric_version` and `sampling`;
   - `runs`: `{model, raw_output_sha256, finding, quotes, note, rejected}`;
   - `agreement`, `injection_flags` and `input_sha256`.
+
+  A decision model's entries also carry `kind: "decision"`: in `models`, `{id, provider, version, kind}` (`version` is the
+  response's `model`, the dated id that answered); in `runs`, `version`, `probabilities_bp` (each option in basis points,
+  since a signed record holds integers only), `confidence_bp`, `threshold_bp` (8000) and `questions_sha256` (sha256 of the
+  question set and the threshold, `judge_supports.decision_questions_sha256()`), which `judgment.questions_sha256` repeats.
+  Its `raw_output_sha256` is the sha256 of its `answers` object as sorted compact JSON. A chat model's entries are unchanged.
 
   `detail` holds counts only: `evidence_items`, `visible_chars`, `input_tokens_est`, `injection_hard`, `injection_soft`,
   `models`, `require`, `models_run` and `agreeing`. A private record carries the judgment in the body only (§2.6).
@@ -119,14 +142,19 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
   24 h on, and the purge removes them.
 - **Attempts (§7.3).** Every judge run counts in the attempt table. That includes private runs with fresh salts (TS-21p),
   because the tag is computed on the plaintext claim. A judge claim is never answered from the object-only idempotency cache.
-- **Price (BD3).** A judge answer's `price` has a `check` line (1 credit) and a `model-run` line of `ceil(10 × price_factor)`
-  for each model run made. A run that timed out or failed was still made, so it counts. `possible-injection`, `too-large`,
+- **Price (BD3, WM-4).** A judge answer's `price` has a `check` line (1 credit) and a `model-run` line of `ceil(10 × price_factor)`
+  for each listed model run made; an unlisted run's line is `ceil(usage.cost / US$0.001) + 2`, never above
+  `max_credits_per_run` (default 50), marked `unlisted: true` with its `cost_usd`. An unlisted model whose estimate (prompt
+  tokens + `max_tokens` at its OpenRouter prices, + 2) is above the cap is 422 `model-over-cap` before any model is called. A run that timed out or failed was still made, so it counts. `possible-injection`, `too-large`,
   `unreadable` and `evidence-untrusted` make no run. The whole price object, for every method, is in "Price" below.
 - **The backend.** Any OpenAI-compatible `POST <base>/chat/completions`, configured by env only:
   - `WITNESS_JUDGE_BASE_URL`, for example `https://openrouter.ai/api/v1`, or the host's vLLM in standalone;
   - `WITNESS_JUDGE_API_KEY_FILE`, a key file and never an env value;
-  - `WITNESS_JUDGE_MODELS_FILE`, `[{"id", "vendor", "price_factor", "timeout"}]`;
-  - optionally `WITNESS_JUDGE_MAX_TOKENS`, which defaults to 1024.
+  - `WITNESS_JUDGE_MODELS_FILE`, `[{"id", "vendor", "kind"?, "price_factor", "timeout", "rank_note"?}]`, at most 5, rank 1
+    first (`kind` defaults to `chat`, so the list shape before WM-1 still reads);
+  - optionally `WITNESS_JUDGE_MAX_TOKENS`, which defaults to 1024;
+  - optionally `WITNESS_JUDGE_DECISIONS_URL` (default: the base without `/v1`, plus `/alpha/decisions`) and
+    `WITNESS_JUDGE_CATALOGUE_URL` (default: the base plus `/models`; read without a key, cached 1 h, for unlisted ids).
 
   The request is the model id, the two messages, `temperature: 0` and `max_tokens`: no tools, no functions and no user field.
   It never carries the account, the agent, key ids, the options or the label. Each call is held to its model's `timeout`
@@ -140,8 +168,13 @@ and ships in the methods tarball. `claim_witness/judge.py` makes the model calls
 
   ```
   kubectl -n witness-dev create configmap claim-witness-judge-models --from-file=models.json=models.json
-  # models.json: [{"id": "<provider>/<dated model id>", "vendor": "<vendor>", "price_factor": 1, "timeout": 60}, ...]
+  # models.json: [{"id": "<provider>/<model id>", "vendor": "<vendor>", "kind": "chat", "price_factor": 1, "timeout": 60,
+  #                "rank_note": "<a short public sentence>"}, ...]   (the ranking, rank 1 first, at most 5)
   ```
+
+  `k8s/claim-witness-judge-models.example.json` is an example in that shape: today's three chat models in today's order and
+  one decision model (`typesafe/jev-1.14`). It is not a measured ranking: the ranking and the `rank_note`s come from the
+  measurement of DESIGN M-20261127-WITNESS-MODELS.
 
 The tests never call a model. `tests_claim/fake_models.py` is a local OpenAI-compatible server on 127.0.0.1, which
 `test_judge_unit.py`, `test_judge_api.py` and the Postgres end-to-end test in `test_storage.py` use.
@@ -367,8 +400,12 @@ price: {credits, lines: [{item, credits, model?}, ...], fresh_observations?, reu
 ```
 
 - `lines` has a `check` line (1) for a mechanical check over objects and for every `judge.supports` claim; a `model-run` line
-  (with `model`) for each model run made, `ceil(10 × price_factor)`; and an `observation` line (5) for each fresh observation
-  past the free 50 of the day. `credits` is the sum of the lines.
+  (with `model`) for each model run made, `ceil(10 × price_factor)` for a listed model, and for an unlisted one (any other
+  OpenRouter model, WM-4) `ceil(usage.cost / US$0.001) + 2` capped at `options.models.max_credits_per_run` (default 50),
+  with `unlisted: true` and `cost_usd` (the `usage.cost` OpenRouter reported; a failed call costs the run fee 2; an answer
+  without `usage.cost` costs the estimate, capped); and an `observation` line (5) for each fresh observation past the free
+  50 of the day. `credits` is the sum of the lines. With billing own-key a listed run is 0 and an unlisted run is the run fee
+  only, `{item: model-run, model, credits: 2, unlisted: true, paid_by: own-key}`.
 - An answer from the object-only idempotency rule (item 5 under the order of checks) is a replay: `"replayed": true` beside
   the envelope and `price: {credits: 0, lines: []}`, since its record was already priced and the BFF charges a record once.
 - A mechanical check whose evidence includes a `url` or an `observation` has no `check` line: BD3 prices a check over objects
@@ -382,7 +419,10 @@ of factors 1 and 2 `{credits: 31, lines: [check 1, model-run 10, model-run 20]}`
 `{credits: 5, lines: [{item: observation, credits: 5}], fresh_observations: 1, reused_observations: 0, free_left_today: 0}`.
 
 `GET /v1/price` and `GET /v1/methods` publish the list: check 1, observation 5, model run 10, kept evidence 1 per MB-month,
-each model's `credits_per_run`, and the free fresh observations a day. `WITNESS_PRICE_LIST_FILE` overrides the list;
+each model's `credits_per_run`, and the free fresh observations a day. `GET /v1/price` also states both model rules:
+`listed_models.rule` and `unlisted_models` (`rule`, `run_fee` 2, `credit_usd` "0.001", `max_credits_per_run`
+{default 50, min 1, max 1000}, `own_key`, `id_pattern`, `refused`). `GET /v1/models` (public) is the ranked list with the
+same rules. `WITNESS_PRICE_LIST_FILE` overrides the list;
 `WITNESS_OBSERVATION_PRICE`, when set, overrides its `observation`, so the two numbers never differ.
 
 ## Integration (v1/claim-integrate)
@@ -566,7 +606,8 @@ does what it is told in the body the BFF signs. Name in code and APIs: **own key
   `model-key-rejected`, detail `OpenRouter answered 401: the key is not valid` / `402: the key's OpenRouter account is out of
   credit` / `403: the key is disabled or not allowed to use this model`. Nothing is signed, nothing is counted.
 - **Price**: `{"credits": 0, "billing": "own-key", "lines": [...]}`, every line `credits: 0`, model-run lines with
-  `"paid_by": "own-key"`. Fresh observations stay free within the daily allowance (`WITNESS_FREE_OBSERVATIONS_PER_DAY`, 50);
+  `"paid_by": "own-key"`; an unlisted model's run (WM-4, decision 187) costs the run fee only, 2 credits, so `credits` is
+  2 per unlisted run. Fresh observations stay free within the daily allowance (`WITNESS_FREE_OBSERVATIONS_PER_DAY`, 50);
   past it an own-key request is 402 `own-key-observation-limit` ("own-key checks include 50 fresh page observations a day"),
   refused before anything is fetched or signed.
 - **Anchoring**: answers (`POST /v1/witness`, `GET /v1/jobs/{id}`, `POST /v1/observe`) and the record view (`GET
@@ -1502,3 +1543,66 @@ Where the design left a choice open, the reading that keeps the key private and 
      `FAIL seal` naming base-sepolia. The key was added to the stored file without regenerating the rest (every existing key is
      byte-identical): `generate()` here reproduces the stored envelopes only up to their `method.runtime` (the file was written
      on python3.14, this venv is 3.12), so the own seal is built over the stored record, as `--check` pairs them.
+
+### Builder decisions, ranked models, decision models, any OpenRouter model (182-; branch feat/witness-models; DESIGN M-20261127-WITNESS-MODELS WM-1..WM-4, WM-7 witness part)
+
+182. **Tests.** RED first (`5f490f4`: `tests_claim/test_witness_models.py`, plus the existing tests the design moves:
+     `models_option` names the shape and takes count 1..5, `select_models` is rank order, `options_used.models` names the shape
+     and the ids, the public model entry gains `rank`, `kind`, `rank_note`, the library pins move to 1.8.0; 60 failing on
+     626a490 + RED). Two test changes in their own commits: the record's probabilities are basis points (`probabilities_bp`:
+     a signed record is RFC 8785 with integers only and the signer refuses floats), and a private record's `options_used`
+     names no model id (RED had put them there, against the same test's rule that model ids are in the body only). The fake
+     (`tests_claim/fake_models.py`) gained `POST /alpha/decisions`, `GET /v1/models` and `usage.cost` per model.
+183. **The list (WM-1).** `{id, vendor, price_factor, timeout}` plus optional `kind` (`chat` default, `decision`) and
+     `rank_note` (1 to 200 characters); at most 5; the order is the rank. The live ConfigMap (three entries, no `kind`) loads
+     unchanged as three chat models ranked in their order. `GET /v1/models` is public (no key), lists `{rank, id, vendor, kind,
+     price_factor, credits_per_run, timeout_s, rank_note}` and states the selection shapes and the two price rules; `GET
+     /v1/methods` and `GET /v1/price` carry the same entries in `models`. Without a configured judge `models` is `[]` and
+     `served: false`.
+184. **Selection (WM-3).** `{count}` takes the top `count` in rank order: BD2's one-per-vendor reordering is dropped
+     (Michal: "called in that order"), so `{count: 2}` on today's list is still gpt-4.1-mini then gemini-2.5-flash-lite, but
+     a list with two models of one vendor at ranks 1 and 2 now calls both. `{ids}` keeps the order given (the record's
+     `models`, `runs` and the price lines follow it). `max_credits_per_run` belongs to the `{ids}` shape only (it bounds
+     unlisted runs; with `{count}` it is 422). A wrong shape is 422 `invalid-request` (the design's code) with a detail
+     naming both shapes; more models than listed stays 422 `invalid-options` as before. Unlisted ids are checked with
+     `check_unlisted_id` (the regex, `refuse_routers`, `openrouter/...`) before the catalogue is read, so a router or an alias
+     costs no network call. `options_used.models` is `{shape: "count", count, require, ids}` or `{shape: "ids", ids, require,
+     max_credits_per_run}`; in a private record the ids are left out (with `count` kept), because `options_used` is in the
+     public part and a private record names its models in its body only.
+185. **The catalogue.** `GET <base>/models` (`https://openrouter.ai/api/v1/models`), no Authorization header (it is public),
+     at most 32 MiB, cached 1 h in the process. An entry is usable when `pricing.prompt` and `pricing.completion` are numbers
+     >= 0 (OpenRouter writes strings; `-1` is how it lists a router such as `typesafe/jev-router`): otherwise, or when the id
+     is absent, 422 `unknown-model`. An unreadable catalogue is 503 `model-catalogue-unavailable`. A request naming listed ids
+     only never reads it. Unlisted models get timeout 60 s and vendor = the id's prefix.
+186. **Decision models (WM-2).** The rule is in `claim_witness/methods/judge_supports.py` (`decision_questions`,
+     `decision_questions_sha256`, `decision_run`, and `decide()` accepts a decision answer), so anyone can re-decide from a
+     stored answer with the tarball. The request body is exactly `{model, state, questions}` (no `provider`, `user` or
+     `session_id`), mirroring trilix's `decision_probe.py` (`Runner.call`, body at line 66; fields read at lines 93-99:
+     `answers`, `provider`, `model`, `usage.cost`) and the docs. `state` is the chat input (`build_input`), so the injection
+     gates and the datamarking are the same for both kinds. The verdict is the argmax of `probabilities` (the `choice` field is
+     recorded nowhere and never decides; a tie is silent); kept when `confidence` >= 0.8, or the argmax probability >= 0.8 when
+     the answer has no `confidence` (12 Nov finding 18: "confidence from the choice confidence at >= 0.8"); else judged-silent
+     with note `below-confidence`. Probabilities outside 0..1, options outside supports/contradicts/silent, a missing
+     `verdict` or `probabilities`, or a refusal answer are `wrong-shape` (undecided). The question set's sha256 hashes the
+     questions and the threshold (sorted compact JSON): `c02db1e5f56227ea864c92121570b866d5bde0cd578acab164096f84d66c5d7f`.
+     Decision runs give no quotes, so "a positive finding needs a verified quote" (VR-7) applies to chat runs only. A chat
+     model's request, record entries and raw output are unchanged.
+187. **Price (WM-4).** Listed: `ceil(10 x price_factor)` as before. Unlisted: `min(ceil(usage.cost / 0.001) + 2,
+     max_credits_per_run)` in decimal arithmetic. The estimate is `prompt tokens x pricing.prompt + max_tokens x
+     pricing.completion (+ pricing.request)`, rounded up to US$0.001, + 2; prompt tokens are judge_supports' own estimate
+     (ceil(characters / 4) of the prompt and the input; for a decision model the input and the question set). It is checked
+     after the injection gates and before any model is called; over the cap the whole request is 422 `model-over-cap`
+     (detail: the model, the estimate in credits, the cap), nothing signed, nothing charged, no attempt counted, listed
+     models of the same request not called either. Choices the design left open: a failed unlisted call (timeout, HTTP error)
+     costs the run fee only; an answer without `usage.cost` costs the estimate, capped. Own key: the cap is not applied
+     (OneDroid charges only the run fee, 2 credits, per unlisted run; the model cost is on the user's key), listed runs stay 0,
+     so an own-key price can now be above 0.
+188. **Library 1.7.0 -> 1.8.0**, judge.supports stays method 1.0.0 (a chat run's output shape is unchanged; decision runs
+     are new entries). `methods_code_sha256` 1d8b3e75... -> 8db0f509aca57b3a840ba7a42c9fcf7e5c6b060d13bdcf87302805bedd9913d3
+     (every pure method's `code_sha256` moves with it). The library pins moved in the RED commit. The vectors were regenerated
+     with `python3 -m claim_witness.vectors --write` on python3.14 (the stored runtime), in the GREEN commit: only the
+     envelopes, the record_methods records over them and the two seals change; `--check` passes on 3.12 and 3.14. The new
+     tarball is archived in the next commit (`tools/archive_methods_tarball.py add <GREEN commit>`), as decision 161 requires.
+     The image must be rebuilt and the BFF (WM-5) and MCP/site (WM-6) follow separately.
+189. **Not changed:** the chat prompt, the injection rules, BD13 quote verification, the own-key key handling, the k8s
+     manifest (the example list is `k8s/claim-witness-judge-models.example.json`, not applied), migrations, `/.well-known`.
